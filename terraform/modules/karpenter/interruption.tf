@@ -19,6 +19,10 @@ locals {
       source      = ["aws.health"]
       detail_type = ["AWS Health Event"]
     }
+    capacity_reservation = {
+      source      = ["aws.ec2"]
+      detail_type = ["EC2 Capacity Reservation Instance Interruption Warning"]
+    }
   }
 }
 
