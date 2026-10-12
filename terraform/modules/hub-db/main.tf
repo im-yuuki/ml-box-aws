@@ -19,7 +19,7 @@ resource "aws_vpc_security_group_ingress_rule" "hub_db" {
   from_port                    = 5432
   to_port                      = 5432
   ip_protocol                  = "tcp"
-  description                  = "Postgres từ node EKS"
+  description                  = "Postgres from EKS nodes"
 }
 
 resource "aws_db_instance" "hub" {
