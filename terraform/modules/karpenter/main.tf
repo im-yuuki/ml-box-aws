@@ -21,9 +21,7 @@ locals {
   queue_arn = aws_sqs_queue.interruption.arn
 }
 
-# IAM role cho Karpenter controller (IRSA). Policy tối thiểu theo doc Karpenter hiện hành:
-# ec2:CreateLaunchTemplate/RunInstances/TerminateInstances/Describe*, iam:PassRole, sqs:ReceiveMessage, pricing, etc.
-# Dưới đây là khung — phải đối chiếu iam.tf của lablabs/terraform-aws-eks-karpenter ở chart_version đang dùng.
+# Policy controller nằm ở controller-policy.tf (dịch từ CloudFormation chuẩn v1.15.0).
 resource "aws_iam_role" "karpenter" {
   name = "${var.cluster_name}-karpenter"
   assume_role_policy = jsonencode({
@@ -40,14 +38,6 @@ resource "aws_iam_role" "karpenter" {
     }]
   })
   tags = var.tags
-}
-
-resource "aws_iam_role_policy_attachment" "karpenter_extra" {
-  # Thay bằng policy document đã review theo doc Karpenter. Giữ attachment rỗng có chủ ý
-  # để terraform plan không tạo quyền thừa trước khi review.
-  # TODO(mục 12 doc): đối chiếu quyền với Karpenter release đang dùng rồi điền inline_policy.
-  role       = aws_iam_role.karpenter.name
-  policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/AmazonEC2FullAccess"
 }
 
 resource "helm_release" "karpenter" {
