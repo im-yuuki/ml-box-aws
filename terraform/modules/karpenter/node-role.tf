@@ -21,7 +21,7 @@ locals {
   node_policy_arns = [
     "arn:${data.aws_partition.node.partition}:iam::aws:policy/AmazonEKSWorkerNodePolicy",
     "arn:${data.aws_partition.node.partition}:iam::aws:policy/AmazonEKS_CNI_Policy",
-    "arn:${data.aws_partition.node.partition}:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly",
+    "arn:${data.aws_partition.node.partition}:iam::aws:policy/AmazonEC2ContainerRegistryPullOnly",
     "arn:${data.aws_partition.node.partition}:iam::aws:policy/AmazonSSMManagedInstanceCore",
   ]
 }
