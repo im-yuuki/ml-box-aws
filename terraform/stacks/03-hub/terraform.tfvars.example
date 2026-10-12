@@ -1,0 +1,12 @@
+# cluster_name     = "jhub-gpu-sandbox-dev-apse2"  # từ output stack 01
+# cluster_endpoint = "https://....eks.amazonaws.com"  # từ output stack 01
+# cluster_ca_data  = "..."                            # từ output stack 01
+# vpc_id           = "vpc-..."                        # từ output stack 01
+# private_subnet_ids = ["subnet-...", ...]            # từ output stack 01
+# node_security_group_id = "sg-..."                   # từ output stack 01
+# oidc_provider     = "oidc.eks.ap-southeast-2.amazonaws.com/id/..."  # output stack 01
+# oidc_provider_arn = "arn:aws:iam::...:oidc-provider/..."             # output stack 01
+# domain = "example.com"  # BẮT BUỘC: domain riêng của bạn, hub ở hub.<domain>
+# route53_zone_id = "Z..."  # để trống = tạo zone mới (phải trỏ NS ở registrar)
+# cognito_domain_prefix = "jhub-gpu-lab-apse2"  # unique theo region
+# z2jh_chart_version = "4.4.2"  # verify 2026-10-12
