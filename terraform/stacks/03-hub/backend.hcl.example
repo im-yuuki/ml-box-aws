@@ -1,0 +1,6 @@
+# Backend state RIÊNG MỖI REGION. Đổi key khi chuyển region.
+bucket         = "REPLACEME-tfstate"
+key            = "dev/ap-southeast-2/03-hub.tfstate"
+region         = "ap-southeast-2"
+dynamodb_table = "REPLACEME-tflock"
+encrypt        = true
