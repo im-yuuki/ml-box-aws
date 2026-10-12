@@ -1,12 +1,67 @@
 # Z2JH values — template qua templatefile() ở stack 03-hub/main.tf.
 # Đối chiếu tên field với chart Z2JH version đang dùng (mục 12 doc), không suy từ file này.
-# Chốt đã áp: commit 8192 MiB / ceiling 12288 MiB, L4 shared replicas 3, userScheduler,
-# do-not-disrupt, NetworkPolicy/IMDS ở tầng cluster (stack 01).
+# Chốt đã áp: commit/ceiling VRAM, L4 shared replicas 3, userScheduler,
+# do-not-disrupt, Cognito OIDC, RDS ngoài, ALB + ACM.
 
 hub:
   db:
     type: postgres
-    url: ${hub_db_url} # RDS Postgres từ module hub-db (Secrets Manager, không hard-code)
+    url: ${hub_db_url} # RDS (Secrets Manager, không hard-code)
+  serviceAccount:
+    annotations:
+      eks.amazonaws.com/role-arn: ${hub_role_arn} # AssumeRole workspace S3 theo prefix
+  config:
+    JupyterHub:
+      authenticator_class: generic-oauth
+    GenericOAuthenticator:
+      login_service: AWS Cognito
+      client_id: ${cognito_client_id}
+      client_secret: ${cognito_client_secret}
+      oauth_callback_url: https://${hub_host}/hub/oauth_callback
+      authorize_url: ${cognito_authorize_url}
+      token_url: ${cognito_token_url}
+      userdata_url: ${cognito_userdata_url}
+      userdata_method: GET
+      scope:
+        - openid
+        - email
+        - profile
+      username_key: email
+      enable_auth_state: true
+  extraConfig:
+    10-spawn-hook: |
+      # Gắn annotation VRAM + label chi phí + do-not-disrupt cho mỗi pod user.
+      # Claim plan/org đầy đủ làm ở bước sau (pre-token hook Cognito); lab dùng plan=shared.
+      async def augment_pod(spawner, pod):
+          user_id = spawner.user.name
+          pod.metadata.annotations["karpenter.sh/do-not-disrupt"] = "true"
+          pod.metadata.annotations["vram.example.com/commit-mib"] = "${vram_commit_mib}"
+          pod.metadata.annotations["vram.example.com/ceiling-mib"] = "${vram_ceiling_mib}"
+          pod.metadata.labels["plan"] = "shared"
+          pod.metadata.labels["user"] = user_id
+          return pod
+      c.KubeSpawner.pre_spawn_hook = augment_pod
+
+proxy:
+  service:
+    type: ClusterIP # ALB đi qua Ingress, không dùng LoadBalancer service
+
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/certificate-arn: ${cert_arn} # ACM miễn phí
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+  hosts:
+    - ${hub_host}
+  tls:
+    - hosts:
+        - ${hub_host}
+      # Placeholder: ALB dùng cert ACM ở annotation, bỏ qua secret này.
+      secretName: hub-tls-placeholder
 
 singleuser:
   defaultUrl: /lab
@@ -33,7 +88,7 @@ singleuser:
         mem_guarantee: 1G
         node_selector:
           karpenter.sh/nodepool: cpu-user
-    - display_name: "GPU shared L4 (8GB commit / 12GB ceiling)"
+    - display_name: "GPU shared L4 (commit/ceiling theo cấu hình)"
       description: "Chia GPU L4 bằng time-slicing, best-effort, kill khi vượt ceiling."
       kubespawner_override:
         image: ${gpu_image}
@@ -53,13 +108,13 @@ singleuser:
             effect: NoSchedule
         extra_annotations:
           karpenter.sh/do-not-disrupt: "true"
-          vram.example.com/commit-mib: "8192"
-          vram.example.com/ceiling-mib: "12288"
+          vram.example.com/commit-mib: "${vram_commit_mib}"
+          vram.example.com/ceiling-mib: "${vram_ceiling_mib}"
         extra_labels:
           plan: shared
         extra_env:
-          VRAM_COMMIT_MIB: "8192"
-          VRAM_CEILING_MIB: "12288"
+          VRAM_COMMIT_MIB: "${vram_commit_mib}"
+          VRAM_CEILING_MIB: "${vram_ceiling_mib}"
     - display_name: "GPU dedicated (1 GPU riêng)"
       description: "Nguyên GPU nhỏ, không chia sẻ. Cần quyền plan=dedicated."
       kubespawner_override:
@@ -96,7 +151,3 @@ cull:
   every: 300
   concurrency: 10
   users: false
-
-# Spawn hook động (lọc profile theo plan, gắn label user/org, quota giờ GPU):
-# viết ở hub.extraConfig trong stack 03-hub/main.tf — xem 10-spawn-hook.py.
-# Claim IdP cần: user_id, plan (shared|dedicated), org_id (chỉ tính phí, mục 6).

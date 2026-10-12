@@ -1,4 +1,7 @@
 output "vpc_id" { value = module.network.vpc_id }
+output "oidc_provider" { value = module.eks.oidc_provider }
+output "oidc_provider_arn" { value = module.eks.oidc_provider_arn }
+output "node_security_group_id" { value = module.eks.node_security_group_id }
 output "private_subnet_ids" { value = module.network.private_subnet_ids }
 output "public_subnet_ids" { value = module.network.public_subnet_ids }
 output "cluster_name" { value = module.eks.cluster_name }
