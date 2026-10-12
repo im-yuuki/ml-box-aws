@@ -1,0 +1,29 @@
+# EC2NodeClass GPU (shared L4 hoặc dedicated). Không MIG.
+# Field phải đối chiếu karpenter-provider-aws release đang dùng (v1 API).
+apiVersion: karpenter.k8s.aws/v1
+kind: EC2NodeClass
+metadata:
+  name: ${name}
+spec:
+  amiFamily: ${ami_family} # AL2023 NVIDIA cho GPU — verify doc EKS/Karpenter hiện hành
+  role: ${cluster_name}-karpenter-node # NodeInstanceProfile tạo riêng ở hardening; hiện dùng role Karpenter
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: ${cluster_name}
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: ${cluster_name}
+  blockDeviceMappings:
+    - deviceName: /dev/xvda
+      ebs:
+        volumeSize: 100Gi
+        volumeType: gp3
+        encrypted: true
+        kmsKeyID: "${kms_key_arn}"
+  metadataOptions:
+    httpEndpoint: enabled
+    httpProtocolIPv6: enabled
+    httpPutResponseHopLimit: ${hop_limit} # =1 chặn IMDS từ pod (mục 9)
+    httpTokens: required
+  kubelet:
+    maxPods: 110
