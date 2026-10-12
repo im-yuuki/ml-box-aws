@@ -1,0 +1,29 @@
+# cpu-user: profile không GPU. Cho phép Spot + On-Demand (GPU session không dùng Spot).
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: ${name}
+spec:
+  template:
+    spec:
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: ${nodeclass}
+      requirements:
+        - key: node.kubernetes.io/instance-category
+          operator: In
+          values: ["m", "c", "r"]
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["spot", "on-demand"]
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["amd64"]
+      expireAfter: 720h
+  limits:
+    cpu: 500
+    memory: 2000Gi
+  disruption:
+    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 1m
