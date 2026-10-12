@@ -3,8 +3,6 @@
 Sandbox notebook theo user, ephemeral, GPU chia sẻ (time-slicing) + dedicated,
 1 cluster mỗi region, triển khai bằng Terraform theo stack.
 
-Doc gốc: `Handoff JupyterHub GPU Sandbox trên AWS EKS (Terraform).md`.
-
 ## Quyết định đã chốt
 
 | Nội dung | Giá trị |
