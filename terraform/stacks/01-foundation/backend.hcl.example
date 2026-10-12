@@ -1,0 +1,8 @@
+# Backend state RIÊNG MỖI REGION — 1 cluster mỗi region, apply 1 region/lần.
+# Dùng: terraform init -backend-config=backend.hcl
+# Đổi key khi chuyển region ( KHÔNG dùng chung key giữa các region ).
+bucket         = "REPLACEME-tfstate" # S3 bucket đã tạo trước, bật versioning + mã hóa
+key            = "dev/ap-southeast-2/01-foundation.tfstate"
+region         = "ap-southeast-2"
+dynamodb_table = "REPLACEME-tflock" # hoặc locking hiện hành của provider đang dùng
+encrypt        = true
