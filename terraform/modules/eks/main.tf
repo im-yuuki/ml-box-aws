@@ -13,6 +13,11 @@ module "eks" {
   vpc_id     = var.vpc_id
   subnet_ids = var.subnet_ids
 
+  # Tag để Karpenter discovery SG cho node (EC2NodeClass securityGroupSelectorTerms).
+  node_security_group_tags = {
+    "karpenter.sh/discovery" = var.cluster_name
+  }
+
   # IP prefix delegation: bắt buộc khi scale hàng nghìn pod (mục 4 doc handoff).
   # Tên field phải đối chiếu doc EKS/VPC-CNI hiện hành theo cluster_version.
   cluster_addons = {
