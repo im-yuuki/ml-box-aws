@@ -71,7 +71,6 @@ resource "kubectl_manifest" "nodeclass_gpu_shared_l4" {
   yaml_body = templatefile("${path.module}/manifests/ec2nodeclass-gpu.yaml", {
     name              = "gpu-shared-l4"
     cluster_name      = var.cluster_name
-    ami_family        = "AL2023"
     kms_key_arn       = var.kms_key_arn_ebs
     hop_limit         = 1
     capacity_reserved = false
@@ -110,7 +109,6 @@ resource "kubectl_manifest" "nodeclass_gpu_dedicated" {
   yaml_body = templatefile("${path.module}/manifests/ec2nodeclass-gpu.yaml", {
     name              = "gpu-dedicated"
     cluster_name      = var.cluster_name
-    ami_family        = "AL2023"
     kms_key_arn       = var.kms_key_arn_ebs
     hop_limit         = 1
     capacity_reserved = true
