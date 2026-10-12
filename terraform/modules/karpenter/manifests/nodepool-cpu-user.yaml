@@ -5,6 +5,11 @@ metadata:
   name: ${name}
 spec:
   template:
+    metadata:
+      # BẮT BUỘC cho Z2JH matchNodePurpose=require: mọi pool user đều phải có label này,
+      # không thì placeholder + pod user (affinity) không bao giờ schedule được.
+      labels:
+        hub.jupyter.org/node-purpose: user
     spec:
       nodeClassRef:
         group: karpenter.k8s.aws
