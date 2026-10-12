@@ -1,0 +1,25 @@
+# Terraform state & secrets — KHÔNG commit
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+**/crash.log
+**/crash.*.log
+**/override.tf
+**/override.tf.json
+**/*_override.tf
+**/*_override.tf.json
+
+# Biến local (giữ lại *.example)
+**/terraform.tfvars
+!**/terraform.tfvars.example
+**/backend.hcl
+!**/backend.hcl.example
+**/*.auto.tfvars
+!**/*.auto.tfvars.example
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
