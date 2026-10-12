@@ -8,7 +8,7 @@ resource "aws_db_subnet_group" "hub" {
 
 resource "aws_security_group" "hub_db" {
   name        = "${var.cluster_name}-hub-db"
-  description = "Hub DB, chỉ node EKS được nối"
+  description = "Hub DB, EKS nodes only"
   vpc_id      = var.vpc_id
   tags        = var.tags
 }
