@@ -22,10 +22,11 @@ spec:
         volumeSize: 100Gi
         volumeType: gp3
         encrypted: true
+%{ if kms_key_arn != "" }
         kmsKeyID: "${kms_key_arn}"
+%{ endif }
   metadataOptions:
     httpEndpoint: enabled
-    httpProtocolIPv6: enabled
     httpPutResponseHopLimit: ${hop_limit} # =1 chặn IMDS từ pod (mục 9)
     httpTokens: required
   kubelet:
