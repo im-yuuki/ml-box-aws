@@ -9,6 +9,7 @@ spec:
     metadata:
       labels:
         tier: dedicated
+        hub.jupyter.org/node-purpose: user # bắt buộc cho Z2JH matchNodePurpose=require
     spec:
       nodeClassRef:
         group: karpenter.k8s.aws
