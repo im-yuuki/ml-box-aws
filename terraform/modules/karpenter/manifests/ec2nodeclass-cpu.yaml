@@ -3,7 +3,8 @@ kind: EC2NodeClass
 metadata:
   name: ${name}
 spec:
-  amiFamily: AL2023
+  amiSelectorTerms:
+    - alias: al2023@latest
   role: ${cluster_name}-karpenter-node
   subnetSelectorTerms:
     - tags:

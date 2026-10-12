@@ -5,7 +5,10 @@ kind: EC2NodeClass
 metadata:
   name: ${name}
 spec:
-  amiFamily: ${ami_family} # AL2023 NVIDIA cho GPU — verify doc EKS/Karpenter hiện hành
+  # Karpenter v1: amiFamily đã bỏ, dùng amiSelectorTerms. Alias al2023@latest tự
+  # phân giải đúng variant (standard cho CPU, nvidia cho GPU) theo instance.
+  amiSelectorTerms:
+    - alias: al2023@latest
   role: ${cluster_name}-karpenter-node # NodeInstanceProfile tạo riêng ở hardening; hiện dùng role Karpenter
   subnetSelectorTerms:
     - tags:
