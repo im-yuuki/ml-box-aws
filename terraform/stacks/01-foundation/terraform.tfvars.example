@@ -1,8 +1,8 @@
 # Đã điền version verify ngày 2026-10-12. Kiểm tra lại trước mỗi lần apply mới.
 # region = "ap-southeast-2"  # Sydney (đầu tiên). Các lựa chọn: ap-southeast-1, ap-southeast-3
 # Xem docs/regions.md — CIDR/AZ tự suy từ region, chỉ apply 1 region mỗi lần.
-# karpenter_chart_version = "v1.15.0"
-# karpenter_version       = "v1.15.0"
+# karpenter_chart_version = "1.15.0"  # chart v1 không prefix "v"
+# karpenter_version       = "v1.15.0"  # app version (giữ prefix "v")
 # cluster_version   = "1.36"
 # enable_vpc_interface_endpoints = false  # dev; prod chuyển true
 
