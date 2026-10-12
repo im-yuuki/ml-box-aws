@@ -107,7 +107,7 @@ variable "eks_module_version" {
 variable "karpenter_chart_version" {
   description = "Chart karpenter (oci://public.ecr.aws/karpenter/karpenter). Mặc định = release mới nhất đã verify."
   type        = string
-  default     = "v1.15.0" # verify 2026-10-12 (release 2026-10-10)
+  default     = "1.15.0" # verify 2026-10-12: chart v1 KHÔNG có prefix "v" (khác dòng v0.x)
 }
 
 variable "karpenter_version" {
