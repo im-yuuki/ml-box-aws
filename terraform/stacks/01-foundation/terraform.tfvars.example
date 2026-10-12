@@ -1,0 +1,15 @@
+# Đã điền version verify ngày 2026-10-12. Kiểm tra lại trước mỗi lần apply mới.
+# region = "ap-southeast-2"  # Sydney (đầu tiên). Các lựa chọn: ap-southeast-1, ap-southeast-3
+# Xem docs/regions.md — CIDR/AZ tự suy từ region, chỉ apply 1 region mỗi lần.
+# karpenter_chart_version = "v1.15.0"
+# karpenter_version       = "v1.15.0"
+# cluster_version   = "1.36"
+# enable_vpc_interface_endpoints = false  # dev; prod chuyển true
+
+# Chế độ NAT:
+# - "managed_per_az" (mặc định, HA): 1 NAT GW/AZ, ~$43/tháng/NAT ở Sydney + $0.059/GB
+# - "fck_nat": NAT instance t4g.nano ~$5/tháng cho IPv4 legacy
+# - "none": IPv6-only, 0 phí NAT. IPv4 chỉ qua VPC endpoints (S3/ECR/STS).
+#   Lưu ý: pod IPv4 không ra internet ở mode none — image/registry phải IPv6 hoặc qua endpoint.
+# nat_mode = "managed_per_az"
+# nat_mode = "none"  # dev tiết kiệm tối đa, khi workload đã IPv6-ready
