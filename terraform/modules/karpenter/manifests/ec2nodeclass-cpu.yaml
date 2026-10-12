@@ -18,9 +18,10 @@ spec:
         volumeSize: 50Gi
         volumeType: gp3
         encrypted: true
+%{ if kms_key_arn != "" }
         kmsKeyID: "${kms_key_arn}"
+%{ endif }
   metadataOptions:
     httpEndpoint: enabled
-    httpProtocolIPv6: enabled
     httpPutResponseHopLimit: ${hop_limit}
     httpTokens: required
