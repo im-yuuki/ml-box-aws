@@ -24,7 +24,6 @@ module "eks" {
       configuration_values = jsonencode({
         env = {
           ENABLE_PREFIX_DELEGATION = "true"
-          ENABLE_IPv6              = "false" # IPv6 pod IP là bước sau; hiện tại pod IPv4 + egress IPv6 ở node
           WARM_PREFIX_TARGET       = "1"
         }
       })
@@ -47,15 +46,10 @@ module "eks" {
       min_size       = 2
       max_size       = 4
       desired_size   = 2
-      # Chỉ chạy hub/proxy/karpenter/add-on — taint để user pod không lọt vào.
+      # KHÔNG taint pool system: pod addon EKS (coredns, ebs-csi) không tolerate
+      # được taint custom nên sẽ Pending khiến addon DEGRADED. User pod đã bị chặn
+      # khỏi node system bằng nodeSelector trong hub profileList (tier=shared/dedicated/cpu-user).
       labels = { tier = "system" }
-      taints = {
-        system-only = {
-          key    = "tier"
-          value  = "system"
-          effect = "NO_SCHEDULE"
-        }
-      }
     }
   }
 
