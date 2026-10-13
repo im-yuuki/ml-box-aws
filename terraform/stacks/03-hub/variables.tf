@@ -26,6 +26,11 @@ variable "cognito_domain_prefix" {
   description = "Prefix hosted UI Cognito (unique theo region)."
   type        = string
 }
+variable "alb_dns_name" {
+  description = "DNS ALB từ Ingress (kubectl get ingress -n hub). Apply lần 2."
+  type        = string
+  default     = ""
+}
 
 variable "z2jh_chart_version" {
   description = "Chart jupyterhub (Z2JH). Mặc định = release mới nhất đã verify."
