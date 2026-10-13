@@ -102,3 +102,18 @@ resource "helm_release" "lb_controller" {
 }
 
 data "aws_region" "current" {}
+data "aws_elb_hosted_zone_id" "current" {}
+
+# Record hub -> ALB. ALB do Ingress tạo nên apply lần 1 để trống, lần 2 điền DNS.
+resource "aws_route53_record" "hub" {
+  count   = var.alb_dns_name != "" ? 1 : 0
+  zone_id = local.zone_id
+  name    = local.host
+  type    = "A"
+
+  alias {
+    name                   = var.alb_dns_name
+    zone_id                = data.aws_elb_hosted_zone_id.current.id
+    evaluate_target_health = true
+  }
+}
