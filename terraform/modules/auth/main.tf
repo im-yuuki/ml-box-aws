@@ -8,6 +8,11 @@ resource "aws_cognito_user_pool" "hub" {
   auto_verified_attributes = ["email"]
   username_attributes      = ["email"]
 
+  # Lab: ai cũng tự đăng ký được (tạm thời). Prod chuyển true + duyệt tay.
+  admin_create_user_config {
+    allow_admin_create_user_only = false
+  }
+
   account_recovery_setting {
     recovery_mechanism {
       name     = "verified_email"
