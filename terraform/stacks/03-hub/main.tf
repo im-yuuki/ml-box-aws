@@ -45,6 +45,7 @@ module "ingress_dns" {
   cluster_name      = var.cluster_name
   domain            = var.domain
   route53_zone_id   = var.route53_zone_id
+  alb_dns_name      = var.alb_dns_name
   vpc_id            = var.vpc_id
   oidc_provider     = var.oidc_provider
   oidc_provider_arn = var.oidc_provider_arn

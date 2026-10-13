@@ -16,4 +16,9 @@ variable "lb_controller_chart_version" {
   type        = string
   default     = "3.6.0" # verify 2026-10-12
 }
+variable "alb_dns_name" {
+  description = "DNS của ALB do Ingress tạo. Để trống = chưa tạo record; điền vào rồi apply lần 2."
+  type        = string
+  default     = ""
+}
 variable "tags" { type = map(string) }
