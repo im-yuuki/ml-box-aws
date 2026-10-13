@@ -15,6 +15,7 @@ hub:
       authenticator_class: generic-oauth
     GenericOAuthenticator:
       login_service: AWS Cognito
+      allow_all: true # lab: mọi user đăng ký mới đều dùng được (prod khóa theo allowlist/group)
       client_id: ${cognito_client_id}
       client_secret: ${cognito_client_secret}
       oauth_callback_url: https://${hub_host}/hub/oauth_callback
