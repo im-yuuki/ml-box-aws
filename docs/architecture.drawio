@@ -1,0 +1,780 @@
+<mxfile host="65bd71144e">
+    <diagram id="aws-overview" name="1. AWS Tổng quan">
+        <mxGraphModel dx="1707" dy="1144" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1700" pageHeight="1080" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="u1" parent="1" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#232F3D;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.authenticated_user;" value="Người dùng&lt;br&gt;50–2000" vertex="1">
+                    <mxGeometry height="60" width="60" x="15" y="380" as="geometry"/>
+                </mxCell>
+                <mxCell id="e1" edge="1" parent="1" source="u1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="n1" value="https">
+                    <mxGeometry relative="1" x="-0.6" as="geometry"/>
+                </mxCell>
+                <mxCell id="e3" edge="1" parent="1" source="n2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;exitX=0;exitY=0.5;entryX=0;entryY=0.5;" target="a1" value="→ proxy / hub">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="97" y="126"/>
+                            <mxPoint x="97" y="540"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e7" edge="1" parent="1" source="b7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;dashed=1;exitX=0.5;exitY=0;entryX=0.5;entryY=0;" target="a4" value="STS users/&lt;id&gt;/">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="680" y="460"/>
+                            <mxPoint x="680" y="618"/>
+                            <mxPoint x="599" y="618"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e9" edge="1" parent="1" source="b2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;dashed=1;exitX=0.5;exitY=1;entryX=0.5;entryY=1;" target="a3" value="KMS">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1149" y="800"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e10" edge="1" parent="1" source="k1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;dashed=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" target="b3" value="metrics/logs">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1199" y="180"/>
+                            <mxPoint x="1269" y="180"/>
+                            <mxPoint x="1269" y="470"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e11" edge="1" parent="1" source="s1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;dashed=1;" target="k2" value="spot → cordon">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="leg1" parent="1" style="rounded=1;html=1;whiteSpace=wrap;verticalAlign=top;align=left;spacingLeft=8;fillColor=#FFFFFF;strokeColor=#999999;fontSize=10;" value="Chú giải:&lt;br&gt;■ icon AWS chuẩn (set mxgraph.aws4 / aws3)&lt;br&gt;■ màu theo nhóm: tím = network · cam = container· xanh lá = storage · đỏ = security · hồng = SQS/logs/EventBridge&lt;br&gt;▪ nét đứt = optional / prod / chờ quota GPU" vertex="1">
+                    <mxGeometry height="120" width="470" x="1210" y="860" as="geometry"/>
+                </mxCell>
+                <mxCell id="c1" parent="1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#FFFFFF;strokeColor=#666666;rounded=1;" value="1. Ingress &amp; DNS" vertex="1">
+                    <mxGeometry height="200" width="490" x="130" y="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="n1" parent="c1" style="outlineConnect=0;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;shape=mxgraph.aws3.route_53;fillColor=#F58536;gradientColor=none;" value="Route53 zone&lt;br&gt;mlbox.june8th.me" vertex="1">
+                    <mxGeometry height="72" width="69" x="20" y="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="n2" parent="c1" style="outlineConnect=0;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;shape=mxgraph.aws3.elastic_load_balancing;fillColor=#F58536;gradientColor=none;" value="ALB internet-facing&lt;br&gt;TLS 443" vertex="1">
+                    <mxGeometry height="72" width="69" x="130" y="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="n3" parent="c1" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#7AA116;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.certificate_manager;" value="ACM cert&lt;br&gt;hub.mlbox.june8th.me" vertex="1">
+                    <mxGeometry height="78" width="59" x="240" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="n4" parent="c1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=10;" value="ALB controller 3.6.0&lt;br&gt;chạy trên cluster (IRSA)&lt;br&gt;tạo ALB target-type ip" vertex="1">
+                    <mxGeometry height="85" width="155" x="320" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="e2" edge="1" parent="c1" source="n1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="n2" value="alias A">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="c2" parent="1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#FFFFFF;strokeColor=#666666;rounded=1;" value="2. VPC &amp; Mạng" vertex="1">
+                    <mxGeometry height="200" width="500" x="630" y="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="v1" parent="c2" style="outlineConnect=0;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;shape=mxgraph.aws3.internet_gateway;fillColor=#F58536;gradientColor=none;" value="IGW" vertex="1">
+                    <mxGeometry height="72" width="69" x="20" y="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="v2" parent="c2" style="outlineConnect=0;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;shape=mxgraph.aws3.vpc_nat_gateway;fillColor=#F58536;gradientColor=none;" value="fck-nat t4g.nano&lt;br&gt;egress ~$5/th" vertex="1">
+                    <mxGeometry height="72" width="69" x="120" y="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="v3" parent="c2" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#8C4FFF;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.endpoints;" value="S3 GW EP (free)&lt;br&gt;ECR/STS/Logs (prod)" vertex="1">
+                    <mxGeometry height="78" width="78" x="215" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="v4" parent="c2" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E6F6F7;strokeColor=#147EBA;fontSize=10;" value="VPC 10.0.0.0/16&lt;br&gt;+ /56 IPv6 · 3 AZ&lt;br&gt;pub / priv /24" vertex="1">
+                    <mxGeometry height="75" width="160" x="320" y="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="c3" parent="1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#FFFFFF;strokeColor=#666666;rounded=1;" value="3. EKS Compute" vertex="1">
+                    <mxGeometry height="400" width="530" x="1140" y="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="k1" parent="c3" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.eks;" value="EKS cluster&lt;br&gt;jhub-gpu-sandbox-dev-apse2&lt;br&gt;K8s 1.36 + OIDC" vertex="1">
+                    <mxGeometry height="78" width="78" x="20" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="k2" parent="c3" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#F5F5F5;strokeColor=#6C8EBF;fontSize=10;" value="Karpenter controller&lt;br&gt;IRSA · 5 IAM policy" vertex="1">
+                    <mxGeometry height="40" width="180" x="140" y="170" as="geometry"/>
+                </mxCell>
+                <mxCell id="kp1" parent="c3" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ec2;" value="NodePool cpu-user&lt;br&gt;spot+OD · expire 720h" vertex="1">
+                    <mxGeometry height="78" width="78" x="20" y="225" as="geometry"/>
+                </mxCell>
+                <mxCell id="kp2" parent="c3" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ec2;" value="NodePool gpu-shared-l4&lt;br&gt;taint tier=shared" vertex="1">
+                    <mxGeometry height="78" width="78" x="155" y="225" as="geometry"/>
+                </mxCell>
+                <mxCell id="kp3" parent="c3" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ec2;" value="NodePool gpu-dedicated&lt;br&gt;1 GPU · taint ded" vertex="1">
+                    <mxGeometry height="78" width="78" x="290" y="225" as="geometry"/>
+                </mxCell>
+                <mxCell id="e12" edge="1" parent="c3" source="k2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="kp1" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e13" edge="1" parent="c3" source="k2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="kp2" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e14" edge="1" parent="c3" source="k2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="kp3" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="c4" parent="1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#FFFFFF;strokeColor=#666666;rounded=1;" value="4. Gián đoạn Spot" vertex="1">
+                    <mxGeometry height="170" width="490" x="130" y="260" as="geometry"/>
+                </mxCell>
+                <mxCell id="s1" parent="c4" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#E7157B;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.eventbridge;" value="EventBridge&lt;br&gt;5 rule" vertex="1">
+                    <mxGeometry height="78" width="78" x="20" y="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="s2" parent="c4" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#E7157B;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.sqs;" value="SQS interruption&lt;br&gt;queue" vertex="1">
+                    <mxGeometry height="78" width="78" x="150" y="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="s3" parent="c4" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=10;" value="spot / rebalance /&lt;br&gt;state-change / health /&lt;br&gt;scheduled-change" vertex="1">
+                    <mxGeometry height="75" width="190" x="280" y="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="e15" edge="1" parent="c4" source="s1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="s2" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="c5" parent="1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#FFFFFF;strokeColor=#666666;rounded=1;" value="5. Ỹng dụng" vertex="1">
+                    <mxGeometry height="380" width="720" x="130" y="440" as="geometry"/>
+                </mxCell>
+                <mxCell id="a1" parent="c5" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" value="Z2JH chart 4.4.2&lt;br&gt;hub · proxy · culler · scheduler" vertex="1">
+                    <mxGeometry height="60" width="190" x="20" y="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="a2" parent="c5" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#232F3D;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.authenticated_user;" value="Cognito pool&lt;br&gt;mlbox-hub-apse2&lt;br&gt;OAuth code flow" vertex="1">
+                    <mxGeometry height="78" width="78" x="260" y="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="a5" parent="c5" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ecr;" value="ECR repos&lt;br&gt;cpu + /gpu" vertex="1">
+                    <mxGeometry height="78" width="78" x="430" y="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="a6" parent="c5" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#DD344C;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.secrets_manager;" value="Secrets Manager&lt;br&gt;RDS master secret" vertex="1">
+                    <mxGeometry height="60" width="60" x="590" y="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="a3" parent="c5" style="outlineConnect=0;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;shape=mxgraph.aws3.rds;fillColor=#2E73B8;gradientColor=none;" value="RDS Postgres 16.15&lt;br&gt;db.t4g.micro" vertex="1">
+                    <mxGeometry height="60" width="72" x="255" y="205" as="geometry"/>
+                </mxCell>
+                <mxCell id="a4" parent="c5" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#7AA116;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;" value="S3 workspace&lt;br&gt;versioning SSE-KMS&lt;br&gt;users/&lt;id&gt;/" vertex="1">
+                    <mxGeometry height="78" width="78" x="430" y="195" as="geometry"/>
+                </mxCell>
+                <mxCell id="a7" parent="c5" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" value="images: jupyter-base&lt;br&gt;pytorch-cuda12 (pin ECR sau khi CI)" vertex="1">
+                    <mxGeometry height="70" width="110" x="590" y="205" as="geometry"/>
+                </mxCell>
+                <mxCell id="e4" edge="1" parent="c5" source="a1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="a2" value="OAuth">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e5" edge="1" parent="c5" source="a1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="a3" value="hub DB">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e16" edge="1" parent="c5" source="a6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;dashed=1;exitX=0;exitY=0.5;entryX=0.25;entryY=1;" target="a3" value="master secret">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="549" y="350"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="c6" parent="1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#FFFFFF;strokeColor=#666666;rounded=1;" value="6. Bảo mật &amp; Vận hành" vertex="1">
+                    <mxGeometry height="380" width="780" x="860" y="440" as="geometry"/>
+                </mxCell>
+                <mxCell id="b1" parent="c6" style="outlineConnect=0;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;shape=mxgraph.aws3.iam;fillColor=#759C3E;gradientColor=none;" value="IAM&lt;br&gt;IRSA + instance profile" vertex="1">
+                    <mxGeometry height="72" width="78" x="20" y="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="b7" parent="c6" style="outlineConnect=0;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;shape=mxgraph.aws3.sts_2;fillColor=#759C3E;gradientColor=none;" value="STS&lt;br&gt;session policy&lt;br&gt;prefix users/&lt;id&gt;/" vertex="1">
+                    <mxGeometry height="78" width="78" x="130" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="b2" parent="c6" style="outlineConnect=0;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;shape=mxgraph.aws3.kms;fillColor=#759C3E;gradientColor=none;" value="KMS keys&lt;br&gt;S3 / RDS / EBS" vertex="1">
+                    <mxGeometry height="72" width="78" x="250" y="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="b3" parent="c6" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#E7157B;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.cloudwatch_logs;" value="CloudWatch logs&lt;br&gt;+ metrics · Budgets" vertex="1">
+                    <mxGeometry height="58" width="78" x="370" y="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="b4" parent="c6" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#F8CECC;strokeColor=#B85450;dashed=1;fontSize=10;" value="Quota GPU 8 vCPU&lt;br&gt;ĐANG CHỞ" vertex="1">
+                    <mxGeometry height="60" width="200" x="500" y="205" as="geometry"/>
+                </mxCell>
+                <mxCell id="b5" parent="c6" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=10;" value="pod user không có role AWS&lt;br&gt;chỉ sidecar giữ STS&lt;br&gt;pod-identity-agent theo SA" vertex="1">
+                    <mxGeometry height="70" width="260" x="20" y="205" as="geometry"/>
+                </mxCell>
+                <mxCell id="b6" parent="c6" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=10;" value="ResourceQuota khó (1 ns)&lt;br&gt;Pod Security restricted&lt;br&gt;NetworkPolicy chắn IMDS" vertex="1">
+                    <mxGeometry height="75" width="260" x="500" y="45" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram id="k8s" name="2. Kubernetes">
+        <mxGraphModel dx="1715" dy="1144" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1700" pageHeight="1250" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="c1" parent="1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#FFFFFF;strokeColor=#666666;rounded=1;" value="Cluster jhub-gpu-sandbox-dev-apse2 (K8s 1.36, Karpenter v1.15.0)" vertex="1">
+                    <mxGeometry height="700" width="1120" x="20" y="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="c2" parent="c1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#FFFFFF;strokeColor=#82B366;rounded=1;" value="ns: kube-system" vertex="1">
+                    <mxGeometry height="160" width="1040" x="20" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="n1" parent="c2" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;" value="ALB Controller (IRSA)" vertex="1">
+                    <mxGeometry height="50" width="240" x="20" y="36" as="geometry"/>
+                </mxCell>
+                <mxCell id="n2" parent="c2" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;" value="aws-ebs-csi-driver (IRSA)" vertex="1">
+                    <mxGeometry height="50" width="250" x="280" y="36" as="geometry"/>
+                </mxCell>
+                <mxCell id="n3" parent="c2" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;" value="CoreDNS" vertex="1">
+                    <mxGeometry height="50" width="150" x="550" y="36" as="geometry"/>
+                </mxCell>
+                <mxCell id="n4" parent="c2" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;" value="kube-proxy" vertex="1">
+                    <mxGeometry height="50" width="140" x="720" y="36" as="geometry"/>
+                </mxCell>
+                <mxCell id="n5" parent="c2" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;" value="vpc-cni (prefix delegation)" vertex="1">
+                    <mxGeometry height="45" width="240" x="20" y="96" as="geometry"/>
+                </mxCell>
+                <mxCell id="n6" parent="c2" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#F5F5F5;strokeColor=#999999;fontSize=11;" value="eks-pod-identity-agent" vertex="1">
+                    <mxGeometry height="45" width="250" x="280" y="96" as="geometry"/>
+                </mxCell>
+                <mxCell id="c3" parent="c1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#FFFFFF;strokeColor=#6C8EBF;rounded=1;" value="ns: karpenter" vertex="1">
+                    <mxGeometry height="310" width="560" x="20" y="220" as="geometry"/>
+                </mxCell>
+                <mxCell id="n7" parent="c3" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" value="Karpenter controller" vertex="1">
+                    <mxGeometry height="40" width="520" x="20" y="36" as="geometry"/>
+                </mxCell>
+                <mxCell id="n8" parent="c3" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" value="NodePool cpu-user&lt;br&gt;label node-purpose=user&lt;br&gt;Spot + OD, expire 720h" vertex="1">
+                    <mxGeometry height="80" width="250" x="20" y="86" as="geometry"/>
+                </mxCell>
+                <mxCell id="n9" parent="c3" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" value="NodePool gpu-shared-l4&lt;br&gt;taint tier=shared:NoSchedule; g6.xl/2xl/4xl&lt;br&gt;expire Never; consol 5m; budget 10%" vertex="1">
+                    <mxGeometry height="80" width="250" x="290" y="86" as="geometry"/>
+                </mxCell>
+                <mxCell id="n10" parent="c3" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" value="NodePool gpu-dedicated&lt;br&gt;taint tier=dedicated:NoSchedule&lt;br&gt;g4dn.xl/g6.xl/g5.xl; WhenEmpty 30m" vertex="1">
+                    <mxGeometry height="90" width="250" x="290" y="196" as="geometry"/>
+                </mxCell>
+                <mxCell id="n11" parent="c3" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" value="EC2NodeClass&lt;br&gt;AMI al2023@latest; EBS gp3 100Gi enc&lt;br&gt;maxPods 110; IMDSv2 hopLimit=1" vertex="1">
+                    <mxGeometry height="90" width="250" x="20" y="196" as="geometry"/>
+                </mxCell>
+                <mxCell id="c4" parent="c1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#FFFFFF;strokeColor=#9673A6;rounded=1;" value="ns: hub (app)" vertex="1">
+                    <mxGeometry height="260" width="520" x="600" y="220" as="geometry"/>
+                </mxCell>
+                <mxCell id="n12" parent="c4" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;" value="Deployment hub (1 replica)&lt;br&gt;GenericOAuthenticator (Cognito)&lt;br&gt;profile_list: 3 profile" vertex="1">
+                    <mxGeometry height="80" width="240" x="20" y="36" as="geometry"/>
+                </mxCell>
+                <mxCell id="n13" parent="c4" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;" value="proxy (chp)&lt;br&gt;ClusterIP → Ingress (ALB)" vertex="1">
+                    <mxGeometry height="60" width="220" x="280" y="36" as="geometry"/>
+                </mxCell>
+                <mxCell id="n14" parent="c4" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;" value="KubeSpawner&lt;br&gt;pre_spawn_hook gắn ann + labels + resources" vertex="1">
+                    <mxGeometry height="60" width="220" x="280" y="106" as="geometry"/>
+                </mxCell>
+                <mxCell id="n15" parent="c4" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;" value="culler — kill pod idle&lt;br&gt;timeout 1800s (30 phút)" vertex="1">
+                    <mxGeometry height="50" width="240" x="20" y="126" as="geometry"/>
+                </mxCell>
+                <mxCell id="n16" parent="c4" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;" value="userScheduler (dồn user) + placeholder pods ×2 (giảm chờ scale-up)" vertex="1">
+                    <mxGeometry height="50" width="480" x="20" y="186" as="geometry"/>
+                </mxCell>
+                <mxCell id="e11" edge="1" parent="c4" source="n15" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;dashed=1;" target="n12" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e12" edge="1" parent="c4" source="n14" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="n12" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e13" edge="1" parent="c4" source="n16" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;dashed=1;" target="n12" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="c5" parent="c1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#FFFFFF;strokeColor=#D6B656;rounded=1;" value="ns: gpu-operator-resources (quan sát + GPU)" vertex="1">
+                    <mxGeometry height="180" width="520" x="600" y="500" as="geometry"/>
+                </mxCell>
+                <mxCell id="n17" parent="c5" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" value="nvidia-device-plugin DaemonSet&lt;br&gt;chỉ node label tier=shared — config time-slicing-shared&lt;br&gt;expose nvidia.com/gpu.shared" vertex="1">
+                    <mxGeometry height="60" width="480" x="20" y="36" as="geometry"/>
+                </mxCell>
+                <mxCell id="n18" parent="c5" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;" value="ConfigMap time-slicing-shared&lt;br&gt;renameByDefault; replicas 3&lt;br&gt;failRequestsGreaterThanOne=true" vertex="1">
+                    <mxGeometry height="60" width="240" x="20" y="106" as="geometry"/>
+                </mxCell>
+                <mxCell id="n19" parent="c5" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;" value="dcgm-exporter 4.8.4 DaemonSet&lt;br&gt;+ ServiceMonitor → Prometheus" vertex="1">
+                    <mxGeometry height="60" width="220" x="280" y="106" as="geometry"/>
+                </mxCell>
+                <mxCell id="e5" edge="1" parent="c5" source="n18" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;dashed=1;" target="n17" value="load config">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="n30" parent="c1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#F5F5F5;strokeColor=#999999;fontSize=10;align=left;" value="Chú giải: xanh dương = compute/node; xanh lá = network; cam = storage/data&lt;br&gt;đỏ = security/vram-guard; tím = app/hub; vàng = quan sát; xám = user/external&lt;br&gt;đường đứt (dashed) = luồng bất đồng bộ / nền" vertex="1">
+                    <mxGeometry height="90" width="560" x="20" y="545" as="geometry"/>
+                </mxCell>
+                <mxCell id="c6" parent="1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#FFFFFF;strokeColor=#6C8EBF;rounded=1;" value="Node" vertex="1">
+                    <mxGeometry height="610" width="500" x="1180" y="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="n20" parent="c6" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" value="Node MNG system ×2 — m6i.large&lt;br&gt;tier=system, không taint&lt;br&gt;chạy addon + hub" vertex="1">
+                    <mxGeometry height="50" width="460" x="20" y="36" as="geometry"/>
+                </mxCell>
+                <mxCell id="n21" parent="c6" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" value="Node Karpenter cpu-user&lt;br&gt;Spot/OD — chạy pod CPU" vertex="1">
+                    <mxGeometry height="50" width="460" x="20" y="96" as="geometry"/>
+                </mxCell>
+                <mxCell id="c7" parent="c6" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#FFFFFF;strokeColor=#6C8EBF;rounded=1;" value="Node GPU shared g6.xlarge" vertex="1">
+                    <mxGeometry height="360" width="460" x="20" y="156" as="geometry"/>
+                </mxCell>
+                <mxCell id="n23" parent="c7" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;" value="vram-guard DaemonSet&lt;br&gt;privileged + hostPID — đọc VRAM per-pod qua NVML&lt;br&gt;PID→pod qua /proc/&lt;pid&gt;/cgroup" vertex="1">
+                    <mxGeometry height="60" width="420" x="20" y="36" as="geometry"/>
+                </mxCell>
+                <mxCell id="n24" parent="c7" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" value="nvidia-device-plugin (time-slicing-shared)" vertex="1">
+                    <mxGeometry height="45" width="420" x="20" y="106" as="geometry"/>
+                </mxCell>
+                <mxCell id="n25" parent="c7" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" value="GPU L4 thực — 3 slice&lt;br&gt;3 × nvidia.com/gpu.shared" vertex="1">
+                    <mxGeometry height="50" width="420" x="20" y="161" as="geometry"/>
+                </mxCell>
+                <mxCell id="n26" parent="c7" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;" value="Pod user A&lt;br&gt;init: tải S3&lt;br&gt;jupyter + sidecar s3-sync" vertex="1">
+                    <mxGeometry height="110" width="130" x="20" y="221" as="geometry"/>
+                </mxCell>
+                <mxCell id="n27" parent="c7" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;" value="Pod user B&lt;br&gt;init: tải S3&lt;br&gt;jupyter + sidecar s3-sync" vertex="1">
+                    <mxGeometry height="110" width="130" x="160" y="221" as="geometry"/>
+                </mxCell>
+                <mxCell id="n28" parent="c7" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;" value="Pod user C&lt;br&gt;init: tải S3&lt;br&gt;jupyter + sidecar s3-sync" vertex="1">
+                    <mxGeometry height="110" width="140" x="300" y="221" as="geometry"/>
+                </mxCell>
+                <mxCell id="e7" edge="1" parent="c7" source="n26" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="n24" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e8" edge="1" parent="c7" source="n24" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="n25" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e9" edge="1" parent="c7" source="n23" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;dashed=1;" target="n25" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e10" edge="1" parent="c7" source="n23" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;strokeColor=#B85450;" target="n26" value="kill / SIGUSR1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="n29" parent="c6" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" value="Node GPU dedicated — g4dn/g6/g5.xl&lt;br&gt;1 pod = 1 GPU nguyên (không MIG)" vertex="1">
+                    <mxGeometry height="60" width="460" x="20" y="526" as="geometry"/>
+                </mxCell>
+                <mxCell id="e1" edge="1" parent="1" source="n1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="n13" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e2" edge="1" parent="1" source="n9" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;dashed=1;" target="c7" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e3" edge="1" parent="1" source="n8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;dashed=1;" target="n21" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e4" edge="1" parent="1" source="n10" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;dashed=1;" target="n29" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e6" edge="1" parent="1" source="n17" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="n24" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram id="user-flow" name="3. Luồng User &amp; vram-guard">
+        <mxGraphModel dx="1715" dy="1144" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1700" pageHeight="1250" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="cA" parent="1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#FFFFFF;strokeColor=#666666;rounded=1;" value="A. Đăng nhập &amp; Spawn" vertex="1">
+                    <mxGeometry height="210" width="1660" x="20" y="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="n1" parent="cA" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#F5F5F5;strokeColor=#999999;fontSize=11;" value="(1) User mở&lt;br&gt;https://hub.mlbox.june8th.me" vertex="1">
+                    <mxGeometry height="60" width="180" x="20" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="n2" parent="cA" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;" value="(2) ALB TLS → proxy (chp)&lt;br&gt;→ Hub GenericOAuthenticator" vertex="1">
+                    <mxGeometry height="60" width="230" x="230" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="n3" parent="cA" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;" value="(3) Cognito OAuth2 code flow&lt;br&gt;callback /hub/oauth_callback&lt;br&gt;claim username = email" vertex="1">
+                    <mxGeometry height="60" width="250" x="490" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="n4" parent="cA" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;" value="(4) profile_list — 3 profile&lt;br&gt;CPU nhỏ / GPU shared L4&lt;br&gt;/ GPU dedicated" vertex="1">
+                    <mxGeometry height="70" width="200" x="770" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="n5" parent="cA" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;" value="(5) KubeSpawner pre_spawn_hook&lt;br&gt;annotations: commit-mib=8192&lt;br&gt;ceiling-mib=12288" vertex="1">
+                    <mxGeometry height="70" width="310" x="1000" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="n6" parent="cA" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;" value="(5b) labels: plan=shared, user=&lt;id&gt;, do-not-disrupt=true&lt;br&gt;tolerations tier=shared:NoSchedule; nodeSelector tier=shared + L4&lt;br&gt;env: TF_FORCE_GPU_ALLOW_GROWTH, no-preallocate" vertex="1">
+                    <mxGeometry height="70" width="310" x="1000" y="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="e1" edge="1" parent="cA" source="n1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="n2" value="HTTPS">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e2" edge="1" parent="cA" source="n2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="n3" value="OAuth code">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e3" edge="1" parent="cA" source="n3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="n4" value="đăng nhập OK">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e4" edge="1" parent="cA" source="n4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="n5" value="chọn profile">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e5" edge="1" parent="cA" source="n5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="n6" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="cB" parent="1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#FFFFFF;strokeColor=#666666;rounded=1;" value="B. Chạy phiên" vertex="1">
+                    <mxGeometry height="150" width="1660" x="20" y="270" as="geometry"/>
+                </mxCell>
+                <mxCell id="n7" parent="cB" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" value="(6) Karpenter provision node&lt;br&gt;gpu-shared-l4 (nếu thiếu)&lt;br&gt;→ pod user lên node" vertex="1">
+                    <mxGeometry height="80" width="340" x="20" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="n8" parent="cB" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;" value="(7) init container: đồng bộ s3://&lt;bucket&gt;/users/&lt;id&gt;/ vào emptyDir&lt;br&gt;IRSA hub: sts:AssumeRole → STS AssumeRole role workspace&lt;br&gt;session policy giới hạn prefix users/&lt;id&gt;/" vertex="1">
+                    <mxGeometry height="80" width="400" x="390" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="n9" parent="cB" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;" value="(8) container chính chạy notebook&lt;br&gt;sidecar s3-sync: sync định kỳ lên S3&lt;br&gt;(exclude cache + kernel state)" vertex="1">
+                    <mxGeometry height="80" width="400" x="820" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="n10" parent="cB" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;" value="S3 bucket&lt;br&gt;users/&lt;id&gt;/ — nguồn workspace&lt;br&gt;(chỉ sidecar giữ credential STS)" vertex="1">
+                    <mxGeometry height="80" width="360" x="1250" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="e7" edge="1" parent="cB" source="n7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="n8" value="provision node">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e8" edge="1" parent="cB" source="n8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="n9" value="emptyDir sẵn sàng">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e9" edge="1" parent="cB" source="n10" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;dashed=1;" target="n8" value="init tải workspace">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e10" edge="1" parent="cB" source="n9" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;dashed=1;" target="n10" value="sync định kỳ">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="cC" parent="1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#FFFFFF;strokeColor=#B85450;rounded=1;" value="C. Giám sát VRAM (vram-guard)" vertex="1">
+                    <mxGeometry height="150" width="1660" x="20" y="450" as="geometry"/>
+                </mxCell>
+                <mxCell id="n11" parent="cC" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;" value="(9) vram-guard — loop 2s/GPU&lt;br&gt;đọc used từng pod qua NVML&lt;br&gt;(PID→pod qua /proc cgroup)" vertex="1">
+                    <mxGeometry height="80" width="340" x="20" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="n12" parent="cC" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;" value="so commit 8192 / ceiling 12288&lt;br&gt;≤ commit → an toàn&lt;br&gt;vượt commit, GPU còn dư → burst" vertex="1">
+                    <mxGeometry height="80" width="340" x="390" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="n13" parent="cC" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;" value="Σ(vượt commit) &gt; free → SIGUSR1&lt;br&gt;(gc + empty_cache), grace 10–30s&lt;br&gt;vẫn vượt → kill pod nặng nhất" vertex="1">
+                    <mxGeometry height="80" width="400" x="760" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="n14" parent="cC" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;" value="vượt ceiling 12288 → kill ngay&lt;br&gt;ghi K8s Event&lt;br&gt;+ Prometheus metrics" vertex="1">
+                    <mxGeometry height="80" width="420" x="1190" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="e12" edge="1" parent="cC" source="n11" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="n12" value="loop 2s">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e13" edge="1" parent="cC" source="n12" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="n13" value="Σ &gt; free">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e14" edge="1" parent="cC" source="n13" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="n14" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e15" edge="1" parent="cC" source="n12" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;dashed=1;" target="n14" value="vượt ceiling">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="cD" parent="1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#FFFFFF;strokeColor=#666666;rounded=1;" value="D. Kết thúc" vertex="1">
+                    <mxGeometry height="150" width="1660" x="20" y="630" as="geometry"/>
+                </mxCell>
+                <mxCell id="n15" parent="cD" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;" value="(10) culler kill pod idle sau 30 phút&lt;br&gt;timeout 1800s" vertex="1">
+                    <mxGeometry height="80" width="400" x="20" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="n16" parent="cD" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;" value="preStop: sync lần cuối lên S3&lt;br&gt;terminationGracePeriodSeconds đủ dài cho sync" vertex="1">
+                    <mxGeometry height="80" width="420" x="450" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="n17" parent="cD" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;" value="S3 versioning giữ các phiên&lt;br&gt;noncurrent.DeleteAfterDays=30" vertex="1">
+                    <mxGeometry height="80" width="400" x="900" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="e18" edge="1" parent="cD" source="n15" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="n16" value="culler idle">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e19" edge="1" parent="cD" source="n16" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="n17" value="versioned">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="n18" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#F5F5F5;strokeColor=#999999;fontSize=10;align=left;" value="Chú giải: tím = hub/app; xanh dương = compute/node; cam = storage/S3; đỏ = vram-guard/security; xám = user/external&lt;br&gt;đường đứt (dashed) = luồng bất đồng bộ / nền; mũi tên đỏ = hành động can thiệp (SIGUSR1/kill)" vertex="1">
+                    <mxGeometry height="60" width="1620" x="20" y="800" as="geometry"/>
+                </mxCell>
+                <mxCell id="e6" edge="1" parent="1" source="n6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="n7" value="spawn hook">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e11" edge="1" parent="1" source="n9" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="n11" value="notebook dùng GPU shared">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e16" edge="1" parent="1" source="n13" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;dashed=1;strokeColor=#B85450;" target="n9" value="SIGUSR1 / kill pod">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e17" edge="1" parent="1" source="n14" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;dashed=1;" target="n15" value="Event + metrics">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram id="network" name="4. Network VPC">
+        <mxGraphModel dx="1715" dy="1144" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1700" pageHeight="1250" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="n1" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#F5F5F5;strokeColor=#999999;fontSize=11;" value="Internet&#xa;(user / browser)" vertex="1">
+                    <mxGeometry height="55" width="160" x="40" y="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="n2" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;" value="IGW Internet Gateway" vertex="1">
+                    <mxGeometry height="50" width="190" x="40" y="260" as="geometry"/>
+                </mxCell>
+                <mxCell id="n3" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;dashed=1;" value="egress-only IGW (IPv6)&#xa;miễn phí · egress IPv6 từ private" vertex="1">
+                    <mxGeometry height="60" width="190" x="40" y="400" as="geometry"/>
+                </mxCell>
+                <mxCell id="c1" parent="1" style="swimlane;html=1;startSize=30;fontSize=12;fillColor=#FFFFFF;strokeColor=#666666;rounded=1;" value="VPC jhub-gpu-sandbox-dev-apse2&#xa;10.0.0.0/16 + /56 IPv6 — dual-stack" vertex="1">
+                    <mxGeometry height="830" width="1340" x="320" y="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="c2" parent="c1" style="swimlane;html=1;startSize=26;fontSize=11;fillColor=#FFFFFF;strokeColor=#666666;rounded=1;" value="AZ-a (chi tiết)" vertex="1">
+                    <mxGeometry height="240" width="1310" x="15" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="c5" parent="c2" style="rounded=1;html=1;whiteSpace=wrap;verticalAlign=top;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;" value="PUBLIC SUBNET AZ-a&#xa;tag kubernetes.io/role/elb=1" vertex="1">
+                    <mxGeometry height="190" width="635" x="15" y="34" as="geometry"/>
+                </mxCell>
+                <mxCell id="n5" parent="c5" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" value="ALB node (external)&#xa;ingress 443/80" vertex="1">
+                    <mxGeometry height="60" width="280" x="20" y="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="n6" parent="c5" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" value="fck-nat t4g.nano (HIỆN TẠI)&#xa;~$5/th · egress IPv4" vertex="1">
+                    <mxGeometry height="60" width="295" x="320" y="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="n7" parent="c5" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=10;dashed=1;" value="NAT Gateway managed_per_az / none&#xa;(tùy chọn prod)" vertex="1">
+                    <mxGeometry height="55" width="295" x="320" y="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="c6" parent="c2" style="rounded=1;html=1;whiteSpace=wrap;verticalAlign=top;fillColor=#EAF5EA;strokeColor=#82B366;fontSize=11;" value="PRIVATE SUBNET AZ-a (/24)&#xa;tag kubernetes.io/role/internal-elb=1 · karpenter.sh/discovery=&lt;cluster&gt;" vertex="1">
+                    <mxGeometry height="190" width="640" x="665" y="34" as="geometry"/>
+                </mxCell>
+                <mxCell id="n8" parent="c6" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" value="Node EC2 + Pods (K8s nodes)&#xa;m6i.large tier=system (×2)" vertex="1">
+                    <mxGeometry height="80" width="300" x="20" y="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="c3" parent="c1" style="swimlane;html=1;startSize=26;fontSize=11;fillColor=#FFFFFF;strokeColor=#666666;rounded=1;" value="AZ-b" vertex="1">
+                    <mxGeometry height="180" width="1310" x="15" y="290" as="geometry"/>
+                </mxCell>
+                <mxCell id="c7" parent="c3" style="rounded=1;html=1;whiteSpace=wrap;verticalAlign=top;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;" value="PUBLIC SUBNET AZ-b (tag role/elb=1)" vertex="1">
+                    <mxGeometry height="130" width="635" x="15" y="34" as="geometry"/>
+                </mxCell>
+                <mxCell id="n9" parent="c7" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" value="ALB + fck-nat t4g.nano" vertex="1">
+                    <mxGeometry height="65" width="600" x="15" y="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="c8" parent="c3" style="rounded=1;html=1;whiteSpace=wrap;verticalAlign=top;fillColor=#EAF5EA;strokeColor=#82B366;fontSize=11;" value="PRIVATE SUBNET AZ-b (/24) — internal-elb · karpenter discovery" vertex="1">
+                    <mxGeometry height="130" width="640" x="665" y="34" as="geometry"/>
+                </mxCell>
+                <mxCell id="n10" parent="c8" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" value="Node EC2 + Pods (system / gpu tier)" vertex="1">
+                    <mxGeometry height="65" width="600" x="15" y="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="c4" parent="c1" style="swimlane;html=1;startSize=26;fontSize=11;fillColor=#FFFFFF;strokeColor=#666666;rounded=1;" value="AZ-c" vertex="1">
+                    <mxGeometry height="180" width="1310" x="15" y="480" as="geometry"/>
+                </mxCell>
+                <mxCell id="c9" parent="c4" style="rounded=1;html=1;whiteSpace=wrap;verticalAlign=top;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;" value="PUBLIC SUBNET AZ-c (tag role/elb=1)" vertex="1">
+                    <mxGeometry height="130" width="635" x="15" y="34" as="geometry"/>
+                </mxCell>
+                <mxCell id="n11" parent="c9" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" value="ALB + fck-nat t4g.nano" vertex="1">
+                    <mxGeometry height="65" width="600" x="15" y="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="c10" parent="c4" style="rounded=1;html=1;whiteSpace=wrap;verticalAlign=top;fillColor=#EAF5EA;strokeColor=#82B366;fontSize=11;" value="PRIVATE SUBNET AZ-c (/24) — internal-elb · karpenter discovery" vertex="1">
+                    <mxGeometry height="130" width="640" x="665" y="34" as="geometry"/>
+                </mxCell>
+                <mxCell id="n12" parent="c10" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" value="Node EC2 + Pods (system / gpu tier)" vertex="1">
+                    <mxGeometry height="65" width="600" x="15" y="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="n13" parent="c1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;" value="S3 Gateway Endpoint&#xa;miễn phí — traffic S3 không qua NAT" vertex="1">
+                    <mxGeometry height="55" width="280" x="15" y="680" as="geometry"/>
+                </mxCell>
+                <mxCell id="n14" parent="c1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;dashed=1;" value="VPC Interface Endpoints: ECR api+dkr, STS, Logs&#xa;(prod · tùy chọn)" vertex="1">
+                    <mxGeometry height="55" width="330" x="315" y="680" as="geometry"/>
+                </mxCell>
+                <mxCell id="n15" parent="c1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=10;" value="3 subnet/AZ sinh từ cidrsubnet(cidr, 8, i) · ALB ở public subnet nhưng forward vào pod target (target-type ip), bất kể subnet&#xa;Route private: default IPv4 qua fck-nat · S3 qua S3 GW EP · IPv6 qua egress-only IGW&#xa;NAT chỉ dùng cho egress IPv4 (fck-nat = HIỆN TẠI · managed_per_az = tùy chọn prod)" vertex="1">
+                    <mxGeometry height="70" width="640" x="665" y="680" as="geometry"/>
+                </mxCell>
+                <mxCell id="c11" parent="1" style="swimlane;html=1;startSize=26;fontSize=11;fillColor=#FFFFFF;strokeColor=#666666;rounded=1;" value="Bảng CIDR multi-region (cidrsubnet(cidr, 8, i) — mỗi region 3 AZ)" vertex="1">
+                    <mxGeometry height="160" width="800" x="320" y="890" as="geometry"/>
+                </mxCell>
+                <mxCell id="n16" parent="c11" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;" value="apse2 — 10.0.0.0/16" vertex="1">
+                    <mxGeometry height="32" width="765" x="15" y="34" as="geometry"/>
+                </mxCell>
+                <mxCell id="n17" parent="c11" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;" value="apse1 — 10.1.0.0/16" vertex="1">
+                    <mxGeometry height="32" width="765" x="15" y="74" as="geometry"/>
+                </mxCell>
+                <mxCell id="n18" parent="c11" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;" value="apse3 — 10.2.0.0/16" vertex="1">
+                    <mxGeometry height="32" width="765" x="15" y="114" as="geometry"/>
+                </mxCell>
+                <mxCell id="c12" parent="1" style="rounded=1;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacing=8;fillColor=#F5F5F5;strokeColor=#999999;fontSize=11;" value="&lt;b&gt;Chú giải&lt;/b&gt;&#xa;· xanh dương = compute · xanh lá = network/subnet&#xa;· cam = storage/endpoint · tím = app/IaC&#xa;· vàng = ops/trạng thái · xám = user/external&#xa;· đường đứt = tùy chọn / kế hoạch" vertex="1">
+                    <mxGeometry height="160" width="510" x="1150" y="890" as="geometry"/>
+                </mxCell>
+                <mxCell id="e1" edge="1" parent="1" source="n1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="n2" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e2" edge="1" parent="1" source="n2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="n5" value="443/80">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e3" edge="1" parent="1" source="n5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="n8" value="forward target-type ip">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e4" edge="1" parent="1" source="n8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="n6" value="egress IPv4">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e5" edge="1" parent="1" source="n6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="n2" value="NAT">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e6" edge="1" parent="1" source="n8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="n13" value="S3 traffic">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e7" edge="1" parent="1" source="n8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;dashed=1;" target="n14" value="ECR pull → bypass NAT">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e8" edge="1" parent="1" source="n10" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;dashed=1;" target="n3" value="IPv6 egress">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram id="terraform" name="5. Terraform Stacks">
+        <mxGraphModel dx="1715" dy="1144" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1700" pageHeight="1250" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="c1" parent="1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#E1D5E7;strokeColor=#9673A6;rounded=1;" value="00-bootstrap — State &amp; Lock (áp 1 lần/account)" vertex="1">
+                    <mxGeometry height="120" width="800" x="40" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="n1" parent="c1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;" value="S3 tfstate bucket&#xa;jhub-gpu-sandbox-tfstate-451058046864&#xa;versioning · SSE" vertex="1">
+                    <mxGeometry height="70" width="380" x="15" y="34" as="geometry"/>
+                </mxCell>
+                <mxCell id="n2" parent="c1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;" value="DynamoDB lock table&#xa;jhub-gpu-sandbox-tflock&#xa;LockID (chống apply song song)" vertex="1">
+                    <mxGeometry height="70" width="380" x="405" y="34" as="geometry"/>
+                </mxCell>
+                <mxCell id="c2" parent="1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#FFF2CC;strokeColor=#D6B656;rounded=1;" value="01-foundation — ĐANG CHẠY" vertex="1">
+                    <mxGeometry height="230" width="800" x="40" y="210" as="geometry"/>
+                </mxCell>
+                <mxCell id="n3" parent="c2" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" value="network&#xa;VPC dual-stack · subnets 3 AZ&#xa;NAT fck_nat/managed/none · S3 gw EP&#xa;tags kubernetes.io/* + karpenter.sh/discovery" vertex="1">
+                    <mxGeometry height="180" width="250" x="15" y="34" as="geometry"/>
+                </mxCell>
+                <mxCell id="n4" parent="c2" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" value="eks&#xa;cluster 1.36 + OIDC&#xa;addons: vpc-cni (prefix-delegation), coredns, kube-proxy, ebs-csi (IRSA), pod-identity-agent&#xa;MNG system m6i.large ×2 (tier=system)&#xa;access entry karpenter node" vertex="1">
+                    <mxGeometry height="180" width="250" x="275" y="34" as="geometry"/>
+                </mxCell>
+                <mxCell id="n5" parent="c2" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" value="karpenter&#xa;chart 1.15.0 · controller IRSA (5 policy) · node role (EC2/EBSCNI/ECRPullOnly/SSM)&#xa;SQS interruption + 5 EventBridge rule&#xa;manifests: 3 NodePool (cpu-user, gpu-shared-l4, gpu-dedicated) + 2 EC2NodeClass" vertex="1">
+                    <mxGeometry height="180" width="250" x="535" y="34" as="geometry"/>
+                </mxCell>
+                <mxCell id="c3" parent="1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#F8CECC;strokeColor=#B85450;rounded=1;dashed=1;" value="02-gpu — CHỜ QUOTA GPU ≥ 8 vCPU" vertex="1">
+                    <mxGeometry height="100" width="800" x="40" y="500" as="geometry"/>
+                </mxCell>
+                <mxCell id="n6" parent="c3" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;dashed=1;" value="gpu-stack&#xa;nvidia-device-plugin 0.20.1 (time-slicing shared · nodeSelector/toleration tier=shared) · dcgm-exporter 4.8.4 + serviceMonitor&#xa;renameByDefault → nvidia.com/gpu.shared · replicas 3 · failRequestsGreaterThanOne" vertex="1">
+                    <mxGeometry height="56" width="770" x="15" y="34" as="geometry"/>
+                </mxCell>
+                <mxCell id="c4" parent="1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#E1D5E7;strokeColor=#9673A6;rounded=1;" value="03-hub — TFVARS ĐÃ CHUẨN BỊ" vertex="1">
+                    <mxGeometry height="280" width="800" x="40" y="660" as="geometry"/>
+                </mxCell>
+                <mxCell id="n7" parent="c4" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" value="storage&#xa;KMS key · S3 workspace versioning SSE-KMS&#xa;IRSA hub role sts:AssumeRole · workspace role prefix users/&lt;id&gt;" vertex="1">
+                    <mxGeometry height="110" width="250" x="15" y="34" as="geometry"/>
+                </mxCell>
+                <mxCell id="n8" parent="c4" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" value="hub-db&#xa;RDS Postgres 16.15 db.t4g.micro · 20GB gp3 encrypted&#xa;Secrets Manager managed secret · backup 7 ngày · subnet group + SG 5432" vertex="1">
+                    <mxGeometry height="110" width="250" x="275" y="34" as="geometry"/>
+                </mxCell>
+                <mxCell id="n9" parent="c4" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" value="auth&#xa;Cognito pool mlbox-hub-apse2 · client jupyterhub (code · openid/email/profile)&#xa;callback hub.mlbox.june8th.me/hub/oauth_callback" vertex="1">
+                    <mxGeometry height="110" width="250" x="535" y="34" as="geometry"/>
+                </mxCell>
+                <mxCell id="n10" parent="c4" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" value="ecr&#xa;repo jhub-gpu-sandbox/cpu · /gpu&#xa;scan-on-push · lifecycle 10" vertex="1">
+                    <mxGeometry height="110" width="250" x="15" y="154" as="geometry"/>
+                </mxCell>
+                <mxCell id="n11" parent="c4" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" value="ingress-dns&#xa;Route53 zone + ACM hub.mlbox.june8th.me (DNS validate)&#xa;ALB controller 3.6.0 IRSA · record hub → ALB" vertex="1">
+                    <mxGeometry height="110" width="250" x="275" y="154" as="geometry"/>
+                </mxCell>
+                <mxCell id="n12" parent="c4" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" value="helm_release jupyterhub 4.4.2 · ns hub&#xa;values/hub-values.yaml.tpl: 3 profile · postgres · culler 1800s · placeholder 2 + userScheduler&#xa;pre_spawn_hook: vram commit-mib 8192 · ceiling-mib 12288 · nvidia.com/gpu.shared:1" vertex="1">
+                    <mxGeometry height="110" width="250" x="535" y="154" as="geometry"/>
+                </mxCell>
+                <mxCell id="n13" parent="1" style="rounded=1;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacing=10;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;" value="Điểm cần nhớ khi vận hành&#xa;&#xa;• state key: dev/&lt;region&gt;/&lt;stack&gt;.tfstate&#xa;• 03-hub cần 2 lần apply (1: tạo ALB → 2: điền alb_dns_name để Route53 trỏ)&#xa;• destroy ngược: 03 → 02 → 01&#xa;• kubeconfig qua aws eks get-token&#xa;• cluster name ≤ 38 ký tự nhờ mã ngắn apse2&#xa;• không ngắt giữa chừng stack 01 (MNG node lơ lửng)&#xa;• destroy -refresh=false tránh lỗi data source addon&#xa;• xả object versioning trước khi delete bucket" vertex="1">
+                    <mxGeometry height="470" width="740" x="920" y="210" as="geometry"/>
+                </mxCell>
+                <mxCell id="n14" parent="1" style="rounded=1;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacing=8;fillColor=#F5F5F5;strokeColor=#999999;fontSize=11;" value="&lt;b&gt;Chú giải&lt;/b&gt;&#xa;· tím = app/IaC · cam = storage/endpoint&#xa;· vàng = ops/trạng thái · đỏ nhạt = trạng thái cần chú ý&#xa;· xám = external · đường đứt = tùy chọn / kế hoạch" vertex="1">
+                    <mxGeometry height="110" width="740" x="920" y="940" as="geometry"/>
+                </mxCell>
+                <mxCell id="e1" edge="1" parent="1" source="c1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="c2" value="1. apply">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e2" edge="1" parent="1" source="c2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="c3" value="2. sau khi quota GPU xong">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e3" edge="1" parent="1" source="c3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="c4" value="3. hub">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e4" edge="1" parent="1" source="c4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;dashed=1;" target="c1" value="4. destroy ngược 03→02→01">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram id="multi-region" name="6. Multi-Region">
+        <mxGraphModel dx="1715" dy="1144" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1700" pageHeight="1250" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="rt1" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;" value="Route53 — latency routing&lt;br&gt;hub.mlbox.june8th.me → 3 region" vertex="1">
+                    <mxGeometry height="75" width="400" x="600" y="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="cA" parent="1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#FFFFFF;strokeColor=#666666;rounded=1;" value="ap-southeast-2 (apse2) — ĐANG CHẠY" vertex="1">
+                    <mxGeometry height="250" width="490" x="40" y="140" as="geometry"/>
+                </mxCell>
+                <mxCell id="az2a" parent="cA" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=10;" value="VPC 10.0.0.0/16&lt;br&gt;3 AZ a/b/c" vertex="1">
+                    <mxGeometry height="85" width="200" x="15" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="az2k" parent="cA" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=10;" value="EKS:&lt;br&gt;jhub-gpu-sandbox-dev-apse2&lt;br&gt;(K8s 1.36)" vertex="1">
+                    <mxGeometry height="85" width="240" x="235" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="az2s" parent="cA" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=10;" value="Terraform backend key:&lt;br&gt;dev/apse2/01-foundation.tfstate" vertex="1">
+                    <mxGeometry height="70" width="460" x="15" y="145" as="geometry"/>
+                </mxCell>
+                <mxCell id="cB" parent="1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#F5F5F5;strokeColor=#999999;rounded=1;dashed=1;" value="ap-southeast-1 (apse1) — KẾ HOẠCH" vertex="1">
+                    <mxGeometry height="250" width="490" x="560" y="140" as="geometry"/>
+                </mxCell>
+                <mxCell id="az1a" parent="cB" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#F5F5F5;strokeColor=#999999;dashed=1;fontSize=10;" value="VPC 10.1.0.0/16&lt;br&gt;3 AZ a/b/c" vertex="1">
+                    <mxGeometry height="85" width="200" x="15" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="az1k" parent="cB" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#F5F5F5;strokeColor=#999999;dashed=1;fontSize=10;" value="EKS:&lt;br&gt;jhub-gpu-sandbox-dev-apse1&lt;br&gt;(K8s 1.36)" vertex="1">
+                    <mxGeometry height="85" width="240" x="235" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="az1s" parent="cB" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#F5F5F5;strokeColor=#999999;dashed=1;fontSize=10;" value="Terraform backend key:&lt;br&gt;dev/apse1/01-foundation.tfstate" vertex="1">
+                    <mxGeometry height="70" width="460" x="15" y="145" as="geometry"/>
+                </mxCell>
+                <mxCell id="cC" parent="1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#F5F5F5;strokeColor=#999999;rounded=1;dashed=1;" value="ap-southeast-3 (apse3) — KẾ HOẠCH" vertex="1">
+                    <mxGeometry height="250" width="490" x="1080" y="140" as="geometry"/>
+                </mxCell>
+                <mxCell id="az3a" parent="cC" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#F5F5F5;strokeColor=#999999;dashed=1;fontSize=10;" value="VPC 10.2.0.0/16&lt;br&gt;3 AZ a/b/c" vertex="1">
+                    <mxGeometry height="85" width="200" x="15" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="az3k" parent="cC" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#F5F5F5;strokeColor=#999999;dashed=1;fontSize=10;" value="EKS:&lt;br&gt;jhub-gpu-sandbox-dev-apse3&lt;br&gt;(K8s 1.36)" vertex="1">
+                    <mxGeometry height="85" width="240" x="235" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="az3s" parent="cC" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#F5F5F5;strokeColor=#999999;dashed=1;fontSize=10;" value="Terraform backend key:&lt;br&gt;dev/apse3/01-foundation.tfstate" vertex="1">
+                    <mxGeometry height="70" width="460" x="15" y="145" as="geometry"/>
+                </mxCell>
+                <mxCell id="cK" parent="1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#F5F5F5;strokeColor=#999999;rounded=1;" value="Region mới — checklist" vertex="1">
+                    <mxGeometry height="180" width="760" x="40" y="430" as="geometry"/>
+                </mxCell>
+                <mxCell id="q1" parent="cK" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#F8CECC;strokeColor=#B85450;fontSize=10;" value="(1) Xin quota&lt;br&gt;GPU vCPU (G/P)" vertex="1">
+                    <mxGeometry height="95" width="165" x="15" y="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="q2" parent="cK" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#999999;fontSize=10;" value="(2) So giá&lt;br&gt;NAT / EC2 / RDS" vertex="1">
+                    <mxGeometry height="95" width="165" x="205" y="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="q3" parent="cK" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#999999;fontSize=10;" value="(3) Route53 latency&lt;br&gt;policy cho&lt;br&gt;region mới" vertex="1">
+                    <mxGeometry height="95" width="165" x="395" y="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="q4" parent="cK" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=10;" value="(4) Bật&lt;br&gt;ECR replication" vertex="1">
+                    <mxGeometry height="95" width="160" x="585" y="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="g4" edge="1" parent="cK" source="q1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="q2" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="g5" edge="1" parent="cK" source="q2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="q3" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="g6" edge="1" parent="cK" source="q3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="q4" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="cD" parent="1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#FFFFFF;strokeColor=#666666;rounded=1;" value="Quy tắc deploy per-region" vertex="1">
+                    <mxGeometry height="310" width="740" x="840" y="430" as="geometry"/>
+                </mxCell>
+                <mxCell id="r0" parent="cD" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=10;" value="00-bootstrap — chạy 1 lần/account:&lt;br&gt;S3 state: jhub-gpu-sandbox-tfstate-451058046864&lt;br&gt;DynamoDB lock: jhub-gpu-sandbox-tflock (dùng chung)" vertex="1">
+                    <mxGeometry height="75" width="700" x="15" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="r1" parent="cD" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=10;" value="01-foundation&lt;br&gt;(VPC, EKS nền)" vertex="1">
+                    <mxGeometry height="70" width="215" x="15" y="140" as="geometry"/>
+                </mxCell>
+                <mxCell id="r2" parent="cD" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=10;" value="02-gpu&lt;br&gt;(chạy khi có quota)" vertex="1">
+                    <mxGeometry height="70" width="215" x="250" y="140" as="geometry"/>
+                </mxCell>
+                <mxCell id="r3" parent="cD" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=10;" value="03-hub&lt;br&gt;(Z2JH + app)" vertex="1">
+                    <mxGeometry height="70" width="230" x="485" y="140" as="geometry"/>
+                </mxCell>
+                <mxCell id="nt1" parent="cD" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;dashed=1;fontSize=10;" value="Lưu ý: destroy chạy ngược thứ tự (03-hub → 02-gpu → 01-foundation → 00-bootstrap)" vertex="1">
+                    <mxGeometry height="45" width="700" x="15" y="225" as="geometry"/>
+                </mxCell>
+                <mxCell id="g7" edge="1" parent="cD" source="r0" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="r1" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="g8" edge="1" parent="cD" source="r1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="r2" value="khi quota đủ">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="g9" edge="1" parent="cD" source="r2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="r3" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="g1" edge="1" parent="1" source="rt1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="az2k" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="g2" edge="1" parent="1" source="rt1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;dashed=1;" target="az1k" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="g3" edge="1" parent="1" source="rt1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;dashed=1;" target="az3k" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="leg2" parent="1" style="rounded=1;html=1;whiteSpace=wrap;verticalAlign=top;align=left;spacingLeft=8;fillColor=#FFFFFF;strokeColor=#999999;fontSize=10;" value="Chú giải:&lt;br&gt;nét đứt = region / bước kế hoạch (chưa áp dụng)&lt;br&gt;■ xanh lá: network · xanh dương: compute&lt;br&gt;■ cam: state/storage · vàng: pipeline ops&lt;br&gt;■ đỏ: quota đang chờ · xám: checklist" vertex="1">
+                    <mxGeometry height="130" width="420" x="40" y="770" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>
