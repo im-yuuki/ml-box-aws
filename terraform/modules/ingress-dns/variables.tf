@@ -1,10 +1,10 @@
 variable "cluster_name" { type = string }
 variable "domain" {
-  description = "Domain gốc (VD example.com). Hub ở hub.<domain>."
+  description = "Root domain (e.g. example.com). Hub lives at hub.<domain>."
   type        = string
 }
 variable "route53_zone_id" {
-  description = "Zone có sẵn. Để trống = tạo zone mới (phải trỏ NS ở registrar)."
+  description = "Existing zone. Leave empty to create a new zone (NS records must be set at the registrar)."
   type        = string
   default     = ""
 }
@@ -12,12 +12,12 @@ variable "vpc_id" { type = string }
 variable "oidc_provider" { type = string }
 variable "oidc_provider_arn" { type = string }
 variable "lb_controller_chart_version" {
-  description = "Chart aws-load-balancer-controller. Mặc định = release mới nhất đã verify."
+  description = "aws-load-balancer-controller chart. Default = latest verified release."
   type        = string
-  default     = "3.6.0" # verify 2026-10-12
+  default     = "3.6.0" # verified 2026-10-12
 }
 variable "alb_dns_name" {
-  description = "DNS của ALB do Ingress tạo. Để trống = chưa tạo record; điền vào rồi apply lần 2."
+  description = "DNS of the ALB created by the Ingress. Empty = record not created yet; fill it in and apply a second time."
   type        = string
   default     = ""
 }

@@ -1,5 +1,5 @@
-# Policy least-privilege cho controller, dịch từ CloudFormation chuẩn của
-# aws/karpenter-provider-aws (tag v1.15.0). Thay placeholder EC2FullAccess.
+# Least-privilege policy for the controller, translated from the standard CloudFormation of
+# aws/karpenter-provider-aws (tag v1.15.0). Replaces the temporary EC2FullAccess placeholder.
 
 locals {
   controller_partition = data.aws_partition.current.partition

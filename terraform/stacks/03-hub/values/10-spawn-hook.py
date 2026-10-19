@@ -1,6 +1,6 @@
-# Spawn hook Z2JH (hub.extraConfig) — tham khảo để gắn vào helm_release ở stack 03.
-# Verify API KubeSpawner/Authenticator theo chart version đang dùng.
-# Nhiệm vụ: lọc profile theo claim plan, gắn annotation VRAM + label chi phí, đếm quota.
+# Z2JH spawn hook (hub.extraConfig) — reference for attaching to the helm_release in stack 03.
+# Verify KubeSpawner/Authenticator APIs against the chart version in use.
+# Responsibilities: filter the profile by the plan claim, attach VRAM annotations + cost labels, count quota.
 
 async def augment_pod(spawner, pod):
     auth_state = await spawner.user.get_auth_state()
@@ -16,10 +16,10 @@ async def augment_pod(spawner, pod):
     if plan == "shared":
         pod.metadata.annotations["vram.example.com/commit-mib"] = "8192"
         pod.metadata.annotations["vram.example.com/ceiling-mib"] = "12288"
-        # nodeSelector/tolerations/resources đã có trong profileList;
-        # hook chỉ bổ sung nếu user đổi profile thủ công.
+        # nodeSelector/tolerations/resources are already set in profileList;
+        # the hook only adds these if the user switches profile manually.
     return pod
 
-# c.KubeSpawner.pre_spawn_hook = augment_pod  (đặt trong extraConfig)
-# Quota giờ GPU / số phiên đồng thời: đếm trong hook này (Z2JH 1 namespace
-# nên ResourceQuota K8s khó chia theo user — mục 6 doc).
+# c.KubeSpawner.pre_spawn_hook = augment_pod  (put inside extraConfig)
+# GPU-hours / concurrent-session quota: count within this hook (Z2JH runs 1
+# namespace, so K8s ResourceQuota is hard to split per user — handoff doc §6).

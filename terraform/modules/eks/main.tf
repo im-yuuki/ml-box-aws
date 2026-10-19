@@ -8,18 +8,18 @@ module "eks" {
   cluster_endpoint_public_access = true
 
   enable_cluster_creator_admin_permissions = true
-  enable_irsa                              = true # tương thích Pod Identity agent bên dưới
+  enable_irsa                              = true # for Pod Identity agent compatibility below
 
   vpc_id     = var.vpc_id
   subnet_ids = var.subnet_ids
 
-  # Tag để Karpenter discovery SG cho node (EC2NodeClass securityGroupSelectorTerms).
+  # Tag so Karpenter can discover the SG for nodes (EC2NodeClass securityGroupSelectorTerms).
   node_security_group_tags = {
     "karpenter.sh/discovery" = var.cluster_name
   }
 
-  # IP prefix delegation: bắt buộc khi scale hàng nghìn pod (mục 4 doc handoff).
-  # Tên field phải đối chiếu doc EKS/VPC-CNI hiện hành theo cluster_version.
+  # IP prefix delegation: mandatory when scaling to thousands of pods (handoff doc §4).
+  # Field names must be cross-checked against the current EKS/VPC-CNI docs for the cluster_version.
   cluster_addons = {
     coredns    = { most_recent = true }
     kube-proxy = { most_recent = true }
@@ -33,7 +33,7 @@ module "eks" {
         }
       })
     }
-    # Key PHẢI là tên addon thật của EKS (key "ebs-csi" khiến API trả empty).
+    # Key MUST be the real EKS addon name (key "ebs-csi" makes the API return empty).
     aws-ebs-csi-driver = {
       most_recent              = true
       service_account_role_arn = aws_iam_role.ebs_csi.arn
@@ -51,9 +51,9 @@ module "eks" {
       min_size       = 2
       max_size       = 4
       desired_size   = 2
-      # KHÔNG taint pool system: pod addon EKS (coredns, ebs-csi) không tolerate
-      # được taint custom nên sẽ Pending khiến addon DEGRADED. User pod đã bị chặn
-      # khỏi node system bằng nodeSelector trong hub profileList (tier=shared/dedicated/cpu-user).
+      # Do NOT taint the system pool: EKS addon pods (coredns, ebs-csi) can't tolerate
+      # custom taints, so they'd go Pending and the addons would be DEGRADED. User pods are
+      # kept off system nodes via nodeSelector in the hub profileList (tier=shared/dedicated/cpu-user).
       labels = { tier = "system" }
     }
   }

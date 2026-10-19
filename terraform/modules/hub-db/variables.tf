@@ -1,6 +1,6 @@
 variable "cluster_name" { type = string }
 variable "engine_version" {
-  description = "Postgres version (verify ở region: 16.x có ở ap-southeast-2)."
+  description = "Postgres version (check region availability: 16.x is available in ap-southeast-2)."
   type        = string
   default     = "16.15"
 }
@@ -15,7 +15,7 @@ variable "allocated_storage" {
 variable "vpc_id" { type = string }
 variable "subnet_ids" { type = list(string) }
 variable "allowed_security_group_id" {
-  description = "Node SG của EKS (chỉ node được nối 5432)."
+  description = "EKS node SG (only nodes connect on 5432)."
   type        = string
 }
 variable "backup_retention_days" {
@@ -23,7 +23,7 @@ variable "backup_retention_days" {
   default = 7
 }
 variable "deletion_protection" {
-  description = "Lab=false để destroy được; prod=true."
+  description = "false in lab so destroy works; true in prod."
   type        = bool
   default     = false
 }

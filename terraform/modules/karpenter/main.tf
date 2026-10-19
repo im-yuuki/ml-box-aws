@@ -1,12 +1,12 @@
 # Karpenter: IAM + SQS interruption + Helm + EC2NodeClass/NodePool.
-# Không dùng EKS Auto Mode (cần chia GPU + kiểm soát AMI/NodePool — mục 2 doc).
-# Không cài MIG manager (quyết định tạm thời).
+# Doesn't use EKS Auto Mode (needs to share GPUs + control AMI/NodePool — doc §2).
+# No MIG manager installed (temporary decision).
 
 locals {
   namespace = "karpenter"
 }
 
-# Hàng SQS nhận Spot interruption — dùng cho pool cpu-user (GPU user session không dùng Spot).
+# SQS queue receiving Spot interruptions — used by the cpu-user pool (GPU user sessions don't use Spot).
 resource "aws_sqs_queue" "interruption" {
   name                      = var.interruption_queue_name
   message_retention_seconds = 300
@@ -21,7 +21,7 @@ locals {
   queue_arn = aws_sqs_queue.interruption.arn
 }
 
-# Policy controller nằm ở controller-policy.tf (dịch từ CloudFormation chuẩn v1.15.0).
+# The controller policy lives in controller-policy.tf (translated from the standard CloudFormation v1.15.0).
 resource "aws_iam_role" "karpenter" {
   name = "${var.cluster_name}-karpenter"
   assume_role_policy = jsonencode({
@@ -48,8 +48,8 @@ resource "helm_release" "karpenter" {
   chart            = "karpenter"
   version          = var.karpenter_chart_version
 
-  # Toàn bộ cấu hình qua values (tránh set block — một số VSCode schema cũ báo sai).
-  # Toleration để controller chạy trên pool system (taint tier=system).
+  # All configuration via values (avoid the set block — some older VSCode schemas report it wrong).
+  # Toleration lets the controller run on the system pool (taint tier=system).
   values = [yamlencode({
     settings = {
       clusterName       = var.cluster_name
@@ -64,9 +64,9 @@ resource "helm_release" "karpenter" {
   })]
 }
 
-# EC2NodeClass + NodePool qua kubectl_manifest (kiểm tra CRD đã có sau helm_release).
-# AMIFamily: AL2023 NVIDIA cho GPU (Bottlerocket NVIDIA là alternative — kiểm tra doc EKS hiện hành).
-# httpPutResponseHopLimit=1 để chặn IMDS từ pod (mục 9) + NetworkPolicy bổ sung ở stack 3.
+# EC2NodeClass + NodePool via kubectl_manifest (CRDs are in place after helm_release).
+# AMIFamily: AL2023 NVIDIA for GPU (Bottlerocket NVIDIA is an alternative — check current EKS docs).
+# httpPutResponseHopLimit=1 to block IMDS from pods (§9) + extra NetworkPolicy in stack 3.
 resource "kubectl_manifest" "nodeclass_gpu_shared_l4" {
   yaml_body = templatefile("${path.module}/manifests/ec2nodeclass-gpu.yaml", {
     name              = "gpu-shared-l4"
@@ -104,7 +104,7 @@ resource "kubectl_manifest" "nodepool_cpu_user" {
   depends_on = [kubectl_manifest.nodeclass_cpu_user]
 }
 
-# Pool dedicated: 1 user / node / GPU nhỏ (g4dn.xlarge T4, g6.xlarge L4, g5.xlarge A10G). Không MIG.
+# Dedicated pool: 1 user / node / small GPU (g4dn.xlarge T4, g6.xlarge L4, g5.xlarge A10G). No MIG.
 resource "kubectl_manifest" "nodeclass_gpu_dedicated" {
   yaml_body = templatefile("${path.module}/manifests/ec2nodeclass-gpu.yaml", {
     name              = "gpu-dedicated"

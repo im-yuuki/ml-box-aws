@@ -1,10 +1,10 @@
-# ECR cho image chuẩn (build image nằm ngoài Terraform, mục 8 doc).
+# ECR for the standard images (the image build lives outside Terraform, handoff doc §8).
 
 resource "aws_ecr_repository" "images" {
   for_each = toset(var.repo_names)
 
   name                 = "${var.project}/${each.value}"
-  image_tag_mutability = "MUTABLE" # lab; prod cân nhắc IMMUTABLE cho release tag
+  image_tag_mutability = "MUTABLE" # lab; consider IMMUTABLE for release tags in prod
   tags                 = var.tags
 
   image_scanning_configuration {
@@ -22,7 +22,7 @@ resource "aws_ecr_lifecycle_policy" "images" {
   policy = jsonencode({
     rules = [{
       rulePriority = 1
-      description  = "Giữ 10 image mới nhất"
+      description  = "Keep the 10 most recent images"
       selection = {
         tagStatus   = "any"
         countType   = "imageCountMoreThan"

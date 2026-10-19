@@ -1,15 +1,15 @@
-# EC2NodeClass GPU (shared L4 hoặc dedicated). Không MIG.
-# Field phải đối chiếu karpenter-provider-aws release đang dùng (v1 API).
+# EC2NodeClass GPU (shared L4 or dedicated). No MIG.
+# Fields must be cross-checked against the karpenter-provider-aws release in use (v1 API).
 apiVersion: karpenter.k8s.aws/v1
 kind: EC2NodeClass
 metadata:
   name: ${name}
 spec:
-  # Karpenter v1: amiFamily đã bỏ, dùng amiSelectorTerms. Alias al2023@latest tự
-  # phân giải đúng variant (standard cho CPU, nvidia cho GPU) theo instance.
+  # Karpenter v1: amiFamily is gone, use amiSelectorTerms. The al2023@latest alias
+  # resolves to the right variant (standard for CPU, nvidia for GPU) per instance.
   amiSelectorTerms:
     - alias: al2023@latest
-  role: ${cluster_name}-karpenter-node # NodeInstanceProfile tạo riêng ở hardening; hiện dùng role Karpenter
+  role: ${cluster_name}-karpenter-node # dedicated NodeInstanceProfile planned for hardening; currently the Karpenter role
   subnetSelectorTerms:
     - tags:
         karpenter.sh/discovery: ${cluster_name}
@@ -27,7 +27,7 @@ spec:
 %{ endif }
   metadataOptions:
     httpEndpoint: enabled
-    httpPutResponseHopLimit: ${hop_limit} # =1 chặn IMDS từ pod (mục 9)
+    httpPutResponseHopLimit: ${hop_limit} # =1 blocks IMDS from pods (§9)
     httpTokens: required
   kubelet:
     maxPods: 110

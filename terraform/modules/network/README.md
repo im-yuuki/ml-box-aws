@@ -1,2 +1,2 @@
 # Network module: VPC dual-stack, outbound-only.
-# Xem terraform-aws-modules/vpc phiên bản đang pin để xác nhận tên biến IPv6/egress-only.
+# Check the pinned terraform-aws-modules/vpc version to confirm the IPv6/egress-only variable names.

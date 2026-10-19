@@ -1,1 +1,1 @@
-# ecr: repository image chuẩn CPU/GPU + scan + lifecycle giữ 10 bản.
+# ecr: standard CPU/GPU image repositories + scan + lifecycle keeping 10 images.

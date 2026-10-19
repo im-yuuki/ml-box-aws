@@ -1,5 +1,5 @@
-# IRSA cho EBS CSI driver (kube-system:ebs-csi-controller-sa).
-# Không để service_account_role_arn = null — driver cần quyền EC2 volume để provision.
+# IRSA for the EBS CSI driver (kube-system:ebs-csi-controller-sa).
+# Don't leave service_account_role_arn = null — the driver needs EC2 volume permissions to provision.
 
 data "aws_partition" "current" {}
 

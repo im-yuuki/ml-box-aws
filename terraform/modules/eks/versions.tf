@@ -1,4 +1,4 @@
-# Khai báo provider cho aws_iam_* trong module này.
+# Declare providers for aws_iam_* in this module.
 terraform {
   required_providers {
     aws = {

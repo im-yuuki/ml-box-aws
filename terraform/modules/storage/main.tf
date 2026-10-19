@@ -1,6 +1,6 @@
-# S3 workspace: pod ephemeral + sync prefix users/<id>/ (mục 7 doc).
-# Cô lập prefix thực thi ở runtime (hub AssumeRole kèm session policy theo user);
-# role workspace ở đây mở tới bucket để session policy thu hẹp lúc assume.
+# S3 workspace: pod ephemeral + sync prefix users/<id>/ (handoff doc §7).
+# Isolates the execution prefix at runtime (hub AssumeRole with a per-user session policy);
+# the workspace role here grants bucket-wide access so the session policy narrows it at assume time.
 
 data "aws_caller_identity" "current" {}
 
@@ -18,7 +18,7 @@ resource "aws_s3_bucket" "workspace" {
 resource "aws_s3_bucket_versioning" "workspace" {
   bucket = aws_s3_bucket.workspace.id
   versioning_configuration {
-    status = "Enabled" # backup lấy lại file xóa nhầm (mục 7)
+    status = "Enabled" # versioning to recover accidentally deleted objects (§7)
   }
 }
 
@@ -39,7 +39,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "workspace" {
     status = "Enabled"
     filter {}
     noncurrent_version_expiration {
-      noncurrent_days = 30 # giữ bản cũ 30 ngày rồi xóa (tinh chỉnh sau)
+      noncurrent_days = 30 # keep old versions 30 days then delete (tune later)
     }
   }
   rule {
@@ -60,7 +60,7 @@ resource "aws_s3_bucket_public_access_block" "workspace" {
   restrict_public_buckets = true
 }
 
-# Role cho sidecar workspace: hub AssumeRole với session policy giới hạn users/<id>/.
+# Role for the workspace sidecar: hub AssumeRole with a session policy limited to users/<id>/.
 resource "aws_iam_role" "workspace" {
   name = "${var.cluster_name}-workspace"
   assume_role_policy = jsonencode({
@@ -87,7 +87,7 @@ resource "aws_iam_role_policy" "workspace" {
   })
 }
 
-# Role cho hub (gắn vào SA hub qua IRSA): chỉ được AssumeRole workspace, không sờ S3 trực tiếp.
+# Role for the hub (attached to the hub SA via IRSA): may only AssumeRole the workspace role, no direct S3 access.
 resource "aws_iam_role" "hub" {
   name = "${var.cluster_name}-hub"
   assume_role_policy = jsonencode({
