@@ -2,14 +2,21 @@ variable "region" {
   type    = string
   default = "ap-southeast-2"
 }
-variable "cluster_name" { type = string }
-variable "cluster_endpoint" { type = string }
-variable "cluster_ca_data" { type = string }
+
+variable "env" {
+  type    = string
+  default = "dev"
+}
+
+variable "project" {
+  type    = string
+  default = "jhub-gpu-sandbox"
+}
 
 variable "device_plugin_chart_version" {
-  description = "Chart nvidia-device-plugin. Mặc định = release mới nhất đã verify."
+  description = "nvidia-device-plugin chart. Default = latest release verified 2026-10-12 (0.20.1)."
   type        = string
-  default     = "0.20.1" # verify 2026-10-12
+  default     = "0.20.1"
 }
 
 variable "dcgm_exporter_chart_version" {
@@ -18,7 +25,7 @@ variable "dcgm_exporter_chart_version" {
 }
 
 variable "gpu_shared_replicas_l4" {
-  description = "replicas time-slicing L4 @ commit 8GB factor 1.0."
+  description = "time-slicing replicas for L4 @ commit 8GB, factor 1.0."
   type        = number
   default     = 3
 }

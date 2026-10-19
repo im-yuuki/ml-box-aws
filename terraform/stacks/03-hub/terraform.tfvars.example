@@ -1,12 +1,7 @@
-# cluster_name     = "jhub-gpu-sandbox-dev-apse2"  # từ output stack 01
-# cluster_endpoint = "https://....eks.amazonaws.com"  # từ output stack 01
-# cluster_ca_data  = "..."                            # từ output stack 01
-# vpc_id           = "vpc-..."                        # từ output stack 01
-# private_subnet_ids = ["subnet-...", ...]            # từ output stack 01
-# node_security_group_id = "sg-..."                   # từ output stack 01
-# oidc_provider     = "oidc.eks.ap-southeast-2.amazonaws.com/id/..."  # output stack 01
-# oidc_provider_arn = "arn:aws:iam::...:oidc-provider/..."             # output stack 01
-# domain = "mlbox.june8th.me"  # Hub ở hub.mlbox.june8th.me
-# route53_zone_id = "Z..."  # để trống = tạo zone mlbox.june8th.me (trỏ 4 NS ở Cloudflare, xem output)
-# cognito_domain_prefix = "mlbox-hub-apse2"  # unique theo region
-# z2jh_chart_version = "4.4.2"  # verify 2026-10-12
+# Values below are the only ones that must be typed by hand.
+# Cluster/vpc/subnets/SG/OIDC come from data sources - keep them out of tfvars.
+region                = "ap-southeast-2"
+domain                = "hub.example.com"     # your root domain; hub at hub.<domain>
+cognito_domain_prefix = "mlbox-hub-apse2"     # unique per region
+
+# alb_dns_name = ""  # second-apply pass after the Ingress creates the ALB

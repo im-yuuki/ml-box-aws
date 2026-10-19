@@ -1,6 +1,7 @@
-# cluster_name     = "jhub-gpu-sandbox-dev-apse2"  # <name>-<env>-<mã region>, từ output stack 01
-# cluster_endpoint = "https://....eks.amazonaws.com"  # từ output stack 01
-# cluster_ca_data  = "..."                            # từ output stack 01
+# Nothing here is required: the cluster name/endpoint/CA are resolved from
+# data "aws_eks_cluster" using the project/env/region naming rule shared with 01-foundation.
+# Only overrides go below, e.g.:
+# env                        = "dev"
 # device_plugin_chart_version = "0.20.1"  # verify 2026-10-12
-# dcgm_exporter_chart_version = "4.8.4"  # verify 2026-10-12
-# gpu_shared_replicas_l4 = 3  # commit 8GB @ L4 24GB
+# dcgm_exporter_chart_version = "4.8.4"   # verify 2026-10-12
+# gpu_shared_replicas_l4      = 3         # commit 8GB @ L4 24GB
