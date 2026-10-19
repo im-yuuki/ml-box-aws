@@ -1,20 +1,14 @@
 output "state_bucket" {
-  description = "Điền vào bucket trong backend.hcl của stack 01/02/03."
+  description = "S3 bucket holding every stack's remote state. Auto-injected into the generated backend.hcl files - nothing to copy by hand."
   value       = aws_s3_bucket.state.id
 }
 
 output "lock_table" {
-  description = "Điền vào dynamodb_table trong backend.hcl của stack 01/02/03."
+  description = "DynamoDB lock table for remote state, auto-injected into the generated backend.hcl files."
   value       = aws_dynamodb_table.lock.name
 }
 
-output "backend_hint" {
-  description = "Mẫu backend.hcl sau khi bootstrap xong."
-  value       = <<-EOT
-    bucket         = "${aws_s3_bucket.state.id}"
-    key            = "dev/ap-southeast-2/01-foundation.tfstate"
-    region         = "ap-southeast-2"
-    dynamodb_table = "${aws_dynamodb_table.lock.name}"
-    encrypt        = true
-  EOT
+output "backend_files" {
+  description = "backend.hcl files freshly generated for 01-foundation / 02-gpu / 03-hub. terraform init -backend-config=backend.hcl then just works."
+  value       = { for f in local_file.stack_backends : f.filename => basename(dirname(f.filename)) }
 }
