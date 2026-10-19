@@ -20,3 +20,12 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# Local terraform plans/logs
+**/tfplan.bin
+**/apply-log.txt
+**/plan-log.txt
+
+# macOS metadata (also under web/theme)
+.DS_Store
+**/.DS_Store
