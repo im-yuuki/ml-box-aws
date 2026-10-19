@@ -1,4 +1,6 @@
-# Stack 02-gpu: tách khỏi foundation để tránh cycle provider AWS<->K8s (mục 4 doc).
+# GPU add-on stack. Split from 01-foundation to avoid an AWS<->K8s provider cycle.
+# Provider config resolves the cluster endpoint/CA via data "aws_eks_cluster",
+# so nothing has to be copied from the 01-foundation outputs ever again.
 terraform {
   required_version = ">= 1.6.0"
   required_providers {
@@ -18,31 +20,40 @@ terraform {
   backend "s3" {}
 }
 
+locals {
+  env          = var.env
+  region_short = replace(var.region, "ap-southeast-", "apse") # keep in sync with 01-foundation naming
+  cluster_name = "${var.project}-${var.env}-${local.region_short}"
+}
+
+data "aws_eks_cluster" "core" {
+  name = local.cluster_name
+}
+
 provider "aws" {
   region = var.region
   default_tags { tags = var.tags }
 }
 
-# Điền cluster_name/endpoint/ca sau khi stack 01 apply (remote state hoặc tfvars).
 provider "helm" {
   kubernetes {
-    host                   = var.cluster_endpoint
-    cluster_ca_certificate = base64decode(var.cluster_ca_data)
+    host                   = data.aws_eks_cluster.core.endpoint
+    cluster_ca_certificate = base64decode(data.aws_eks_cluster.core.certificate_authority[0].data)
     exec {
       api_version = "client.authentication.k8s.io/v1beta1"
       command     = "aws"
-      args        = ["eks", "get-token", "--cluster-name", var.cluster_name, "--region", var.region]
+      args        = ["eks", "get-token", "--cluster-name", local.cluster_name, "--region", var.region]
     }
   }
 }
 
 provider "kubectl" {
-  host                   = var.cluster_endpoint
-  cluster_ca_certificate = base64decode(var.cluster_ca_data)
+  host                   = data.aws_eks_cluster.core.endpoint
+  cluster_ca_certificate = base64decode(data.aws_eks_cluster.core.certificate_authority[0].data)
   load_config_file       = false
   exec {
     api_version = "client.authentication.k8s.io/v1beta1"
     command     = "aws"
-    args        = ["eks", "get-token", "--cluster-name", var.cluster_name, "--region", var.region]
+    args        = ["eks", "get-token", "--cluster-name", local.cluster_name, "--region", var.region]
   }
 }

@@ -1,3 +1,9 @@
+# Application stack. Producers from 01-foundation are resolved automatically:
+#   - cluster endpoint/CA            via data "aws_eks_cluster" (naming from project-env-region)
+#   - private subnets / VPC          via the subnet tags written by the network module
+#   - node security group            via the karpenter.sh/discovery tag on the SG
+#   - OIDC provider (IRSA)           via the IAM OpenID Connect provider list
+# So nothing has to be copied from the 01-foundation outputs ever again.
 terraform {
   required_version = ">= 1.6.0"
   required_providers {
@@ -13,6 +19,16 @@ terraform {
   backend "s3" {}
 }
 
+locals {
+  env          = var.env
+  region_short = replace(var.region, "ap-southeast-", "apse") # keep in sync with 01-foundation naming
+  cluster_name = "${var.project}-${var.env}-${local.region_short}"
+}
+
+data "aws_eks_cluster" "core" {
+  name = local.cluster_name
+}
+
 provider "aws" {
   region = var.region
   default_tags { tags = var.tags }
@@ -20,12 +36,12 @@ provider "aws" {
 
 provider "helm" {
   kubernetes {
-    host                   = var.cluster_endpoint
-    cluster_ca_certificate = base64decode(var.cluster_ca_data)
+    host                   = data.aws_eks_cluster.core.endpoint
+    cluster_ca_certificate = base64decode(data.aws_eks_cluster.core.certificate_authority[0].data)
     exec {
       api_version = "client.authentication.k8s.io/v1beta1"
       command     = "aws"
-      args        = ["eks", "get-token", "--cluster-name", var.cluster_name, "--region", var.region]
+      args        = ["eks", "get-token", "--cluster-name", local.cluster_name, "--region", var.region]
     }
   }
 }

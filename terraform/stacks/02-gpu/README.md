@@ -1,2 +1,3 @@
-# 02-gpu: device plugin time-slicing (replicas 3 @ L4) + DCGM exporter.
-# Chỉ apply khi quota GPU region đó đã về. Xem terraform.tfvars.example.
+# 02-gpu: NVIDIA device plugin with time-slicing (3 replicas @ L4) + dcgm-exporter.
+# Apply only after that region's GPU quota is granted. Cluster endpoint/CA resolve
+# automatically from data "aws_eks_cluster" - no IDs copied from stack 01 outputs.
