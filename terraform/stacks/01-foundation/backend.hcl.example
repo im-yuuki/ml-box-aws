@@ -1,8 +1,10 @@
-# Backend state RIÊNG MỖI REGION — 1 cluster mỗi region, apply 1 region/lần.
-# Dùng: terraform init -backend-config=backend.hcl
-# Đổi key khi chuyển region ( KHÔNG dùng chung key giữa các region ).
-bucket         = "REPLACEME-tfstate" # S3 bucket đã tạo trước, bật versioning + mã hóa
+# Per-region backend state - one cluster per region, apply one region at a time.
+# Usage: terraform init -backend-config=backend.hcl
+# Never share a state key across regions. NOTE: 00-bootstrap now GENERATES the real
+# backend.hcl into this stack (bucket name derived from the account ID) - this file
+# is only a manual fallback if you'd rather craft it by hand.
+bucket         = "REPLACEME-tfstate" # the S3 bucket created by 00-bootstrap (versioning + encryption enabled)
 key            = "dev/ap-southeast-2/01-foundation.tfstate"
 region         = "ap-southeast-2"
-dynamodb_table = "REPLACEME-tflock" # hoặc locking hiện hành của provider đang dùng
+dynamodb_table = "REPLACEME-tflock" # the DynamoDB lock table created by 00-bootstrap
 encrypt        = true

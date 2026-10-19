@@ -1,12 +1,18 @@
-# Stack 00-bootstrap: tạo S3 state bucket + DynamoDB lock table.
-# Chạy 1 lần mỗi account (bucket/table dùng chung mọi region/env).
-# State local — file terraform.tfstate KHÔNG commit git.
+# Stack 00-bootstrap: creates the S3 state bucket + DynamoDB lock table.
+# Run once per account (bucket/table shared across every region/env).
+# Local state — the terraform.tfstate file is NOT committed to git.
 terraform {
   required_version = ">= 1.6.0"
   required_providers {
     aws = {
       source  = "hashicorp/aws"
       version = "~> 5.0"
+    }
+    # Writes backend.hcl for stacks 01/02/03 so the state bucket name
+    # (with its account-ID suffix) never has to be typed by hand.
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2.1"
     }
   }
 }

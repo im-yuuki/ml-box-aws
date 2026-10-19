@@ -46,10 +46,10 @@ docs/
 ## Quy trình deploy (1 region/lần)
 
 ```powershell
-$env:AWS_PROFILE = "cloud-prj-admin"
+$env:AWS_PROFILE = "<YOUR_AWS_CLI_PROFILE>"
 
 cd terraform\stacks\00-bootstrap
-terraform init; terraform apply   # 1 lần/account
+terraform init; terraform apply   # 1 lần/account; tự sinh backend.hcl cho 01/02/03
 
 cd ..\01-foundation
 terraform init -reconfigure -backend-config=backend.hcl

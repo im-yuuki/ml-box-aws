@@ -1,4 +1,5 @@
-# Backend state RIÊNG MỖI REGION. Đổi key khi chuyển region.
+# Per-region backend state. NOTE: 00-bootstrap generates the real backend.hcl
+# into this stack automatically - this file is only a manual fallback.
 bucket         = "REPLACEME-tfstate"
 key            = "dev/ap-southeast-2/03-hub.tfstate"
 region         = "ap-southeast-2"
