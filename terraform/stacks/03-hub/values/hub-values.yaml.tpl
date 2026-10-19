@@ -31,17 +31,26 @@ hub:
       enable_auth_state: true
   extraConfig:
     10-spawn-hook: |
-      # Gắn annotation VRAM + label chi phí + do-not-disrupt cho mỗi pod user.
-      # Claim plan/org đầy đủ làm ở bước sau (pre-token hook Cognito); lab dùng plan=shared.
+      # Attach VRAM annotations + cost labels + do-not-disrupt to each user pod.
+      # Full plan/org claims come in a later step (Cognito pre-token hook); lab uses plan=shared.
+      import re as _re
+
+      def _label_safe_username(name):
+          # K8s label values: only [A-Za-z0-9._-], must start and end alphanumeric.
+          safe = _re.sub(r"[^A-Za-z0-9._-]+", "-", name).strip("._-")
+          safe = _re.sub(r"[^A-Za-z0-9._-]+$", "", safe)
+          return safe[:63] or "anonymous"
+
       async def augment_pod(spawner, pod):
-          user_id = spawner.user.name
-          pod.metadata.annotations["karpenter.sh/do-not-disrupt"] = "true"
-          pod.metadata.annotations["vram.example.com/commit-mib"] = "${vram_commit_mib}"
-          pod.metadata.annotations["vram.example.com/ceiling-mib"] = "${vram_ceiling_mib}"
-          pod.metadata.labels["plan"] = "shared"
-          pod.metadata.labels["user"] = user_id
+          # Called as KubeSpawner.modify_pod_hook with (spawner, pod).
+          # Profiles already set plan/do-not-disrupt via extra_labels/extra_annotations.
+          pod.metadata.labels["user"] = _label_safe_username(spawner.user.name)
+          limits = pod.spec.containers[0].resources.limits or {}
+          if "nvidia.com/gpu.shared" in limits: # VRAM balloon only applies to shared GPU pods
+              pod.metadata.annotations["vram.example.com/commit-mib"] = "${vram_commit_mib}"
+              pod.metadata.annotations["vram.example.com/ceiling-mib"] = "${vram_ceiling_mib}"
           return pod
-      c.KubeSpawner.pre_spawn_hook = augment_pod
+      c.KubeSpawner.modify_pod_hook = augment_pod
 
 proxy:
   service:
