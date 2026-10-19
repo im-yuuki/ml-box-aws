@@ -1,0 +1,530 @@
+/* ============================================================================
+ * ML Box — HeroUI Light theme for JupyterLab 4 / Notebook 7
+ *
+ * Maps the HeroUI v3 design language onto the `--jp-*` public API of
+ * JupyterLab.
+ *
+ * Self-contained by design: this file declares its OWN copy of the HeroUI
+ * primitives and light semantic tokens (values duplicated verbatim from the
+ * single source of truth, web/theme/tokens/heroui-tokens.css) so that no
+ * other CSS file or data-theme attribute is needed for the light palette to
+ * resolve. This duplication is intentional (Lab theme stylesheets must be
+ * runnable on their own) — update BOTH places when the token file changes,
+ * and see the README for the full duplication note.
+ *
+ * Rules:
+ *  - Every color here is EITHER a var() from the token block below, OR
+ *    derived from tokens via rgba()/color-mix() mixing of token colors with
+ *    each other or with transparency. There are NO new oklch()/hex colors in
+ *    this file. (Exception: --jp-scrollbar-thumb-color in style/index.css is
+ *    a neutral RGB triplet constant — JupyterLab's scrollbar code requires a
+ *    triplet, which the oklch token file cannot express.)
+ *  - Scope: body[data-jp-theme-name='HeroUI Light'] — exact attribute set by
+ *    @jupyterlab/apputils on every theme switch, so this palette applies only
+ *    while the HeroUI Light theme is active.
+ *  - Mode-independent geometry/fonts/scrollbars/motion live in the shared
+ *    style/index.css.
+ * ==========================================================================*/
+
+body[data-jp-theme-name='HeroUI Light'] {
+  /* -----------------------------------------------------------------------
+   * HeroUI primitives + light semantic tokens
+   * (duplicated verbatim from web/theme/tokens/heroui-tokens.css, blocks
+   * "1. Primitives" (colors only) and "2a. Semantic — LIGHT"; only tokens
+   * referenced by this theme's mappings are kept)
+   * ---------------------------------------------------------------------*/
+  --white: oklch(100% 0 0);
+  --snow: oklch(0.9911 0 0);
+  --eclipse: oklch(0.2103 0.0059 285.89);
+
+  --accent: oklch(0.6204 0.195 253.83);
+  --accent-foreground: var(--snow);
+  --success: oklch(0.7329 0.1935 150.81);
+  --warning: oklch(0.8203 0.1388 76.34);
+  --danger: oklch(0.594 0.1967 24.63);
+
+  --background: var(--white);
+  --foreground: var(--eclipse);
+
+  --surface: var(--snow);
+  --surface-secondary: oklch(0.9672 0.0034 286.32);
+  --surface-tertiary: oklch(0.9261 0.0055 286.32);
+
+  --muted: oklch(0.552 0.0157 285.938);
+  --default: oklch(0.9259 0.0058 286.011);
+
+  --field-background: var(--white);
+  --field-border: oklch(0.9132 0.0053 286.13);
+
+  --segment: oklch(0.9672 0.0034 286.32);
+
+  --border: oklch(0.9132 0.0053 286.13);
+  --separator: oklch(0.9375 0.0044 286.2);
+
+  --focus: var(--accent);
+  --link: var(--accent);
+  --backdrop: rgba(0, 0, 0, 0.5);
+
+  --surface-shadow:
+    0 1px 2px 0 rgba(24, 24, 27, 0.06), 0 1px 3px 0 rgba(24, 24, 27, 0.08);
+  --overlay-shadow: 0 4px 24px 0 rgba(24, 24, 27, 0.14);
+  --field-shadow: 0 0 0 0 transparent inset;
+
+  /* -----------------------------------------------------------------------
+   * Shadows & elevation (tokens: --surface-shadow, --overlay-shadow)
+   * ---------------------------------------------------------------------*/
+  --jp-shadow-base-lightness: 0;
+  --jp-shadow-umbra-color: color-mix(
+    in srgb,
+    var(--foreground) 20%,
+    transparent
+  );
+  --jp-shadow-penumbra-color: color-mix(
+    in srgb,
+    var(--foreground) 14%,
+    transparent
+  );
+  --jp-shadow-ambient-color: color-mix(
+    in srgb,
+    var(--foreground) 12%,
+    transparent
+  );
+  --jp-elevation-z0: none;
+  --jp-elevation-z1: var(--surface-shadow);
+  --jp-elevation-z2: var(--surface-shadow);
+  --jp-elevation-z4: var(--overlay-shadow);
+  --jp-elevation-z6: var(--overlay-shadow);
+  --jp-elevation-z8: var(--overlay-shadow);
+  --jp-elevation-z12: var(--overlay-shadow);
+  --jp-elevation-z16: var(--overlay-shadow);
+  --jp-elevation-z20: var(--overlay-shadow);
+  --jp-elevation-z24: var(--overlay-shadow);
+
+  /* -----------------------------------------------------------------------
+   * Layout (tokens: --background, --surface, --surface-secondary,
+   * --surface-tertiary). Light goes light → dark.
+   * ---------------------------------------------------------------------*/
+  --jp-layout-color0: var(--background);
+  --jp-layout-color1: var(--surface);
+  --jp-layout-color2: var(--surface-secondary);
+  --jp-layout-color3: var(--surface-tertiary);
+  --jp-layout-color4: color-mix(in srgb, var(--foreground) 30%, var(--surface));
+
+  /* Inverse layout: dark pills/labels on light UI. Dark → light. */
+  --jp-inverse-layout-color0: var(--foreground);
+  --jp-inverse-layout-color1: color-mix(
+    in srgb,
+    var(--foreground) 88%,
+    var(--background)
+  );
+  --jp-inverse-layout-color2: color-mix(
+    in srgb,
+    var(--foreground) 70%,
+    var(--background)
+  );
+  --jp-inverse-layout-color3: color-mix(
+    in srgb,
+    var(--foreground) 45%,
+    var(--background)
+  );
+  --jp-inverse-layout-color4: color-mix(
+    in srgb,
+    var(--foreground) 30%,
+    var(--background)
+  );
+
+  /* -----------------------------------------------------------------------
+   * UI font colors (alpha mix mirrors the stock JupyterLab contrast steps)
+   * ---------------------------------------------------------------------*/
+  --jp-ui-font-color0: var(--foreground);
+  --jp-ui-font-color1: color-mix(in srgb, var(--foreground) 87%, transparent);
+  --jp-ui-font-color2: color-mix(in srgb, var(--foreground) 54%, transparent);
+  --jp-ui-font-color3: color-mix(in srgb, var(--foreground) 38%, transparent);
+
+  /* Inverse UI font colors: text on accent/dark surfaces */
+  --jp-ui-inverse-font-color0: var(--accent-foreground);
+  --jp-ui-inverse-font-color1: var(--accent-foreground);
+  --jp-ui-inverse-font-color2: color-mix(
+    in srgb,
+    var(--accent-foreground) 70%,
+    transparent
+  );
+  --jp-ui-inverse-font-color3: color-mix(
+    in srgb,
+    var(--accent-foreground) 50%,
+    transparent
+  );
+
+  /* -----------------------------------------------------------------------
+   * Content font colors + links
+   * ---------------------------------------------------------------------*/
+  --jp-content-font-color0: var(--foreground);
+  --jp-content-font-color1: color-mix(
+    in srgb,
+    var(--foreground) 87%,
+    transparent
+  );
+  --jp-content-font-color2: color-mix(
+    in srgb,
+    var(--foreground) 54%,
+    transparent
+  );
+  --jp-content-font-color3: color-mix(
+    in srgb,
+    var(--foreground) 38%,
+    transparent
+  );
+  --jp-content-link-color: var(--link);
+  --jp-content-link-hover-color: color-mix(
+    in srgb,
+    var(--accent) 80%,
+    var(--foreground)
+  );
+  --jp-content-link-visited-color: color-mix(
+    in srgb,
+    var(--accent) 60%,
+    var(--muted)
+  );
+
+  /* -----------------------------------------------------------------------
+   * Borders (tokens: --border-width, --radius, --border, --separator)
+   * border-color0/1 = strongest, 2 = lighter separator, 3 = hairline.
+   * ---------------------------------------------------------------------*/
+  --jp-border-color0: var(--field-border);
+  --jp-border-color1: var(--border);
+  --jp-border-color2: var(--separator);
+  --jp-border-color3: color-mix(in srgb, var(--separator) 40%, var(--background));
+  --jp-inverse-border-color: color-mix(
+    in srgb,
+    var(--foreground) 40%,
+    transparent
+  );
+
+  /* -----------------------------------------------------------------------
+   * Brand (accent family) + accent + state colors.
+   * Status colors: 0 = deep variant, 1 = token, 2 = light tint,
+   * 3 = palest tint. Mixing is always token-color + token-color/white/black.
+   * ---------------------------------------------------------------------*/
+  --jp-brand-color0: color-mix(in srgb, var(--accent) 70%, var(--eclipse));
+  --jp-brand-color1: var(--accent);
+  --jp-brand-color2: color-mix(in srgb, var(--accent) 65%, var(--white));
+  --jp-brand-color3: color-mix(in srgb, var(--accent) 30%, var(--white));
+  --jp-brand-color4: color-mix(in srgb, var(--accent) 15%, var(--white));
+
+  --jp-accent-color: var(--accent);
+  --jp-accent-foreground: var(--accent-foreground);
+  --jp-accent-color0: color-mix(in srgb, var(--accent) 70%, var(--eclipse));
+  --jp-accent-color1: var(--accent);
+  --jp-accent-color2: color-mix(in srgb, var(--accent) 65%, var(--white));
+  --jp-accent-color3: color-mix(in srgb, var(--accent) 30%, var(--white));
+
+  --jp-warn-color0: color-mix(in srgb, var(--warning) 60%, var(--eclipse));
+  --jp-warn-color1: var(--warning);
+  --jp-warn-color2: color-mix(in srgb, var(--warning) 65%, var(--white));
+  --jp-warn-color3: color-mix(in srgb, var(--warning) 30%, var(--white));
+
+  --jp-error-color0: color-mix(in srgb, var(--danger) 75%, var(--eclipse));
+  --jp-error-color1: var(--danger);
+  --jp-error-color2: color-mix(in srgb, var(--danger) 60%, var(--white));
+  --jp-error-color3: color-mix(in srgb, var(--danger) 25%, var(--white));
+
+  --jp-success-color0: color-mix(in srgb, var(--success) 70%, var(--eclipse));
+  --jp-success-color1: var(--success);
+  --jp-success-color2: color-mix(in srgb, var(--success) 55%, var(--white));
+  --jp-success-color3: color-mix(in srgb, var(--success) 25%, var(--white));
+
+  /* NOTE: the tokens file has no `--info` token. Info is mapped onto the
+   * accent family (HeroUI "info" is blue = accent) as a documented fallback. */
+  --jp-info-color0: var(--jp-accent-color0);
+  --jp-info-color1: var(--jp-accent-color1);
+  --jp-info-color2: var(--jp-accent-color2);
+  --jp-info-color3: var(--jp-accent-color3);
+
+  /* Buttons: accept = primary accent, reject = neutral secondary,
+   * warn = destructive */
+  --jp-accept-color-normal: var(--accent);
+  --jp-accept-color-hover: color-mix(in srgb, var(--accent) 85%, var(--eclipse));
+  --jp-accept-color-active: color-mix(in srgb, var(--accent) 70%, var(--eclipse));
+  --jp-reject-color-normal: var(--surface-secondary);
+  --jp-reject-color-hover: var(--surface-tertiary);
+  --jp-reject-color-active: color-mix(
+    in srgb,
+    var(--surface-tertiary) 85%,
+    var(--foreground)
+  );
+  --jp-warn-color-normal: var(--danger);
+  --jp-warn-color-hover: color-mix(in srgb, var(--danger) 85%, var(--eclipse));
+  --jp-warn-color-active: color-mix(in srgb, var(--danger) 70%, var(--eclipse));
+
+  --jp-shortcuts-button-background: var(--jp-brand-color3);
+  --jp-shortcuts-button-hover-background: var(--jp-brand-color2);
+
+  /* -----------------------------------------------------------------------
+   * Cells & notebook (task: active cell gets the accent left border)
+   * ---------------------------------------------------------------------*/
+  --jp-cell-editor-background: var(--field-background);
+  --jp-cell-editor-border-color: var(--field-border);
+  --jp-cell-editor-box-shadow: inset
+    0
+    0
+    2px
+    color-mix(in srgb, var(--accent) 60%, transparent);
+  --jp-cell-editor-active-background: color-mix(
+    in srgb,
+    var(--accent) 3%,
+    var(--field-background)
+  );
+  --jp-cell-editor-active-border-color: var(--accent);
+  --jp-cell-prompt-opacity: 1;
+  --jp-cell-prompt-not-active-opacity: 0.5;
+  --jp-cell-prompt-not-active-font-color: var(--muted);
+  --jp-cell-inprompt-font-color: color-mix(
+    in srgb,
+    var(--accent) 80%,
+    var(--muted)
+  );
+  --jp-cell-outprompt-font-color: color-mix(
+    in srgb,
+    var(--warning) 60%,
+    var(--muted)
+  );
+
+  --jp-notebook-select-background: var(--surface);
+  --jp-notebook-multiselected-color: color-mix(
+    in srgb,
+    var(--accent) 20%,
+    transparent
+  );
+
+  /* -----------------------------------------------------------------------
+   * Rendermime
+   * ---------------------------------------------------------------------*/
+  --jp-rendermime-error-background: color-mix(
+    in srgb,
+    var(--danger) 12%,
+    transparent
+  );
+  --jp-rendermime-table-row-background: var(--surface);
+  --jp-rendermime-table-row-hover-background: color-mix(
+    in srgb,
+    var(--accent) 8%,
+    transparent
+  );
+
+  /* -----------------------------------------------------------------------
+   * Dialog
+   * ---------------------------------------------------------------------*/
+  --jp-dialog-background: var(--backdrop);
+
+  /* -----------------------------------------------------------------------
+   * Toolbar
+   * ---------------------------------------------------------------------*/
+  --jp-toolbar-background: var(--surface);
+  --jp-toolbar-border-color: var(--separator);
+  --jp-toolbar-box-shadow: var(--surface-shadow);
+  --jp-toolbar-active-background: var(--default);
+
+  /* -----------------------------------------------------------------------
+   * Input fields (tokens: --field-background/-border/-shadow, --focus)
+   * ---------------------------------------------------------------------*/
+  --jp-input-background: var(--field-background);
+  --jp-input-hover-background: var(--surface-secondary);
+  --jp-input-active-background: var(--surface);
+  --jp-input-border-color: var(--field-border);
+  --jp-input-active-border-color: var(--focus);
+  --jp-input-box-shadow: var(--field-shadow);
+  --jp-input-active-box-shadow-color: color-mix(
+    in srgb,
+    var(--accent) 30%,
+    transparent
+  );
+
+  /* -----------------------------------------------------------------------
+   * Code editor (CodeMirror surface)
+   * ---------------------------------------------------------------------*/
+  --jp-editor-selected-background: color-mix(
+    in srgb,
+    var(--accent) 10%,
+    transparent
+  );
+  --jp-editor-selected-focused-background: color-mix(
+    in srgb,
+    var(--accent) 20%,
+    transparent
+  );
+  --jp-editor-cursor-color: var(--focus);
+
+  /* Syntax highlighting — token-derived tints only */
+  --jp-mirror-editor-keyword-color: color-mix(
+    in srgb,
+    var(--accent) 80%,
+    var(--eclipse)
+  );
+  --jp-mirror-editor-atom-color: color-mix(
+    in srgb,
+    var(--success) 75%,
+    var(--eclipse)
+  );
+  --jp-mirror-editor-number-color: color-mix(
+    in srgb,
+    var(--warning) 65%,
+    var(--eclipse)
+  );
+  --jp-mirror-editor-def-color: var(--accent);
+  --jp-mirror-editor-variable-color: var(--foreground);
+  --jp-mirror-editor-variable-2-color: color-mix(
+    in srgb,
+    var(--accent) 75%,
+    var(--muted)
+  );
+  --jp-mirror-editor-variable-3-color: color-mix(
+    in srgb,
+    var(--success) 80%,
+    var(--eclipse)
+  );
+  --jp-mirror-editor-punctuation-color: color-mix(
+    in srgb,
+    var(--accent) 70%,
+    var(--muted)
+  );
+  --jp-mirror-editor-property-color: color-mix(
+    in srgb,
+    var(--accent) 70%,
+    var(--muted)
+  );
+  --jp-mirror-editor-operator-color: var(--foreground);
+  --jp-mirror-editor-comment-color: var(--muted);
+  --jp-mirror-editor-string-color: color-mix(
+    in srgb,
+    var(--success) 65%,
+    var(--eclipse)
+  );
+  --jp-mirror-editor-string-2-color: color-mix(
+    in srgb,
+    var(--warning) 55%,
+    var(--eclipse)
+  );
+  --jp-mirror-editor-meta-color: color-mix(
+    in srgb,
+    var(--accent) 60%,
+    var(--muted)
+  );
+  --jp-mirror-editor-qualifier-color: var(--muted);
+  --jp-mirror-editor-builtin-color: color-mix(
+    in srgb,
+    var(--success) 80%,
+    var(--eclipse)
+  );
+  --jp-mirror-editor-bracket-color: var(--muted);
+  --jp-mirror-editor-tag-color: color-mix(
+    in srgb,
+    var(--success) 70%,
+    var(--eclipse)
+  );
+  --jp-mirror-editor-attribute-color: var(--accent);
+  --jp-mirror-editor-header-color: var(--accent);
+  --jp-mirror-editor-quote-color: color-mix(
+    in srgb,
+    var(--success) 80%,
+    var(--eclipse)
+  );
+  --jp-mirror-editor-link-color: var(--link);
+  --jp-mirror-editor-error-color: var(--danger);
+  --jp-mirror-editor-hr-color: var(--muted);
+
+  /* RTC collaborator colors — token-derived tints */
+  --jp-collaborator-color1: color-mix(in srgb, var(--accent) 65%, var(--muted));
+  --jp-collaborator-color2: color-mix(
+    in srgb,
+    var(--warning) 60%,
+    var(--muted)
+  );
+  --jp-collaborator-color3: color-mix(in srgb, var(--success) 65%, var(--muted));
+  --jp-collaborator-color4: var(--success);
+  --jp-collaborator-color5: var(--accent);
+  --jp-collaborator-color6: color-mix(in srgb, var(--accent) 45%, var(--muted));
+  --jp-collaborator-color7: color-mix(in srgb, var(--danger) 45%, var(--muted));
+
+  /* -----------------------------------------------------------------------
+   * Vega / search / icons / switch
+   * ---------------------------------------------------------------------*/
+  --jp-vega-background: var(--surface);
+
+  --jp-search-selected-match-background-color: color-mix(
+    in srgb,
+    var(--warning) 70%,
+    var(--white)
+  );
+  --jp-search-selected-match-color: var(--eclipse);
+  --jp-search-unselected-match-background-color: var(--jp-inverse-layout-color0);
+  --jp-search-unselected-match-color: var(--jp-ui-inverse-font-color0);
+
+  --jp-icon-contrast-color0: var(--accent);
+  --jp-icon-contrast-color1: var(--success);
+  --jp-icon-contrast-color2: var(--danger);
+  --jp-icon-contrast-color3: color-mix(
+    in srgb,
+    var(--accent) 70%,
+    var(--eclipse)
+  );
+
+  --jp-jupyter-icon-color: var(--accent);
+  --jp-notebook-icon-color: var(--accent);
+  --jp-json-icon-color: var(--warning);
+  --jp-console-icon-background-color: var(--accent);
+  --jp-console-icon-color: var(--accent-foreground);
+  --jp-terminal-icon-background-color: var(--eclipse);
+  --jp-terminal-icon-color: var(--snow);
+  --jp-text-editor-icon-color: var(--muted);
+  --jp-inspector-icon-color: var(--muted);
+  --jp-switch-color: var(--segment);
+  --jp-switch-true-position-color: var(--success);
+}
+
+/* Completer type chips (emoji-ish badges next to completions).
+ * Token-derived tints; 0 stays transparent like stock. */
+body[data-jp-theme-name='HeroUI Light'] .jp-Completer {
+  --jp-completer-type-background0: transparent;
+  --jp-completer-type-background1: color-mix(
+    in srgb,
+    var(--accent) 70%,
+    var(--eclipse)
+  );
+  --jp-completer-type-background2: color-mix(
+    in srgb,
+    var(--warning) 60%,
+    var(--eclipse)
+  );
+  --jp-completer-type-background3: color-mix(
+    in srgb,
+    var(--success) 55%,
+    var(--eclipse)
+  );
+  --jp-completer-type-background4: color-mix(
+    in srgb,
+    var(--danger) 55%,
+    var(--eclipse)
+  );
+  --jp-completer-type-background5: color-mix(
+    in srgb,
+    var(--accent) 50%,
+    var(--muted)
+  );
+  --jp-completer-type-background6: color-mix(
+    in srgb,
+    var(--warning) 45%,
+    var(--muted)
+  );
+  --jp-completer-type-background7: color-mix(
+    in srgb,
+    var(--danger) 40%,
+    var(--white)
+  );
+  --jp-completer-type-background8: var(--muted);
+  --jp-completer-type-background9: color-mix(
+    in srgb,
+    var(--success) 70%,
+    var(--muted)
+  );
+  --jp-completer-type-background10: var(--jp-accent-color2);
+}

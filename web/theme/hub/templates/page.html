@@ -1,0 +1,134 @@
+{# ML Box — page.html theme override
+   Extends the UPSTREAM page.html ("templates/page.html" resolves to the stock
+   template through JupyterHub's PrefixLoader — extending the bare
+   "page.html" here would recurse into this very file), and only injects
+   brand chrome: the HeroUI stylesheet + vendored Motion script in <head>,
+   the ML Box logo and tagline. All other blocks stay upstream so Z2JH
+   upgrades stay safe. Child pages (login/home/spawn_pending) extend bare
+   "page.html", which resolves to this themed version. #}
+{% extends "templates/page.html" %}
+
+{% block title %}ML Box{% endblock title %}
+
+{# heroui.css is served from the extra static dir at /hub/static/heroui/ #}
+{% block stylesheet %}
+  {{ super() }}
+  <link rel="stylesheet"
+        href="{{ base_url }}hub/static/heroui/heroui.css"
+        type="text/css" />
+{% endblock stylesheet %}
+
+{% block favicon %}
+  <link rel="icon"
+        href="{{ base_url }}hub/static/heroui/logo.svg"
+        type="image/svg+xml" />
+{% endblock favicon %}
+
+{# Theme seeding: mirror the upstream darkmode.js decision into [data-theme]
+   so the token file's dark palette applies. jupyterhub-bs-theme
+   (localStorage, set by the navbar toggle) wins; falls back to
+   prefers-color-scheme. A MutationObserver on data-bs-theme keeps us in sync
+   with the toggle without touching darkmode.js. Runs in <head> before first
+   paint, so there is no light-to-dark flash. #}
+{% block meta %}
+  {{ super() }}
+  <script type="text/javascript">
+    (function () {
+      'use strict';
+      var root = document.documentElement;
+      function apply() {
+        var stored = null;
+        try { stored = localStorage.getItem('jupyterhub-bs-theme'); } catch (e) {}
+        var dark = stored === 'dark'
+          ? true
+          : stored === 'light'
+            ? false
+            : !!(window.matchMedia &&
+                 window.matchMedia('(prefers-color-scheme: dark)').matches);
+        root.setAttribute('data-theme', dark ? 'dark' : 'light');
+      }
+      try { apply(); } catch (e) {}
+      try {
+        new MutationObserver(apply).observe(root, {
+          attributes: true,
+          attributeFilter: ['data-bs-theme'],
+        });
+      } catch (e) {}
+    })();
+  </script>
+{% endblock meta %}
+
+{# Motion (framer-motion vanilla, UMD) exposes window.Motion; loaded in the
+   head before the inline snippet in {% block script %} runs. #}
+{% block scripts %}
+  {{ super() }}
+  <script src="{{ base_url }}hub/static/heroui/motion.js"
+          type="text/javascript"></script>
+{% endblock scripts %}
+
+{% block logo %}
+  <span id="jupyterhub-logo" class="navbar-brand">
+    <a href="{{ logo_url or base_url }}">
+      <img src="{{ base_url }}hub/static/heroui/logo.svg"
+           alt="ML Box"
+           class="mlb-logo"
+           title="ML Box — GPU notebooks for teams" />
+    </a>
+  </span>
+{% endblock logo %}
+
+{% block footer %}
+  <div class="container text-center mlb-muted mb-4 mt-5">
+    <small>ML Box — GPU notebooks for teams</small>
+  </div>
+{% endblock footer %}
+
+{# Entrance animation snippet. Runs only when window.Motion is available and
+   the user allows motion; otherwise the pure-CSS keyframes in heroui.css
+   (gated by prefers-reduced-motion) handle the fade-up, and under
+   "reduce" nothing moves and the elements are simply visible. #}
+{% block script %}
+  {{ super() }}
+  <script type="text/javascript">
+    (function () {
+      'use strict';
+      var els = document.querySelectorAll('[data-animate="fade-up"]');
+      if (!els.length) return;
+      var reduced =
+        window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduced) return; // CSS layer also disables animations under "reduce"
+      try {
+        if (
+          !window.Motion ||
+          typeof window.Motion.animate !== 'function'
+        ) {
+          return; // fall back to the pure-CSS entrance animation
+        }
+        // Take over from the CSS keyframes so the two never double-run
+        document.documentElement.classList.add('mlb-motion-on');
+        var EASE = [0.16, 1, 0.3, 1]; // expo-out, matches token --ease-out
+        var DURATION = 0.4; // 400ms, matches token --duration-slow
+        // Stagger in document order (same order the CSS fallback uses via
+        // the inline --anim-i indices)
+        els.forEach(function (el, i) {
+          Motion.animate(
+            el,
+            {
+              opacity: [0, 1],
+              transform: ['translateY(12px)', 'translateY(0px)'],
+            },
+            { duration: DURATION, delay: i * 0.06, ease: EASE },
+          );
+        });
+      } catch (err) {
+        // Progressive enhancement: page must work (and stay visible) without
+        // JS. The CSS keyframes remain in charge if Motion failed at any point.
+        document.documentElement.classList.remove('mlb-motion-on');
+        if (window.console && console.warn) {
+          console.warn('[ml-box] Motion entrance animation skipped:', err);
+        }
+      }
+    })();
+  </script>
+{% endblock script %}

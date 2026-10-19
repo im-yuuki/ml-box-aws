@@ -1,0 +1,42 @@
+{
+  "name": "@mlbox/jlab-heroui-theme",
+  "version": "0.1.0",
+  "description": "ML Box — HeroUI design language theme for JupyterLab 4 / Notebook 7 (light + dark, CSS only)",
+  "homepage": "https://github.com/mlbox/ml-box-aws/tree/main/web/theme/lab/jlab-heroui-theme",
+  "license": "MIT",
+  "author": "ML Box Team",
+  "keywords": [
+    "jupyter",
+    "jupyterlab",
+    "jupyterlab-extension",
+    "notebook",
+    "theme"
+  ],
+  "sideEffects": true,
+  "main": "style/index.js",
+  "files": [
+    "style/**/*",
+    "labextension/**/*",
+    "!labextension/node_modules"
+  ],
+  "scripts": {
+    "build": "npm run clean && npm run build:labextension",
+    "build:labextension": "node scripts/build.js",
+    "watch": "node scripts/build.js --watch",
+    "clean": "node -e \"require('fs').rmSync('labextension', { recursive: true, force: true })\""
+  },
+  "dependencies": {
+    "@jupyterlab/apputils": "^4.4.2"
+  },
+  "devDependencies": {
+    "@jupyterlab/builder": "~4.4.2"
+  },
+  "overrides": {
+    "webpack": "5.98.0"
+  },
+  "jupyterlab": {
+    "extension": true,
+    "outputDir": "labextension",
+    "themePath": "style/theme.css"
+  }
+}

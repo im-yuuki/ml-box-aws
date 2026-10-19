@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="ML Box">
+  <!-- ML Box mark, light variant (for dark surfaces): white rounded square,
+       ML monogram in the HeroUI accent. -->
+  <!-- accent token oklch(0.6204 0.195 253.83) ≈ #0485f7 in sRGB -->
+  <rect x="2" y="2" width="60" height="60" rx="12" ry="12" fill="#ffffff"/>
+  <path d="M15 43V21h5.4l3.8 11.6L28 21h5.4v22h-4.6V29.8l-3 10h-4.6l-3-10V43Z"
+        fill="#0485f7"/>
+  <path d="M38 43V21h4.8v17.4H52V43Z" fill="#0485f7" opacity="0.94"/>
+</svg>

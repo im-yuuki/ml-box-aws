@@ -1,0 +1,25 @@
+/* ============================================================================
+ * ML Box — HeroUI theme, build entry stylesheet for @jupyterlab/builder.
+ *
+ * package.json → "jupyterlab": { "themePath": "style/theme.css" }
+ * The builder extracts this file (with its @imports inlined by css-loader)
+ * to labextension/themes/@mlbox/jlab-heroui-theme/index.css, which the
+ * ThemeManager loads as a single <link> when either HeroUI theme is active.
+ * After extraction the CSS is therefore fully self-contained: no runtime
+ * dependency on the repo-level web/theme/tokens/heroui-tokens.css.
+ *
+ * Import order matters:
+ *   1. index.css       — mode-independent --jp-* plumbing (fonts, geometry,
+ *                        scrollbars, transitions, reduced-motion)
+ *   2. light/theme.css — light primitives + light semantic tokens + light
+ *                        --jp-* color mappings
+ *   3. dark/theme.css  — dark primitives + dark semantic tokens + dark
+ *                        --jp-* color mappings
+ * Light and dark blocks are each scoped to their own
+ * body[data-jp-theme-name='…'] attribute, which JupyterLab's ThemeManager
+ * sets automatically, so only the active theme's rules ever apply.
+ * ==========================================================================*/
+
+@import './index.css';
+@import './light/theme.css';
+@import './dark/theme.css';
