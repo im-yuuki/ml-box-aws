@@ -1,21 +1,21 @@
-# Z2JH values — template qua templatefile() ở stack 03-hub/main.tf.
-# Đối chiếu tên field với chart Z2JH version đang dùng (mục 12 doc), không suy từ file này.
-# Chốt đã áp: commit/ceiling VRAM, L4 shared replicas 3, userScheduler,
-# do-not-disrupt, Cognito OIDC, RDS ngoài, ALB + ACM.
+# Z2JH values — rendered via templatefile() in stack 03-hub/main.tf.
+# Cross-check field names against the Z2JH chart version in use (handoff doc §12); do not infer from this file.
+# Decisions applied: commit/ceiling VRAM, L4 shared replicas 3, userScheduler,
+# do-not-disrupt, Cognito OIDC, external RDS, ALB + ACM.
 
 hub:
   db:
     type: postgres
-    url: ${hub_db_url} # RDS (Secrets Manager, không hard-code)
+    url: ${hub_db_url} # RDS (Secrets Manager, not hard-coded)
   serviceAccount:
     annotations:
-      eks.amazonaws.com/role-arn: ${hub_role_arn} # AssumeRole workspace S3 theo prefix
+      eks.amazonaws.com/role-arn: ${hub_role_arn} # AssumeRole to the S3 workspace by prefix
   config:
     JupyterHub:
       authenticator_class: generic-oauth
     GenericOAuthenticator:
       login_service: AWS Cognito
-      allow_all: true # lab: mọi user đăng ký mới đều dùng được (prod khóa theo allowlist/group)
+      allow_all: true # lab: every newly registered user gets access (prod locks down via allowlist/groups)
       client_id: ${cognito_client_id}
       client_secret: ${cognito_client_secret}
       oauth_callback_url: https://${hub_host}/hub/oauth_callback
