@@ -25,6 +25,25 @@ Thumbs.db
 **/apply-log.txt
 **/plan-log.txt
 
-# macOS metadata (also under web/theme)
-.DS_Store
+# macOS metadata
 **/.DS_Store
+**/.AppleDouble
+**/.LSOverride
+
+# Resource fork files
+**/Icon
+**/._*
+
+# Volume metadata
+**/.DocumentRevisions-V100
+**/.fseventsd
+**/.Spotlight-V100
+**/.TemporaryItems
+**/.Trashes
+**/.VolumeIcon.icns
+**/.com.apple.timemachine.donotpresent
+
+# AFP share artifacts
+**/.AppleDB
+**/.AppleDesktop
+**/.apdisk
