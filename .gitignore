@@ -15,14 +15,13 @@
 **/*.auto.tfvars
 !**/*.auto.tfvars.example
 
-.DS_Store
 Thumbs.db
 .vscode/
 .idea/
 *.swp
 
 # Local terraform plans/logs
-**/tfplan.bin
+**/tfplan*.bin
 **/apply-log.txt
 **/plan-log.txt
 
