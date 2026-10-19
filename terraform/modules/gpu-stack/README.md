@@ -1,6 +1,6 @@
-# gpu-stack: device plugin time-slicing (shared) + DCGM exporter. Không MIG.
-# Verify trước apply:
-# 1. Label node L4: nvidia.com/device-plugin.config=time-slicing-shared
-#    (key label + cơ chế config theo node đối chiếu chart version đang dùng)
-# 2. Pod test: resources nvidia.com/gpu.shared: 1, chạy nvidia-smi, spawn 3 pod/GPU
-# 3. renameByDefault=true đổi resource thành nvidia.com/gpu.shared — pod không vô tình nhận nguyên GPU
+# gpu-stack: device plugin time-slicing (shared) + DCGM exporter. No MIG.
+# Verify before apply:
+# 1. Label the L4 nodes: nvidia.com/device-plugin.config=time-slicing-shared
+#    (label key + per-node config mechanism matching the chart version in use)
+# 2. Test pod: resources nvidia.com/gpu.shared: 1, run nvidia-smi, spawn 3 pods/GPU
+# 3. renameByDefault=true renames the resource to nvidia.com/gpu.shared — pods must not accidentally get a whole GPU

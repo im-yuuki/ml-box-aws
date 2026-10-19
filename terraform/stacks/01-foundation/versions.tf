@@ -1,10 +1,10 @@
-# Foundation stack (phase 1-2): network + EKS + Karpenter
-# Region: ap-southeast-2 (Sydney) — biến bắt buộc, không default hard-code
-# Quyết định mới:
-# - Không dùng MIG tạm thời (không cài MIG manager)
-# - GPU shared đầu tiên: L4 (g6), commit 8GiB / ceiling 12GiB, replicas=3 @ factor 1.0
-# - Outbound only: IPv4 single NAT GW + IPv6 dual-stack, user pod không inbound
-# - 1 NAT GW (dev, single point of failure — prod nên 1/AZ)
+# Foundation stack (phases 1-2): network + EKS + Karpenter
+# Region: ap-southeast-2 (Sydney) — required variable, no hard-coded default
+# Latest decisions:
+# - No MIG for now (no MIG manager installed)
+# - First GPU shared pool: L4 (g6), commit 8GiB / ceiling 12GiB, replicas=3 @ factor 1.0
+# - Outbound only: IPv4 single NAT GW + IPv6 dual-stack, user pods get no inbound
+# - 1 NAT GW (dev, single point of failure — prod should use 1/AZ)
 
 terraform {
   required_version = ">= 1.6.0"
@@ -22,9 +22,9 @@ terraform {
       version = ">= 1.7.0"
     }
   }
-  # Remote state S3 + lock — điền backend.hcl khi init:
+  # Remote S3 state + lock — fill in backend.hcl at init:
   # terraform init -backend-config=backend.hcl
-  # backend.hcl mẫu: bucket, key=dev/foundation.tfstate, region=ap-southeast-2, dynamodb_table, encrypt=true
+  # Sample backend.hcl: bucket, key=dev/foundation.tfstate, region=ap-southeast-2, dynamodb_table, encrypt=true
   backend "s3" {}
 }
 
@@ -35,7 +35,7 @@ provider "aws" {
   }
 }
 
-# Providers Kubernetes/Helm cấu hình sau khi EKS tạo (tránh cycle provider trong stack 2/3).
+# Kubernetes/Helm providers configured after the EKS cluster exists (avoids provider cycles in stacks 2/3).
 provider "helm" {
   kubernetes {
     host                   = module.eks.cluster_endpoint

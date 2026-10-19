@@ -1,6 +1,6 @@
 locals {
-  # /24 mỗi AZ cho private + public trên /16. Đủ cho prefix delegation (hàng nghìn pod).
-  # Prod 2000 user: cân nhắc thêm secondary CIDR 100.64.0.0/16.
+  # /24 per AZ for private + public on a /16. Enough for prefix delegation (thousands of pods).
+  # Prod with 2000 users: consider adding a secondary CIDR 100.64.0.0/16.
   az_count = length(var.azs)
 
   use_managed_nat = var.nat_mode == "managed_per_az"
@@ -18,13 +18,13 @@ module "vpc" {
   private_subnets = [for i in range(local.az_count) : cidrsubnet(var.vpc_cidr, 8, i)]
   public_subnets  = [for i in range(local.az_count) : cidrsubnet(var.vpc_cidr, 8, i + 100)]
 
-  # NAT GW chỉ khi managed_per_az. "none"/"fck_nat" = false (tiết kiệm 100% phí NAT GW).
+  # NAT GW only with managed_per_az. "none"/"fck_nat" = false (saves 100% of NAT GW cost).
   enable_nat_gateway     = local.use_managed_nat
   single_nat_gateway     = false
   one_nat_gateway_per_az = true
 
-  # IPv6 dual-stack: module tự xin /56 Amazon-provided, tự tạo egress-only IGW
-  # + route ::/0 cho private subnets (free). Subnet cần ipv6_prefixes mới có IPv6.
+  # IPv6 dual-stack: the module requests the /56 Amazon-provided block itself, creates the
+  # egress-only IGW + ::/0 route for private subnets (free). Subnets need ipv6_prefixes to get IPv6.
   enable_ipv6                                    = true
   public_subnet_ipv6_prefixes                    = [for i in range(local.az_count) : i]
   private_subnet_ipv6_prefixes                   = [for i in range(local.az_count) : i + 10]
@@ -34,7 +34,7 @@ module "vpc" {
   enable_dns_hostnames = true
   enable_dns_support   = true
 
-  # Tag cho ELB/ALB discovery + Karpenter discovery
+  # Tags for ELB/ALB discovery + Karpenter discovery
   public_subnet_tags = {
     "kubernetes.io/role/elb"                    = "1"
     "kubernetes.io/cluster/${var.cluster_name}" = "shared"
@@ -51,8 +51,8 @@ module "vpc" {
   tags = var.tags
 }
 
-# VPC endpoints qua submodule (root module v5 không còn boolean enable_*_endpoint).
-# S3 gateway (free) luôn bật; interface (ECR/STS/Logs ~$10/tháng/AZ mỗi cái) chỉ ở prod.
+# VPC endpoints via submodule (the v5 root module no longer has enable_*_endpoint booleans).
+# S3 gateway (free) always on; interface endpoints (ECR/STS/Logs ~$10/month/AZ each) prod-only.
 module "vpc_endpoints" {
   source  = "terraform-aws-modules/vpc/aws//modules/vpc-endpoints"
   version = "~> 5.8"
@@ -109,14 +109,14 @@ module "vpc_endpoints" {
   tags = var.tags
 }
 
-# fck-nat: chỉ tạo khi nat_mode="fck_nat". NAT instance giá rẻ cho IPv4 legacy
-# (PyPI, GitHub, registry chưa IPv6). Đặt ở public subnet AZ đầu, tự cập nhật
-# route 0.0.0.0/0 của mọi private route table.
+# fck-nat: created only when nat_mode="fck_nat". Cheap NAT instance for legacy IPv4
+# (PyPI, GitHub, registries without IPv6 yet). Placed in the first AZ's public subnet, updates
+# the 0.0.0.0/0 route of every private route table itself.
 # Doc: https://fck-nat.dev/stable/deploying (AMI owner 568608671756, fck-nat-al2023-*).
 module "fck_nat" {
   count   = local.use_fck_nat ? 1 : 0
   source  = "RaJiska/fck-nat/aws"
-  version = "1.3.0" # literal bắt buộc (init không nhận biến); 1.3.0 = bản cuối hỗ trợ AWS provider 5.x
+  version = "1.3.0" # literal mandatory (init won't accept a variable); 1.3.0 = last release supporting AWS provider 5.x
 
   name      = "${var.name}-fck-nat"
   vpc_id    = module.vpc.vpc_id

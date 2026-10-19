@@ -1,4 +1,4 @@
-# cpu-user: profile không GPU. Cho phép Spot + On-Demand (GPU session không dùng Spot).
+# cpu-user: non-GPU profile. Allows Spot + On-Demand (GPU sessions don't use Spot).
 apiVersion: karpenter.sh/v1
 kind: NodePool
 metadata:
@@ -6,8 +6,8 @@ metadata:
 spec:
   template:
     metadata:
-      # BẮT BUỘC cho Z2JH matchNodePurpose=require: mọi pool user đều phải có label này,
-      # không thì placeholder + pod user (affinity) không bao giờ schedule được.
+      # MANDATORY for Z2JH matchNodePurpose=require: every user pool must have this label,
+      # otherwise the placeholder + user pods (affinity) can never be scheduled.
       labels:
         hub.jupyter.org/node-purpose: user
     spec:
@@ -21,7 +21,7 @@ spec:
           values: ["m", "c", "r"]
         - key: karpenter.k8s.aws/instance-generation
           operator: Gt
-          values: ["4"] # Nitro only (m5/c5/r5+); loại Xen cũ không hỗ trợ IPv6 opts
+          values: ["4"] # Nitro only (m5/c5/r5+); drops legacy Xen that lacks IPv6 options
         - key: karpenter.sh/capacity-type
           operator: In
           values: ["spot", "on-demand"]

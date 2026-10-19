@@ -103,7 +103,7 @@ ingress:
     kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/certificate-arn: ${cert_arn} # ACM miễn phí
+    alb.ingress.kubernetes.io/certificate-arn: ${cert_arn} # free ACM
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
     alb.ingress.kubernetes.io/ssl-redirect: "443"
   hosts:
@@ -111,7 +111,7 @@ ingress:
   tls:
     - hosts:
         - ${hub_host}
-      # Placeholder: ALB dùng cert ACM ở annotation, bỏ qua secret này.
+      # Placeholder: the ALB uses the ACM cert from the annotation and ignores this secret.
       secretName: hub-tls-placeholder
 
 singleuser:
@@ -123,13 +123,13 @@ singleuser:
     limit: 8G
     guarantee: 1G
   storage:
-    type: none # workspace ephemeral + sync S3 sidecar (mục 7), không PVC
+    type: none # workspace ephemeral + sync via S3 sidecar (§7), no PVC
   extraEnv:
     TF_FORCE_GPU_ALLOW_GROWTH: "true"
     XLA_PYTHON_CLIENT_PREALLOCATE: "false"
   profileList:
-    - display_name: "CPU nhỏ"
-      description: "Không GPU, học Python cơ bản."
+    - display_name: "CPU only"
+      description: "No GPU, basic Python learning."
       default: true
       kubespawner_override:
         image: ${cpu_image}
@@ -139,8 +139,8 @@ singleuser:
         mem_guarantee: 1G
         node_selector:
           karpenter.sh/nodepool: cpu-user
-    - display_name: "GPU shared L4 (commit/ceiling theo cấu hình)"
-      description: "Chia GPU L4 bằng time-slicing, best-effort, kill khi vượt ceiling."
+    - display_name: "GPU shared L4 (commit/ceiling per config)"
+      description: "L4 GPU split by time-slicing, best-effort, killed when exceeding the ceiling."
       kubespawner_override:
         image: ${gpu_image}
         cpu_limit: 4
@@ -166,8 +166,8 @@ singleuser:
         extra_env:
           VRAM_COMMIT_MIB: "${vram_commit_mib}"
           VRAM_CEILING_MIB: "${vram_ceiling_mib}"
-    - display_name: "GPU dedicated (1 GPU riêng)"
-      description: "Nguyên GPU nhỏ, không chia sẻ. Cần quyền plan=dedicated."
+    - display_name: "GPU dedicated (1 full GPU)"
+      description: "Small unshared GPU, no sharing. Requires plan=dedicated."
       kubespawner_override:
         image: ${gpu_image}
         extra_resource_limits:
@@ -186,19 +186,19 @@ singleuser:
 
 scheduling:
   userScheduler:
-    enabled: true # dồn user vào ít node (mục 5)
+    enabled: true # pack users onto fewer nodes (§5)
   podPriority:
     enabled: true
   userPlaceholder:
     enabled: true
-    replicas: 2 # giảm chờ scale-up; tăng khi đo p95 spawn
+    replicas: 2 # reduce scale-up wait; increase once p95 spawn is measured
   userPods:
     nodeAffinity:
       matchNodePurpose: require
 
 cull:
   enabled: true
-  timeout: 1800 # 30p cho shared (mục 6: 30-60p tinh chỉnh sau)
+  timeout: 1800 # 30min for shared (§6: 30-60min, tune later)
   every: 300
   concurrency: 10
   users: false

@@ -1,5 +1,5 @@
-# EventBridge -> SQS: Karpenter nhận tín hiệu gián đoạn để dọn node (chủ yếu cho pool cpu-user Spot).
-# Bộ 4 rule chuẩn theo doc interruption handling của Karpenter.
+# EventBridge -> SQS: Karpenter receives disruption signals to clean up nodes (mainly for cpu-user pool Spot).
+# The 4 standard rules per the Karpenter interruption handling docs.
 
 locals {
   interruption_events = {

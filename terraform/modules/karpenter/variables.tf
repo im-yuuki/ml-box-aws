@@ -1,6 +1,6 @@
 variable "cluster_name" { type = string }
 variable "oidc_provider" {
-  description = "OIDC issuer URL (không https://), dùng cho IRSA condition."
+  description = "OIDC issuer URL (without https://), used in the IRSA condition."
   type        = string
 }
 variable "oidc_provider_arn" { type = string }

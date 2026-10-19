@@ -1,5 +1,5 @@
-# Cognito User Pool + app client OIDC cho oauthenticator (claim email; plan/org
-# bổ sung sau qua pre-token hook hoặc group mapping — lab dùng email trước).
+# Cognito User Pool + OIDC app client for oauthenticator (claims email; plan/org
+# added later via pre-token hook or group mapping — lab uses email first).
 
 data "aws_region" "current" {}
 
@@ -8,7 +8,7 @@ resource "aws_cognito_user_pool" "hub" {
   auto_verified_attributes = ["email"]
   username_attributes      = ["email"]
 
-  # Lab: ai cũng tự đăng ký được (tạm thời). Prod chuyển true + duyệt tay.
+  # Lab: anyone can self-register (temporary). Prod switches to true + manual approval.
   admin_create_user_config {
     allow_admin_create_user_only = false
   }

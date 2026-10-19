@@ -1,6 +1,6 @@
-# Áp cho node L4 shared qua label nvidia.com/device-plugin.config=time-slicing-shared.
-# replicas=3 @ commit 8GB (L4 24GB, factor 1.0). Tăng dần theo số liệu đo (mục 10 doc).
-# KHÔNG áp cho pool dedicated (node dedicated không gắn label này -> dùng nguyên GPU).
+# Applies to shared L4 nodes via the label nvidia.com/device-plugin.config=time-slicing-shared.
+# replicas=3 @ 8GB commit (L4 24GB, factor 1.0). Increase gradually based on measurements (handoff doc §10).
+# Do NOT apply to the dedicated pool (dedicated nodes don't carry this label -> whole GPU).
 apiVersion: v1
 kind: ConfigMap
 metadata:

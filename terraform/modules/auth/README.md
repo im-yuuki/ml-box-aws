@@ -1,1 +1,1 @@
-# auth: Cognito pool + client OIDC. Claim plan/org theo design (mục 6) làm ở bước sau.
+# auth: Cognito pool + OIDC client. Claiming plan/org per the design (§6) comes in a later step.

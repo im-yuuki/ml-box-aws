@@ -1,6 +1,6 @@
 locals {
-  # Naming + CIDR/AZ đều suy từ region: 1 cluster mỗi region, apply 1 region/lần.
-  # Dùng mã ngắn (apse2) để IAM name_prefix (giới hạn 38 ký tự) không vỡ.
+  # Naming + CIDR/AZ both derive from the region: 1 cluster per region, apply 1 region at a time.
+  # Short code (apse2) keeps the IAM name_prefix (38-char limit) from breaking.
   full_name = "${var.cluster_name}-${var.env}-${var.region_short[var.region]}"
   vpc_cidr  = var.vpc_cidr != "" ? var.vpc_cidr : var.region_cidrs[var.region]
   azs       = length(var.azs) > 0 ? var.azs : var.region_azs[var.region]
@@ -49,8 +49,8 @@ module "karpenter" {
   depends_on = [module.eks]
 }
 
-# Node role của Karpenter PHẢI có access entry loại EC2_LINUX, không thì kubelet
-# bị 403 và node không bao giờ join (MNG thì module EKS tự lo, role custom thì không).
+# The Karpenter node role MUST have an access entry of type EC2_LINUX, otherwise kubelet
+# gets a 403 and the node never joins (for MNG the EKS module handles it; custom roles are not).
 resource "aws_eks_access_entry" "karpenter_node" {
   cluster_name  = module.eks.cluster_name
   principal_arn = module.karpenter.node_role_arn

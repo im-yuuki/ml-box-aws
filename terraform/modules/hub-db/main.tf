@@ -1,4 +1,4 @@
-# RDS Postgres cho hub (thay SQLite của Z2JH). Master password do RDS quản lý trong Secrets Manager.
+# RDS Postgres for the hub (replaces Z2JH's SQLite). Master password managed by RDS in Secrets Manager.
 
 resource "aws_db_subnet_group" "hub" {
   name       = "${var.cluster_name}-hub"
@@ -39,13 +39,13 @@ resource "aws_db_instance" "hub" {
   db_subnet_group_name   = aws_db_subnet_group.hub.name
   vpc_security_group_ids = [aws_security_group.hub_db.id]
   publicly_accessible    = false
-  multi_az               = false # lab Single-AZ; prod true
+  multi_az               = false # lab Single-AZ; true in prod
 
   backup_retention_period    = var.backup_retention_days
-  backup_window              = "17:00-18:00" # UTC ~ rạng sáng Sydney, ít user
+  backup_window              = "17:00-18:00" # UTC ~ early morning Sydney, few users
   copy_tags_to_snapshot      = true
   delete_automated_backups   = true
-  skip_final_snapshot        = true # lab; prod đặt false + final_snapshot_identifier
+  skip_final_snapshot        = true # lab; in prod set false + final_snapshot_identifier
   deletion_protection        = var.deletion_protection
   auto_minor_version_upgrade = true
 

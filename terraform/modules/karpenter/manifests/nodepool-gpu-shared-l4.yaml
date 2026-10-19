@@ -1,7 +1,7 @@
-# NodePool shared L4: g6 single-GPU, time-slicing replicas=3 @ commit 8GB.
-# Taint tier=shared để pod dedicated không lọt vào. Consolidation không gỡ node có phiên:
-# pod user phải có annotation karpenter.sh/do-not-disrupt=true (hub hook, mục 5).
-# expireAfter: đặt dài/tắt cho pool GPU user — verify theo Karpenter release.
+# NodePool shared L4: g6 single-GPU, time-slicing replicas=3 @ 8GB commit.
+# Taint tier=shared so dedicated pods don't leak in. Consolidation won't remove nodes with sessions:
+# user pods must carry the annotation karpenter.sh/do-not-disrupt=true (hub hook, handoff doc §5).
+# expireAfter: set long/turned off for the GPU user pool — verify against the Karpenter release.
 apiVersion: karpenter.sh/v1
 kind: NodePool
 metadata:
@@ -12,7 +12,7 @@ spec:
       labels:
         tier: shared
         gpu-family: L4
-        hub.jupyter.org/node-purpose: user # bắt buộc cho Z2JH matchNodePurpose=require
+        hub.jupyter.org/node-purpose: user # mandatory for Z2JH matchNodePurpose=require
     spec:
       nodeClassRef:
         group: karpenter.k8s.aws

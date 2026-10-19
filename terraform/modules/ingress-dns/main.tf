@@ -1,5 +1,5 @@
-# ALB (qua AWS LB Controller) + ACM miễn phí (DNS validate) + Route53.
-# ALB thật do Ingress của hub tạo ở stack 03; module này lo controller + cert + zone.
+# ALB (via AWS LB Controller) + free ACM (DNS validation) + Route53.
+# The actual ALB is created by the hub's Ingress in stack 03; this module handles the controller + cert + zone.
 
 locals {
   host         = "hub.${var.domain}"
@@ -44,7 +44,7 @@ resource "aws_acm_certificate_validation" "hub" {
   validation_record_fqdns = [for r in aws_route53_record.validation : r.fqdn]
 }
 
-# IAM policy chuẩn của controller, lấy đúng tag chart đang dùng.
+# Controller's standard IAM policy, taken exactly from the chart version in use.
 data "http" "lb_controller_policy" {
   url = "https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v${var.lb_controller_chart_version}/docs/install/iam_policy.json"
 }
@@ -104,7 +104,7 @@ resource "helm_release" "lb_controller" {
 data "aws_region" "current" {}
 data "aws_elb_hosted_zone_id" "current" {}
 
-# Record hub -> ALB. ALB do Ingress tạo nên apply lần 1 để trống, lần 2 điền DNS.
+# Hub record -> ALB. The ALB is created by the Ingress, so apply once empty, then fill in the DNS and apply again.
 resource "aws_route53_record" "hub" {
   count   = var.alb_dns_name != "" ? 1 : 0
   zone_id = local.zone_id

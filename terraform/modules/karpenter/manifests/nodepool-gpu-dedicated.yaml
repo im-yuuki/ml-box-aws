@@ -1,5 +1,5 @@
-# gpu-dedicated: 1 user / node / GPU. Không chia sẻ, không time-slicing, không MIG.
-# Giữ capacity (không scale về 0 nếu cần đảm bảo) — limits là chốt chặn chi phí.
+# gpu-dedicated: 1 user / node / GPU. No sharing, no time-slicing, no MIG.
+# Keep capacity (don't scale to 0 if guarantee is needed) — limits are the cost cap.
 apiVersion: karpenter.sh/v1
 kind: NodePool
 metadata:
@@ -9,7 +9,7 @@ spec:
     metadata:
       labels:
         tier: dedicated
-        hub.jupyter.org/node-purpose: user # bắt buộc cho Z2JH matchNodePurpose=require
+        hub.jupyter.org/node-purpose: user # mandatory for Z2JH matchNodePurpose=require
     spec:
       nodeClassRef:
         group: karpenter.k8s.aws

@@ -1,5 +1,5 @@
-# Khai báo provider cho kubectl_manifest/helm_release/aws_iam_* trong module này,
-# để Terraform không suy nhầm thành hashicorp/kubectl.
+# Declare providers for kubectl_manifest/helm_release/aws_iam_* in this module,
+# so Terraform does NOT infer hashicorp/kubectl as the default.
 terraform {
   required_providers {
     aws = {

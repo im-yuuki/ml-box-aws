@@ -1,6 +1,6 @@
-# IAM role + instance profile cho node do Karpenter launch.
-# Tên role PHẢI khớp `role:` trong EC2NodeClass manifests (<cluster>-karpenter-node).
-# Controller cần iam:PassRole role này (hiện phủ bởi EC2FullAccess tạm — TODO thu hẹp).
+# IAM role + instance profile for nodes launched by Karpenter.
+# The role name MUST match the `role:` in the EC2NodeClass manifests (<cluster>-karpenter-node).
+# The controller needs iam:PassRole on this role (currently covered by temporary EC2FullAccess — TODO narrow it).
 
 data "aws_partition" "node" {}
 
