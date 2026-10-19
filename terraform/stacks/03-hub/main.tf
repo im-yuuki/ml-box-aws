@@ -100,14 +100,24 @@ module "ingress_dns" {
   tags              = var.tags
 }
 
-# Master password do RDS quản lý trong Secrets Manager (không hard-code).
+# ---------------------------------------------------------------------------
+# JupyterHub helm release
+# ---------------------------------------------------------------------------
+
+# Master password is managed by RDS inside Secrets Manager (never hard-coded).
 data "aws_secretsmanager_secret_version" "db" {
   secret_id = module.hub_db.master_secret_arn
 }
 
 locals {
   db_password = jsondecode(data.aws_secretsmanager_secret_version.db.secret_string)["password"]
-  db_url      = "postgresql://${module.hub_db.username}:${local.db_password}@${module.hub_db.address}:${module.hub_db.port}/${module.hub_db.db_name}"
+  # The managed password may contain URL-structural characters (@, :, /, ...).
+  # Percent-encode before embedding it in the connection string, otherwise
+  # JupyterHub's urlparse fails with "Invalid IPv6 URL".
+  db_password_encoded = replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(
+    local.db_password,
+    "%", "%25"), "@", "%40"), ":", "%3A"), "/", "%2F"), "?", "%3F"), "#", "%23"), "&", "%26"), "=", "%3D"), "[", "%5B"), "]", "%5D")
+  db_url = "postgresql://${module.hub_db.username}:${local.db_password_encoded}@${module.hub_db.address}:${module.hub_db.port}/${module.hub_db.db_name}"
 }
 
 resource "helm_release" "jupyterhub" {
