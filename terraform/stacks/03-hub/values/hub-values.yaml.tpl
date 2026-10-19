@@ -52,9 +52,50 @@ hub:
           return pod
       c.KubeSpawner.modify_pod_hook = augment_pod
 
+    # --- ML Box theme (Branding) — see deploy/hub-values-theme.patch.md ---
+    # Templates override chỉ thay block; ChoiceLoader custom dir đứng trước,
+    # JupyterHub tự nối default dir vào cuối nên {% extends "page.html" %}
+    # vẫn resolve đúng template gốc.
+    theming: |
+      c.JupyterHub.template_paths = ["/etc/jupyterhub/custom/templates"]
+
+      # Logo out-of-the-box: LogoHandler serve file tại {base_url}logo (/hub/logo).
+      c.JupyterHub.logo_file = "/usr/local/share/jupyterhub/static/heroui/logo.svg"
+
+      # template_vars: chỉ 'announcement' có hiệu lực built-in trong JH5;
+      # 'hub_title'/'hub_subtitle'/'page_logo' là biến cho template override
+      # của web/theme/hub/templates (chúng tự đọc trong Jinja).
+      c.JupyterHub.template_vars = {
+          "hub_title": "ML Box",
+          "hub_subtitle": "GPU notebooks for teams",
+          "page_logo": "hub/static/heroui/logo.svg",
+          "announcement": "",
+      }
+
+  # --- ML Box theme mounts (ConfigMap tạo out-of-band, xem deploy/hub-values-theme.patch.md §3) ---
+  extraVolumes:
+    - name: hub-theme-templates
+      configMap:
+        name: hub-theme-templates
+        optional: true # deploy values trước khi ConfigMap tồn tại vẫn chạy
+    - name: hub-theme-static
+      configMap:
+        name: hub-theme-static
+        optional: true
+
+  extraVolumeMounts:
+    - name: hub-theme-templates
+      mountPath: /etc/jupyterhub/custom/templates
+      readOnly: true
+    # Static PHẢI nằm dưới data_files_path/static để tornado serve tại
+    # /hub/static/heroui/... (KHÔNG có JupyterHub.extra_static_paths trên Hub).
+    - name: hub-theme-static
+      mountPath: /usr/local/share/jupyterhub/static/heroui
+      readOnly: true
+
 proxy:
   service:
-    type: ClusterIP # ALB đi qua Ingress, không dùng LoadBalancer service
+    type: ClusterIP # ALB comes in via the Ingress; no LoadBalancer service
 
 ingress:
   enabled: true
