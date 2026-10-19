@@ -1,0 +1,20 @@
+{
+  "name": "ml-box-hub-theme",
+  "private": true,
+  "version": "0.1.0",
+  "description": "ML Box HeroUI theme build for JupyterHub hub pages (Z2JH 4.4.2 / JupyterHub 5, Bootstrap 5.3)",
+  "type": "module",
+  "scripts": {
+    "build:css": "tailwindcss -i ./input.css -o ../static/heroui.css --minify",
+    "build:motion": "node ./scripts/copy-motion.mjs",
+    "build": "npm run build:css && npm run build:motion",
+    "watch": "tailwindcss -i ./input.css -o ../static/heroui.css --watch"
+  },
+  "dependencies": {
+    "motion": "^12.23.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.0",
+    "tailwindcss": "^4.1.0"
+  }
+}

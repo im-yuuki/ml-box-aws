@@ -1,0 +1,456 @@
+/* ============================================================================
+ * ML Box â€” hub pages theme (build entry for @tailwindcss/cli)
+ *
+ * Output: ../static/heroui.css â€” fully self-contained (semantic tokens are
+ * inlined at build time from ../../tokens/heroui-tokens.css; no network
+ * @import/url() in the output).
+ *
+ * We deliberately do NOT import Tailwind's preflight/base: JupyterHub hub
+ * pages already ship Bootstrap 5.3 inside their own style.min.css and that
+ * stylesheet loads first. Preflight loaded afterwards would stomp Bootstrap
+ * base element styles. We only take the theme variables + utilities.
+ * ==========================================================================*/
+
+/* 1. Single source of truth â€” inlined verbatim into the output */
+@import "../../tokens/heroui-tokens.css";
+
+/* 2. Tailwind v4 core: theme vars + utilities only (no preflight).
+   Layered imports keep all of Tailwind's output below our own unlayered
+   rules in the cascade. */
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/* Scan the Jinja overrides so every utility used in templates is emitted */
+@source "../templates/**/*.html";
+
+/* The tokens file switches themes via [data-theme="dark"] plus a
+   prefers-color-scheme fallback; mirror that for Tailwind's dark: variant. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ---------------------------------------------------------------------------
+ * 3. @theme inline â€” map the semantic tokens onto Tailwind theme namespaces.
+ * `inline` means utilities reference var(--surface) etc. directly, so they
+ * follow the token file's light/dark switching at runtime.
+ * ------------------------------------------------------------------------- */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-foreground: var(--surface-foreground);
+  --color-surface-secondary: var(--surface-secondary);
+  --color-surface-tertiary: var(--surface-tertiary);
+  --color-overlay: var(--overlay);
+  --color-overlay-foreground: var(--overlay-foreground);
+  --color-muted: var(--muted);
+  --color-default: var(--default);
+  --color-default-foreground: var(--default-foreground);
+  --color-field: var(--field-background);
+  --color-field-foreground: var(--field-foreground);
+  --color-field-placeholder: var(--field-placeholder);
+  --color-field-border: var(--field-border);
+  --color-border: var(--border);
+  --color-separator: var(--separator);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-link: var(--link);
+  --color-focus: var(--focus);
+
+  --radius-btn: var(--radius);
+  --radius-field: var(--field-radius);
+  /* NOTE: tokens file has no dedicated --card-radius; we derive from the
+     existing shape tokens (see hub/README.md "missing tokens"). */
+  --radius-card: calc(var(--radius) * 1.5);
+}
+
+/* Runtime aliases â€” @theme inline does NOT emit custom properties itself,
+   but the hand-written component classes below reference these names. */
+:root {
+  --radius-btn: var(--radius);
+  --radius-field: var(--field-radius);
+  --radius-card: calc(var(--radius) * 1.5);
+  --font-hub:
+    "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --font-hub-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
+    monospace;
+}
+
+/* ---------------------------------------------------------------------------
+ * 4. Base â€” light-touch page chrome that sits on top of Bootstrap.
+ *    Deliberately UNLAYERED: hub pages already load Bootstrap (unlayered)
+ *    before this stylesheet, and anything in a @layer loses to unlayered
+ *    rules of equal specificity. Keeping these rules unlayered (and loaded
+ *    later) lets them win the cascade.
+ * ------------------------------------------------------------------------- */
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-hub, ui-sans-serif, system-ui, sans-serif);
+}
+
+/* Hub chrome: gentle HeroUI surfaces instead of raw Bootstrap grays
+   (body > nav raises specificity above Bootstrap's .navbar.bg-body-tertiary) */
+body > nav.navbar {
+  /* bg-body-tertiary is a Bootstrap utility marked !important — match it */
+  background-color: var(--surface) !important;
+  border-bottom: var(--border-width) solid var(--separator);
+}
+
+.modal-content {
+  background-color: var(--overlay);
+  color: var(--overlay-foreground);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--overlay-shadow);
+}
+
+.alert-warning {
+  background-color: color-mix(in srgb, var(--warning) 14%, transparent);
+  border-color: color-mix(in srgb, var(--warning) 35%, transparent);
+  color: var(--warning-foreground);
+  border-radius: var(--radius);
+}
+
+a {
+  color: var(--link);
+}
+
+/* ---------------------------------------------------------------------------
+ * 5. Components â€” minimal HeroUI-style primitives, all prefixed mlb-
+ *    UNLAYERED for the same cascade reason as above (they must beat the
+ *    Bootstrap classes that co-exist on the same elements, e.g. .form-control).
+ * ------------------------------------------------------------------------- */
+/* --- Card ------------------------------------------------------------- */
+.mlb-card {
+  display: block;
+  background-color: var(--surface);
+  color: var(--surface-foreground);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--surface-shadow);
+  padding: 1.5rem;
+}
+
+  .mlb-card-floating {
+  box-shadow: var(--overlay-shadow);
+}
+
+.mlb-card-header {
+  border-bottom: var(--border-width) solid var(--separator);
+  margin: -1.5rem -1.5rem 1.25rem;
+  padding: 1.25rem 1.5rem;
+}
+
+.mlb-muted {
+  color: var(--muted);
+}
+
+/* --- Button ----------------------------------------------------------- */
+.mlb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-btn);
+  padding: 0.5rem 1rem;
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.5;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background-color var(--duration-fast) var(--ease-in-out),
+    border-color var(--duration-fast) var(--ease-in-out),
+    color var(--duration-fast) var(--ease-in-out),
+    transform var(--duration-fast) var(--ease-out),
+    opacity var(--duration-fast) var(--ease-in-out);
+}
+
+.mlb-btn:hover {
+  text-decoration: none;
+}
+
+.mlb-btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.mlb-btn:active {
+  transform: scale(0.97);
+}
+
+.mlb-btn:disabled {
+  opacity: var(--disabled-opacity);
+  cursor: not-allowed;
+  transform: none;
+}
+
+.mlb-btn-primary {
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+  box-shadow: var(--surface-shadow);
+}
+
+.mlb-btn-primary:hover {
+  background-color: color-mix(in srgb, var(--accent) 90%, var(--black));
+}
+
+.mlb-btn-danger {
+  background-color: var(--danger);
+  color: var(--danger-foreground);
+  box-shadow: var(--surface-shadow);
+}
+
+.mlb-btn-danger:hover {
+  background-color: color-mix(in srgb, var(--danger) 90%, var(--black));
+}
+
+.mlb-btn-default {
+  background-color: var(--default);
+  color: var(--default-foreground);
+}
+
+.mlb-btn-default:hover {
+  background-color: var(--surface-tertiary);
+}
+
+.mlb-btn-outline {
+  background-color: transparent;
+  color: var(--foreground);
+  border-color: var(--border);
+}
+
+.mlb-btn-outline:hover {
+  background-color: var(--surface-secondary);
+}
+
+.mlb-btn-lg {
+  padding: 0.625rem 1.5rem;
+  font-size: 1rem;
+  border-radius: var(--radius-field);
+}
+
+.mlb-btn-sm {
+  padding: 0.25rem 0.625rem;
+  font-size: 0.8125rem;
+}
+
+/* --- Floating-label form field ---------------------------------------- */
+.mlb-field {
+  position: relative;
+  margin-bottom: 1rem;
+}
+
+.mlb-input {
+  display: block;
+  width: 100%;
+  min-height: 3.25rem;
+  padding: 1.25rem 0.875rem 0.5rem;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  color: var(--field-foreground);
+  background-color: var(--field-background);
+  border: var(--border-width) solid var(--field-border);
+  border-radius: var(--field-radius);
+  box-shadow: var(--field-shadow);
+  transition:
+    border-color var(--duration-fast) var(--ease-in-out),
+    box-shadow var(--duration-fast) var(--ease-in-out);
+}
+
+/* The dark tokens make --field-border transparent; give fields a visible
+   surface edge there without inventing a new color. */
+.mlb-input:not(:focus) {
+  border-color: color-mix(in srgb, var(--field-border) 100%, transparent);
+  box-shadow: inset 0 0 0 var(--border-width) var(--border);
+}
+
+.mlb-input:focus {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow:
+    inset 0 0 0 var(--border-width) var(--focus),
+    0 0 0 3px color-mix(in srgb, var(--focus) 22%, transparent);
+}
+
+.mlb-input::placeholder {
+  color: transparent;
+}
+
+.mlb-label {
+  position: absolute;
+  top: 50%;
+  left: 0.875rem;
+  transform: translateY(-50%);
+  color: var(--field-placeholder);
+  font-size: 0.9375rem;
+  pointer-events: none;
+  transition:
+    top var(--duration-fast) var(--ease-in-out),
+    font-size var(--duration-fast) var(--ease-in-out),
+    color var(--duration-fast) var(--ease-in-out);
+}
+
+/* Float the label while the field has focus or a value.
+   (placeholder=" " makes :placeholder-shown usable for the empty check) */
+.mlb-input:focus ~ .mlb-label,
+.mlb-input:not(:placeholder-shown) ~ .mlb-label {
+  top: 0.6875rem;
+  transform: translateY(0);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--focus);
+}
+
+/* --- Spinner (accent ring) -------------------------------------------- */
+.mlb-spinner {
+  display: inline-block;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 3px solid var(--surface-tertiary);
+  border-top-color: var(--accent);
+  border-radius: 9999px;
+}
+
+/* --- Progress + shimmer ------------------------------------------------ */
+.mlb-progress {
+  position: relative;
+  width: 100%;
+  height: 0.5rem;
+  background-color: var(--surface-secondary);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.mlb-progress-bar {
+  height: 100%;
+  width: 0%;
+  background-color: var(--accent);
+  border-radius: inherit;
+  transition: width var(--duration-normal) var(--ease-in-out);
+}
+
+/* Upstream spawn script adds .bg-danger to #progress-bar on failure; our
+   background (loaded after Bootstrap's stylesheet) would otherwise win the
+   cascade and keep the bar accent-colored. */
+.mlb-progress-bar.bg-danger {
+  background-color: var(--danger);
+}
+
+.mlb-progress-message {
+  min-height: 1.25rem;
+}
+
+/* --- Event log details -------------------------------------------------- */
+.mlb-progress-details summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.mlb-progress-details summary:hover {
+  color: var(--foreground);
+}
+
+.mlb-progress-log {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background-color: var(--surface-secondary);
+  border: var(--border-width) solid var(--separator);
+  border-radius: var(--radius);
+  font-family: var(--font-hub-mono, ui-monospace, monospace);
+  font-size: 0.8125rem;
+  text-align: left;
+}
+
+.mlb-progress-log-event {
+  padding: 0.25rem 0;
+  border-bottom: var(--border-width) solid var(--separator);
+  word-break: break-word;
+}
+
+.mlb-progress-log-event:last-child {
+  border-bottom: none;
+}
+
+/* --- Logo --------------------------------------------------------------- */
+.mlb-logo {
+  display: block;
+  height: 2rem;
+  width: auto;
+}
+
+.mlb-logo-mark-only {
+  height: 2rem;
+  width: 2rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * 6. Motion â€” pure CSS entrance animations, gated behind
+ *    prefers-reduced-motion: no-preference. Motion JS (motion.js) takes over
+ *    the same elements when available; .mlb-motion-on on <html> disables the
+ *    CSS keyframes so the two never fight.
+ * ------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: no-preference) {
+  [data-animate="fade-up"] {
+    animation-name: mlb-fade-up;
+    animation-duration: var(--duration-slow);
+    animation-timing-function: var(--ease-out);
+    animation-fill-mode: backwards;
+    /* stagger via an inline --anim-i index on each element */
+    animation-delay: calc(var(--anim-i, 0) * 60ms);
+  }
+
+  .mlb-motion-on [data-animate="fade-up"] {
+    animation: none;
+  }
+
+  .mlb-spinner {
+    animation: mlb-spin 0.8s linear infinite;
+  }
+
+  /* Indeterminate shimmer sweeps even before the spawner reports 0%+ */
+  .mlb-progress::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    width: 40%;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--accent) 35%, transparent),
+      transparent
+    );
+    animation: mlb-shimmer 1.6s var(--ease-in-out) infinite;
+  }
+}
+
+@keyframes mlb-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes mlb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes mlb-shimmer {
+  to {
+    transform: translateX(350%);
+  }
+}

@@ -1,0 +1,54 @@
+# ML Box — HeroUI theme for JupyterLab 4 / Notebook 7 (prebuilt extension)
+#
+# Prebuilt ("federated") labextension packaged as a pip wheel:
+#   - build-system requires jupyterlab>=4 (it provides agnostic deps detection;
+#     the wheel itself is pure data, no Python code ships)
+#   - the `labextension/` static dir (output of `npm run build`, i.e.
+#     `jupyter labextension build .`) is installed as Jupyter data under
+#     share/jupyter/labextensions/jlab-heroui-theme, where JupyterLab /
+#     Notebook 7 discover it automatically
+#
+# Build:  npm install && npm run build        (needs jupyterlab>=4 on PATH)
+#         python -m build --wheel
+# With a bare jupyterlab install, `jupyter labextension build .` is the
+# equivalent of `npm run build`.
+
+[build-system]
+requires = ["hatchling>=1.21.1", "jupyterlab>=4"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jlab-heroui-theme"
+version = "0.1.0"
+description = "ML Box — HeroUI design language theme for JupyterLab 4 / Notebook 7 (prebuilt, light + dark)"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+authors = [{ name = "ML Box Team" }]
+keywords = ["jupyter", "jupyterlab", "jupyterlab-extension", "notebook", "theme"]
+classifiers = [
+  "Framework :: Jupyter",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering",
+]
+# Pure CSS theme: no Python runtime dependencies; requires JupyterLab 4
+# (or Notebook 7) present in the environment as the host.
+dependencies = []
+
+# The labextension bundle lives at the project root ("labextension/"); ship it
+# as Jupyter data so it lands in <site-packages or env>/share/jupyter/labextensions.
+[tool.hatch.build.targets.wheel]
+packages = ["jlab_heroui_theme"]
+
+[tool.hatch.build.targets.wheel.shared-data]
+"labextension" = "share/jupyter/labextensions/@mlbox/jlab-heroui-theme"
+
+# Keep a copy inside the python data module as well, so
+# jlab_heroui_theme._jupyter_labextension_paths() ({"src": "labextension"})
+# stays truthful for `jupyter labextension build` source flows.
+[tool.hatch.build.targets.wheel.force-include]
+"labextension" = "jlab_heroui_theme/labextension"
+
+[tool.hatch.build.targets.sdist]
+exclude = ["node_modules", "dist"]

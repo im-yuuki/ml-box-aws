@@ -1,0 +1,151 @@
+{# ML Box — login.html theme override
+   Extends the theme page.html (which extends the stock page.html).
+   Only the login card is restyled with HeroUI card/button/field classes.
+   The insecure-HTTP warning and the submit feedback wiring from upstream
+   login.html are kept verbatim in the script block. #}
+{% extends "page.html" %}
+{% if announcement_login is string %}
+  {% set announcement = announcement_login %}
+{% endif %}
+
+{% block login_widget %}
+{% endblock login_widget %}
+
+{% block main %}
+  {% block login %}
+    <div id="login-main" class="container">
+      {% block login_container %}
+        <div class="row justify-content-center">
+          <div class="col-12 col-sm-10 col-md-8 col-lg-6 col-xl-5">
+            {% if custom_html %}
+              {{ custom_html | safe }}
+            {% elif login_service %}
+              <div class="service-login mlb-card mlb-card-floating text-center"
+                   data-animate="fade-up"
+                   style="--anim-i: 0">
+                <p id="insecure-login-warning" class="hidden alert alert-warning">
+                  Warning: JupyterHub seems to be served over an unsecured HTTP connection.
+                  We strongly recommend enabling HTTPS for JupyterHub.
+                </p>
+                <a role="button"
+                   class="mlb-btn mlb-btn-primary mlb-btn-lg"
+                   href="{{ authenticator_login_url }}">Sign in with {{ login_service }}</a>
+              </div>
+            {% else %}
+              <form action="{{ authenticator_login_url }}"
+                    method="post"
+                    role="form"
+                    class="mlb-card mlb-card-floating mx-auto"
+                    data-animate="fade-up"
+                    style="--anim-i: 0">
+                <div class="mb-4 text-center">
+                  <img src="{{ base_url }}hub/static/heroui/logo.svg"
+                       alt=""
+                       class="mlb-logo-mark-only mx-auto mb-2" />
+                  <h1 class="h4 mb-0">Sign in to ML Box</h1>
+                  <p class="mlb-muted small mb-0 mt-1">GPU notebooks for teams</p>
+                </div>
+                <p id="insecure-login-warning" class="hidden alert alert-warning">
+                  Warning: JupyterHub seems to be served over an unsecured HTTP connection.
+                  We strongly recommend enabling HTTPS for JupyterHub.
+                </p>
+                {% if login_error %}<p class="login_error alert alert-warning">{{ login_error }}</p>{% endif %}
+                <input type="hidden" name="_xsrf" value="{{ xsrf }}" />
+                {# NOTE (Jinja chain): a custom login.html never has the upstream
+                   login.html in its inheritance chain, so the field-attribute
+                   blocks below INLINE the upstream attrs verbatim (copied from
+                   jupyterhub 5.x share/jupyterhub/templates/login.html) while
+                   keeping the block names overridable. #}
+                {% block username_input %}
+                  <div class="mlb-field">
+                    <input id="username_input" placeholder=" "
+                           {% block username_input_attrs %}
+                           type="text"
+                           autocapitalize="off"
+                           autocorrect="off"
+                           autocomplete="username"
+                           class="form-control mlb-input"
+                           name="username"
+                           value="{{ username }}"
+                           autofocus="autofocus"
+                           {% endblock username_input_attrs %} />
+                    <label for="username_input" class="mlb-label">Username</label>
+                  </div>
+                {% endblock username_input %}
+                {% block password_input %}
+                  <div class="mlb-field">
+                    <input id="password_input" placeholder=" "
+                           {% block password_input_attrs %}
+                           type="password"
+                           class="form-control mlb-input"
+                           autocomplete="current-password"
+                           name="password"
+                           {% endblock password_input_attrs %} />
+                    <label for="password_input" class="mlb-label">Password</label>
+                  </div>
+                {% endblock password_input %}
+                {% if authenticator.request_otp %}
+                  {% block otp_input %}
+                    <div class="mlb-field">
+                      <input id="otp_input" placeholder=" "
+                             {% block otp_input_attrs %}
+                             class="form-control mlb-input"
+                             autocomplete="one-time-password"
+                             name="otp"
+                             {% endblock otp_input_attrs %} />
+                      <label for="otp_input" class="mlb-label">One-time password</label>
+                    </div>
+                  {% endblock otp_input %}
+                {% endif %}
+                <div class="feedback-container mt-2">
+                  <input id="login_submit"
+                         type="submit"
+                         class="mlb-btn mlb-btn-primary mlb-btn-lg w-100"
+                         value="Sign in"
+                         tabindex="3" />
+                  <div class="feedback-widget hidden mt-2">
+                    <i class="fa fa-spinner"></i>
+                  </div>
+                </div>
+                {% block login_terms %}
+                  {% if login_term_url %}
+                    <div id="login_terms" class="login_terms small mlb-muted mt-3">
+                      <input type="checkbox"
+                             id="login_terms_checkbox"
+                             name="login_terms_checkbox"
+                             required />
+                      {% block login_terms_text %}
+                        {# allow overriding the text #}
+                        By logging into the platform you accept the <a href="{{ login_term_url }}">terms and conditions</a>.
+                      {% endblock login_terms_text %}
+                    </div>
+                  {% endif %}
+                {% endblock login_terms %}
+              </form>
+            {% endif %}
+          </div>
+        </div>
+      {% endblock login_container %}
+    </div>
+  {% endblock login %}
+{% endblock main %}
+
+{# kept verbatim from upstream login.html: insecure-context warning + submit
+   feedback wiring (toggles .feedback-container children) #}
+{% block script %}
+  {{ super() }}
+  <script>
+    if (!window.isSecureContext) {
+      // unhide http warning
+      var warning = document.getElementById('insecure-login-warning');
+      warning.className = warning.className.replace(/\bhidden\b/, '');
+    }
+    // setup onSubmit feedback
+    $('form').submit((e) => {
+      var form = $(e.target);
+      form.find('.feedback-container>input').attr('disabled', true);
+      form.find('.feedback-container>*').toggleClass('hidden');
+      form.find('.feedback-widget>*').toggleClass('fa-pulse');
+    });
+  </script>
+{% endblock script %}
