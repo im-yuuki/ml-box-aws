@@ -1,0 +1,158 @@
+/* ============================================================================
+ * ML Box — HeroUI v3 design tokens (single source of truth)
+ *
+ * Extracted from HeroUI v3 default theme (oklch, hue ~286 zinc + accent blue
+ * ~254). Light values not present in the upstream doc are filled from the
+ * HeroUI zinc scale so light/dark stay visually consistent.
+ *
+ * Layers:
+ *   1. Primitives   — never change between modes
+ *   2. Semantic     — :root = light, dark overrides via [data-theme="dark"]
+ *                     AND @media (prefers-color-scheme: dark) when no explicit
+ *                     data-theme attribute is set ([data-theme="light"] wins).
+ *   3. Consumers    — map these onto Bootstrap (hub pages) and --jp-*
+ *                     (JupyterLab) variables in their own CSS files.
+ * ==========================================================================*/
+
+/* --- 1. Primitives -------------------------------------------------------- */
+:root {
+  --white: oklch(100% 0 0);
+  --black: oklch(0% 0 0);
+  --snow: oklch(0.9911 0 0);
+  --eclipse: oklch(0.2103 0.0059 285.89);
+  --spacing: 0.25rem;
+
+  /* HeroUI accent + status hues (shared between modes) */
+  --accent: oklch(0.6204 0.195 253.83);
+  --accent-foreground: var(--snow);
+  --success: oklch(0.7329 0.1935 150.81);
+  --success-foreground: var(--eclipse);
+  --warning: oklch(0.8203 0.1388 76.34);
+  --warning-foreground: var(--eclipse);
+  --danger: oklch(0.594 0.1967 24.63);
+  --danger-foreground: var(--snow);
+
+  /* Shape & motion */
+  --radius: 0.5rem;
+  --field-radius: calc(var(--radius) * 1.5);
+  --border-width: 1px;
+  --disabled-opacity: 0.5;
+
+  /* Framer-Motion-aligned motion primitives (CSS side) */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); /* expo-out */
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 400ms;
+}
+
+/* --- 2a. Semantic — LIGHT ------------------------------------------------- */
+:root,
+[data-theme="light"] {
+  --background: var(--white);
+  --foreground: var(--eclipse);
+
+  --surface: var(--snow);
+  --surface-foreground: var(--foreground);
+  --surface-secondary: oklch(0.9672 0.0034 286.32);
+  --surface-secondary-foreground: var(--foreground);
+  --surface-tertiary: oklch(0.9261 0.0055 286.32);
+  --surface-tertiary-foreground: var(--foreground);
+
+  --overlay: var(--white);
+  --overlay-foreground: var(--foreground);
+
+  --muted: oklch(0.552 0.0157 285.938);
+  --default: oklch(0.9259 0.0058 286.011);
+  --default-foreground: var(--eclipse);
+  --default-soft-foreground: var(--muted);
+
+  --field-background: var(--white);
+  --field-foreground: var(--foreground);
+  --field-placeholder: var(--muted);
+  --field-border: oklch(0.9132 0.0053 286.13);
+
+  --segment: oklch(0.9672 0.0034 286.32);
+  --segment-foreground: var(--foreground);
+
+  --border: oklch(0.9132 0.0053 286.13);
+  --separator: oklch(0.9375 0.0044 286.2);
+
+  --focus: var(--accent);
+  --link: var(--accent);
+  --backdrop: rgba(0, 0, 0, 0.5);
+
+  --surface-shadow: 0 1px 2px 0 rgba(24, 24, 27, 0.06), 0 1px 3px 0 rgba(24, 24, 27, 0.08);
+  --overlay-shadow: 0 4px 24px 0 rgba(24, 24, 27, 0.14);
+  --field-shadow: 0 0 0 0 transparent inset;
+  --background-inverse: var(--foreground);
+}
+
+/* --- 2b. Semantic — DARK -------------------------------------------------- */
+[data-theme="dark"] {
+  --background: oklch(12% 0.005 285.823);
+  --foreground: var(--snow);
+
+  --surface: oklch(0.2103 0.0059 285.89);
+  --surface-foreground: var(--foreground);
+  --surface-secondary: oklch(0.257 0.0037 286.14);
+  --surface-secondary-foreground: var(--foreground);
+  --surface-tertiary: oklch(0.2721 0.0024 247.91);
+  --surface-tertiary-foreground: var(--foreground);
+
+  --overlay: oklch(0.2103 0.0059 285.89);
+  --overlay-foreground: var(--foreground);
+
+  --muted: oklch(70.5% 0.015 286.067);
+  --default: oklch(27.4% 0.006 286.033);
+  --default-foreground: var(--snow);
+  --default-soft-foreground: var(--default-foreground);
+
+  --field-background: oklch(0.2103 0.0059 285.89);
+  --field-foreground: var(--foreground);
+  --field-placeholder: var(--muted);
+  --field-border: transparent;
+
+  --segment: oklch(0.3964 0.01 285.93);
+  --segment-foreground: var(--foreground);
+
+  --border: oklch(28% 0.006 286.033);
+  --separator: oklch(25% 0.006 286.033);
+
+  --focus: var(--accent);
+  --link: var(--foreground);
+  --backdrop: rgba(0, 0, 0, 0.6);
+
+  --surface-shadow: 0 0 0 0 transparent inset;
+  --overlay-shadow: 0 0 1px 0 rgba(255, 255, 255, 0.3) inset;
+  --field-shadow: 0 0 0 0 transparent inset;
+  --background-inverse: var(--foreground);
+}
+
+/* System-preferred dark when no explicit data-theme is set */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    --background: oklch(12% 0.005 285.823);
+    --foreground: var(--snow);
+
+    --surface: oklch(0.2103 0.0059 285.89);
+    --surface-secondary: oklch(0.257 0.0037 286.14);
+    --surface-tertiary: oklch(0.2721 0.0024 247.91);
+    --overlay: oklch(0.2103 0.0059 285.89);
+    --muted: oklch(70.5% 0.015 286.067);
+    --default: oklch(27.4% 0.006 286.033);
+    --default-foreground: var(--snow);
+    --field-background: oklch(0.2103 0.0059 285.89);
+    --field-placeholder: var(--muted);
+    --field-border: transparent;
+    --segment: oklch(0.3964 0.01 285.93);
+    --border: oklch(28% 0.006 286.033);
+    --separator: oklch(25% 0.006 286.033);
+    --focus: var(--accent);
+    --link: var(--foreground);
+    --backdrop: rgba(0, 0, 0, 0.6);
+    --surface-shadow: 0 0 0 0 transparent inset;
+    --overlay-shadow: 0 0 1px 0 rgba(255, 255, 255, 0.3) inset;
+    --background-inverse: var(--foreground);
+  }
+}

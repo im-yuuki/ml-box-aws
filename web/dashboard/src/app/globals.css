@@ -1,0 +1,46 @@
+/* ============================================================================
+ * ML Box — Dashboard global stylesheet.
+ *
+ * Tailwind v4 + HeroUI v3 stylesheets come first (order matters per HeroUI).
+ * Then we layer the repo's design tokens (web/theme/tokens/heroui-tokens.css)
+ * so every HeroUI component picks up ML Box's brand colours/radius/motion.
+ * ==========================================================================*/
+
+@import "tailwindcss";
+@import "@heroui/styles";
+@import "../styles/heroui-tokens.css";
+
+/* Map the HeroUI v3 design tokens onto the [data-theme] / prefers-color-scheme
+ * switcher that heroui-tokens.css already provides. The token file decides
+ * the palette; we just give HeroUI a stable target. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Inter", "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+  --radius: 0.5rem;
+}
+
+html,
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  min-height: 100%;
+}
+
+/* Honour the OS preference when no explicit [data-theme] is set; the token
+ * file already does the heavy lifting — this just makes sure the <html>
+ * element carries the right attribute so HeroUI's dark mode kicks in. */
+:root:not([data-theme]) {
+  color-scheme: light dark;
+}

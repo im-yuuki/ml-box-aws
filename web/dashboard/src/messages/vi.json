@@ -1,0 +1,86 @@
+{
+  "common": {
+    "appName": "ML Box",
+    "brandTagline": "Notebook GPU cho cả nhóm",
+    "dashboardPreview": "ML Box · Bản xem trước Dashboard",
+    "openLab": "Mở Lab",
+    "start": "Khởi động",
+    "rename": "Đổi tên",
+    "delete": "Xoá",
+    "comingSoon": "Sắp có"
+  },
+  "nav": {
+    "sandboxes": "Sandbox",
+    "usage": "Dung lượng",
+    "account": "Tài khoản"
+  },
+  "theme": {
+    "label": "Ngôn ngữ",
+    "light": "Sáng",
+    "dark": "Tối"
+  },
+  "home": {
+    "title": "Một nơi duy nhất để đăng nhập, chạy sandbox và theo dõi mức dùng của bạn.",
+    "subtitle": "Hub vẫn phụ trách spawn và tắt notebook — dashboard này là cửa vào ML Box. Đăng nhập bằng email công ty để tiếp tục.",
+    "signIn": "Đăng nhập",
+    "createAccount": "Tạo tài khoản",
+    "orJump": "Hoặc vào thẳng {sandboxes} hoặc {usage}.",
+    "noBackendTitle": "Luồng đăng nhập chưa nối",
+    "noBackendBody": "Thiết lập NEXT_PUBLIC_COGNITO_USER_POOL_ID và NEXT_PUBLIC_COGNITO_CLIENT_ID, rồi dựng BFF service để bật form."
+  },
+  "login": {
+    "title": "Đăng nhập",
+    "subtitle": "Dùng email bạn đã đăng ký.",
+    "emailLabel": "Email",
+    "emailPlaceholder": "ban@cong-ty.com",
+    "emailHint": "Địa chỉ email công ty của bạn.",
+    "passwordLabel": "Mật khẩu",
+    "submit": "Đăng nhập",
+    "newHere": "Mới dùng lần đầu?",
+    "createAccountCta": "Tạo tài khoản",
+    "cognitoUnconfigured": "Chưa cấu hình Cognito (thiếu NEXT_PUBLIC_COGNITO_USER_POOL_ID / CLIENT_ID).",
+    "missingFields": "Vui lòng nhập email và mật khẩu."
+  },
+  "register": {
+    "title": "Tạo tài khoản",
+    "subtitle": "Chúng tôi sẽ gửi mã xác nhận qua email.",
+    "emailLabel": "Email công ty",
+    "emailPlaceholder": "ban@cong-ty.com",
+    "emailHint": "Bạn sẽ dùng email này để đăng nhập và cũng là tên JupyterHub.",
+    "passwordLabel": "Mật khẩu",
+    "passwordHint": "Ít nhất 12 ký tự.",
+    "submit": "Tạo tài khoản",
+    "haveAccount": "Đã có tài khoản?",
+    "signInCta": "Đăng nhập",
+    "cognitoUnconfigured": "Chưa cấu hình Cognito (thiếu NEXT_PUBLIC_COGNITO_USER_POOL_ID / CLIENT_ID).",
+    "missingFields": "Vui lòng nhập email và mật khẩu."
+  },
+  "sandboxes": {
+    "title": "Sandbox",
+    "subtitle": "Mỗi sandbox là một môi trường notebook theo profile. Bật khi cần — hub sẽ tự tắt khi bạn rảnh.",
+    "new": "Sandbox mới",
+    "profileCpu": "Chỉ CPU",
+    "stateRunning": "đang chạy",
+    "stateStopped": "đã tắt",
+    "lastActivity": "hoạt động gần nhất: {when}"
+  },
+  "usage": {
+    "title": "Dung lượng đã dùng",
+    "subtitle": "Quota tháng này của bạn. Reset vào ngày đầu tháng sau.",
+    "cpuHours": "Giờ CPU",
+    "ram": "RAM",
+    "storage": "Lưu trữ",
+    "gpuHours": "Giờ GPU",
+    "unitHours": "giờ",
+    "unitGb": "GB"
+  },
+  "account": {
+    "title": "Tài khoản",
+    "subtitle": "Quản lý cách bạn đăng nhập vào ML Box.",
+    "emailHeading": "Email",
+    "emailPlaceholder": "email-cua-ban@cong-ty.com (giá trị thật sẽ đến từ phiên Cognito khi BFF được nối).",
+    "passwordHeading": "Mật khẩu",
+    "passwordBody": "Đổi mật khẩu dùng để đăng nhập dashboard và hub.",
+    "passwordHint": "Sẽ có khi BFF mở endpoint đổi mật khẩu."
+  }
+}
