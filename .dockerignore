@@ -1,0 +1,20 @@
+# Build-context whitelist for the images/ Dockerfiles (context = repository root).
+#
+# The CPU/GPU single-user images only need the prebuilt theme wheel and the
+# shared install helper — nothing else from the repository (no .git, no
+# node_modules, no terraform state) is sent to the builder.
+
+*
+
+!images
+!images/lib
+!images/lib/install-theme.sh
+
+!web
+!web/theme
+!web/theme/lab
+!web/theme/lab/jlab-heroui-theme
+web/theme/lab/jlab-heroui-theme/*
+!web/theme/lab/jlab-heroui-theme/dist
+web/theme/lab/jlab-heroui-theme/dist/*
+!web/theme/lab/jlab-heroui-theme/dist/*.whl

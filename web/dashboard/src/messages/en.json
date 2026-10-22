@@ -1,0 +1,86 @@
+{
+  "common": {
+    "appName": "ML Box",
+    "brandTagline": "GPU notebooks for teams",
+    "dashboardPreview": "ML Box · Dashboard preview",
+    "openLab": "Open Lab",
+    "start": "Start",
+    "rename": "Rename",
+    "delete": "Delete",
+    "comingSoon": "Coming soon"
+  },
+  "nav": {
+    "sandboxes": "Sandboxes",
+    "usage": "Usage",
+    "account": "Account"
+  },
+  "theme": {
+    "label": "Language",
+    "light": "Light",
+    "dark": "Dark"
+  },
+  "home": {
+    "title": "One place to sign in, run sandboxes, and watch your usage.",
+    "subtitle": "The hub still owns notebook spawn and shutdown — this dashboard is the front door for ML Box. Sign in with your work email to continue.",
+    "signIn": "Sign in",
+    "createAccount": "Create account",
+    "orJump": "Or jump straight to your {sandboxes} or {usage}.",
+    "noBackendTitle": "Sign in flow isn't wired up yet",
+    "noBackendBody": "Set NEXT_PUBLIC_COGNITO_USER_POOL_ID and NEXT_PUBLIC_COGNITO_CLIENT_ID, then build the BFF service to enable the form."
+  },
+  "login": {
+    "title": "Sign in",
+    "subtitle": "Use the email you registered with.",
+    "emailLabel": "Email",
+    "emailPlaceholder": "you@team.com",
+    "emailHint": "Your work email address.",
+    "passwordLabel": "Password",
+    "submit": "Sign in",
+    "newHere": "New here?",
+    "createAccountCta": "Create an account",
+    "cognitoUnconfigured": "Cognito is not configured yet (NEXT_PUBLIC_COGNITO_USER_POOL_ID / CLIENT_ID).",
+    "missingFields": "Email and password are required."
+  },
+  "register": {
+    "title": "Create your account",
+    "subtitle": "We'll email you a code to confirm.",
+    "emailLabel": "Work email",
+    "emailPlaceholder": "you@team.com",
+    "emailHint": "You'll use this to sign in and as your JupyterHub username.",
+    "passwordLabel": "Password",
+    "passwordHint": "At least 12 characters.",
+    "submit": "Create account",
+    "haveAccount": "Already have one?",
+    "signInCta": "Sign in",
+    "cognitoUnconfigured": "Cognito is not configured yet (NEXT_PUBLIC_COGNITO_USER_POOL_ID / CLIENT_ID).",
+    "missingFields": "Email and password are required."
+  },
+  "sandboxes": {
+    "title": "Sandboxes",
+    "subtitle": "One notebook environment per profile. Start a sandbox when you need it — the hub will shut it down after it goes idle.",
+    "new": "New sandbox",
+    "profileCpu": "CPU only",
+    "stateRunning": "running",
+    "stateStopped": "stopped",
+    "lastActivity": "last activity: {when}"
+  },
+  "usage": {
+    "title": "Usage",
+    "subtitle": "Where your monthly quota is going. Resets on the first of next month.",
+    "cpuHours": "CPU hours",
+    "ram": "RAM",
+    "storage": "Storage",
+    "gpuHours": "GPU hours",
+    "unitHours": "hours",
+    "unitGb": "GB"
+  },
+  "account": {
+    "title": "Account",
+    "subtitle": "Manage how you sign in to ML Box.",
+    "emailHeading": "Email",
+    "emailPlaceholder": "your-email@team.com (placeholder; the real value comes from the Cognito session once the BFF is wired up).",
+    "passwordHeading": "Password",
+    "passwordBody": "Change the password used to sign in to the dashboard and the hub.",
+    "passwordHint": "Coming once the BFF exposes a password-change endpoint."
+  }
+}
