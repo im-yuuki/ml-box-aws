@@ -2,7 +2,7 @@
 # Deploy the ML Box theme into the running JupyterHub.
 #
 # Creates/updates the two ConfigMaps the hub Deployment mounts (see
-# terraform/stacks/04-hub-app/values/hub-values.yaml.tpl -> hub.extraVolumes):
+# terraform/stacks/03-hub-app/values/hub-values.yaml.tpl -> hub.extraVolumes):
 #   hub-theme-templates -> /etc/jupyterhub/custom/templates  (Jinja overrides)
 #   hub-theme-static    -> /usr/local/share/jupyterhub/static/heroui  (served at
 #                                                                  /hub/static/heroui/...)

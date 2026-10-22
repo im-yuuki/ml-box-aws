@@ -1,6 +1,6 @@
 variable "cluster_name" { type = string }
 variable "domain" {
-  description = "Root domain (e.g. example.com). Hub lives at hub.<domain>."
+  description = "Root domain (e.g. example.com). Notebook (JupyterHub) lives at notebook.<domain>, dashboard at the apex."
   type        = string
 }
 variable "vpc_id" { type = string }

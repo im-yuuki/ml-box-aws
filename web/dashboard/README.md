@@ -60,7 +60,7 @@ docker buildx build --platform linux/amd64 \
 
 - The BFF service (`web/bff/`). It will own the SRP computation,
   session cookies, and the proxy to the JupyterHub REST API.
-- A `05-dashboard` Terraform stack: ECR repo, Deployment, Service, ALB
+- A `04-dashboard` Terraform stack: ECR repo, Deployment, Service, ALB
   listener rule for `app.<domain>`, ACM cert, DNS.
 - Wire the sandboxes page to the BFF for real server state.
 - GPU-hour accounting (after the GPU stack comes online).

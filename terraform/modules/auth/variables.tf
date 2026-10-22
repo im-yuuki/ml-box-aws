@@ -4,11 +4,11 @@ variable "domain_prefix" {
   type        = string
 }
 variable "hub_callback_url" {
-  description = "E.g. https://hub.example.com/hub/oauth_callback."
+  description = "E.g. https://notebook.example.com/hub/oauth_callback."
   type        = string
 }
 variable "hub_logout_url" {
-  description = "E.g. https://hub.example.com/."
+  description = "E.g. https://notebook.example.com/."
   type        = string
 }
 variable "tags" { type = map(string) }

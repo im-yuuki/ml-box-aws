@@ -54,7 +54,7 @@ Without `PUSH=1` the images are only loaded into the local Docker image store
 ## Push to ECR
 
 The ECR repositories are created by Terraform
-(`terraform/modules/ecr`, applied by `terraform/stacks/03-platform`), so apply the
+(`terraform/modules/ecr`, applied by `terraform/stacks/02-platform`), so apply the
 hub stack once before the first push.
 
 ```bash
@@ -75,18 +75,18 @@ names created by Terraform).
 
 ## Point Terraform at the images
 
-`terraform/stacks/04-hub-app/variables.tf` exposes `cpu_image` and `gpu_image`
+`terraform/stacks/03-hub-app/variables.tf` exposes `cpu_image` and `gpu_image`
 (defaults: the public base images). Set them to the ECR URIs:
 
 ```bash
-cd terraform/stacks/04-hub-app
+cd terraform/stacks/03-hub-app
 terraform init
 terraform apply \
   -var="cpu_image=451058046864.dkr.ecr.ap-southeast-2.amazonaws.com/jhub-gpu-sandbox/cpu:dev-fa3b6fa" \
   -var="gpu_image=451058046864.dkr.ecr.ap-southeast-2.amazonaws.com/jhub-gpu-sandbox/gpu:dev-fa3b6fa"
 ```
 
-or put the same two values in `terraform/stacks/04-hub-app/terraform.tfvars`
+or put the same two values in `terraform/stacks/03-hub-app/terraform.tfvars`
 (git-ignored) and run a plain `terraform apply`. The values end up in
 `singleuser.profileList[].kubespawner_override.image` in
 `values/hub-values.yaml.tpl`.

@@ -1,6 +1,6 @@
 # Deploy — ML Box web theme · JupyterHub (Z2JH 4.4.2) values patch
 
-> Tài liệu **hướng dẫn áp dụng theme** ML Box vào stack `terraform/stacks/04-hub-app/`
+> Tài liệu **hướng dẫn áp dụng theme** ML Box vào stack `terraform/stacks/03-hub-app/`
 > (helm_release `jupyterhub`, chart Z2JH 4.4.2, JupyterHub app **5.5.2** — xác nhận qua
 > `Chart.yaml` appVersion của tag `4.4.2`).
 >
@@ -165,7 +165,7 @@ kubectl create configmap hub-theme-static -n hub \
 
 > `--from-file=<dir>` lấy key = tên file trong dir. Cả 3 file static và 4 template đều là text nên ổn với ConfigMap (không cần binaryData). Muốn tái tạo thường xuyên qua IaC thì dùng cách (b).
 
-**b) Terraform (xuyên suốt lifecycle):** thêm vào stack 04-hub-app (file mới, ví dụ `k8s_theme.tf`) — **requires `kubernetes` provider trong stack này (hiện main.tf chưa khai — UNVERIFIED, cần thêm provider block trước):**
+**b) Terraform (xuyên suốt lifecycle):** thêm vào stack 03-hub-app (file mới, ví dụ `k8s_theme.tf`) — **requires `kubernetes` provider trong stack này (hiện main.tf chưa khai — UNVERIFIED, cần thêm provider block trước):**
 
 ```hcl
 resource "kubernetes_config_map_v1" "hub_theme_templates" {
@@ -191,7 +191,7 @@ resource "kubernetes_config_map_v1" "hub_theme_static" {
 }
 ```
 
-> Nếu không muốn thêm `kubernetes` provider vào stack 04-hub-app, dùng cách (a) + ghi chú trong runbook là đủ (ConfigMap stateless, dễ tái tạo).
+> Nếu không muốn thêm `kubernetes` provider vào stack 03-hub-app, dùng cách (a) + ghi chú trong runbook là đủ (ConfigMap stateless, dễ tái tạo).
 
 ---
 
@@ -264,9 +264,9 @@ singleuser:
 ```bash
 # 1. (nếu dùng Patch A + Terraform CMap) tạo ConfigMap trước (§3)
 # 2. Paste values theo §1.1 (hoặc §2), rồi:
-terraform -chdir=terraform/stacks/04-hub-app init
-terraform -chdir=terraform/stacks/04-hub-app plan   # theo dõi: helm_release.jupyterhub sẽ upgrade
-terraform -chdir=terraform/stacks/04-hub-app apply
+terraform -chdir=terraform/stacks/03-hub-app init
+terraform -chdir=terraform/stacks/03-hub-app plan   # theo dõi: helm_release.jupyterhub sẽ upgrade
+terraform -chdir=terraform/stacks/03-hub-app apply
 ```
 
 ### 5.2 Verify mount & config trong pod hub
@@ -286,7 +286,7 @@ kubectl -n $ns exec deploy/hub -c hub -- head -3 /usr/local/share/jupyterhub/sta
 kubectl -n $ns logs deploy/hub -c hub --tail=100 | grep -iE "error|traitlet"
 ```
 
-### 5.3 Checklist trình duyệt (dùng domain `hub.<domain>`, HTTPS qua ALB+ACM)
+### 5.3 Checklist trình duyệt (dùng domain `notebook.<domain>`, HTTPS qua ALB+ACM)
 
 | # | Kiểm | URL / thao tác | Kỳ vọng |
 |---|---|---|---|
@@ -313,7 +313,7 @@ kubectl -n $ns logs deploy/hub -c hub --tail=100 | grep -iE "error|traitlet"
 
 1. **`{mountPath, files: [sources]}` không hợp lệ cho Z2JH 4.4.2** — schema thật là `{mountPath, data|stringData|binaryData, mode}` (1 file/entry). Đã chốt Patch A (ConfigMap) là đường chính.
 2. `hub_title` / `hub_subtitle` / `page_logo`: **không có hiệu ứng built-in** trong JH5; chỉ sống nếu template override của team đọc chúng. Logo built-in nên đi qua `logo_file`.
-3. Kubernetes provider chưa có trong stack 04-hub-app (main.tf chỉ chain helm_release) — nếu chọn ConfigMap bằng Terraform, cần thêm provider block; hoặc dùng kubectl §3a.
+3. Kubernetes provider chưa có trong stack 03-hub-app (main.tf chỉ chain helm_release) — nếu chọn ConfigMap bằng Terraform, cần thêm provider block; hoặc dùng kubectl §3a.
 4. Path config dir single-user (`/home/jovyan/.jupyter`): giả định docker-stacks, phải verify bằng `jupyter --config-dir` trên image thật trước khi dùng 4b.
 5. Notebook 7 tương thích `LabApp.custom_css`: UNVERIFIED.
 6. Các config sẵn có (`10-spawn-hook`, Cognito auth,…) không bị đụng tới; mọi key thêm mới đều dùng tên riêng, không phủ đè key hiện hữu.

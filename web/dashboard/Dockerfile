@@ -2,7 +2,7 @@
 #
 # Multi-stage: build with `npm run build`, then copy the standalone output
 # into a slim runtime image.  The Next.js image is fronted by the same ALB
-# as the hub (host = app.mlbox.june8th.me).
+# as the notebook (host = apex mlbox.june8th.me).
 #
 # Build context: repository root.
 #
@@ -11,7 +11,7 @@
 #     --build-arg NEXT_PUBLIC_COGNITO_REGION=ap-southeast-2 \
 #     --build-arg NEXT_PUBLIC_COGNITO_USER_POOL_ID=<...> \
 #     --build-arg NEXT_PUBLIC_COGNITO_CLIENT_ID=<...> \
-#     --build-arg NEXT_PUBLIC_BFF_BASE_URL=https://app.mlbox.june8th.me/api/bff \
+#     --build-arg NEXT_PUBLIC_BFF_BASE_URL=https://mlbox.june8th.me/api/bff \
 #     --tag 451058046864.dkr.ecr.ap-southeast-2.amazonaws.com/jhub-gpu-sandbox/dashboard:dev-<sha> \
 #     .
 

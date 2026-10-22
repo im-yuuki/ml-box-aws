@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------
-# Outputs consumed by 04-hub-app (and by the operator at the Cloudflare pause).
+# Outputs consumed by 03-hub-app (and by the operator at the Cloudflare pause).
 # Names are the contract between the two stacks - keep them stable.
 # ---------------------------------------------------------------------------
 
@@ -42,9 +42,19 @@ output "cognito_userdata_url" {
   value       = module.auth.userdata_url
 }
 
+output "cognito_user_pool_id" {
+  description = "Cognito user pool ID (for dashboard NEXT_PUBLIC_COGNITO_USER_POOL_ID)."
+  value       = module.auth.user_pool_id
+}
+
+output "cognito_dashboard_client_id" {
+  description = "Public Cognito app client for the dashboard (SRP/OTP, no secret)."
+  value       = module.auth.dashboard_client_id
+}
+
 # --- Storage (S3 workspace) ---
 output "hub_role_arn" {
-  description = "IRSA role of the hub SA (attaches to the hub service account in 04-hub-app)."
+  description = "IRSA role of the hub SA (attaches to the hub service account in 03-hub-app)."
   value       = module.storage.hub_role_arn
 }
 
@@ -66,7 +76,7 @@ output "alb_arn" {
 }
 
 output "alb_dns_name" {
-  description = "ALB DNS name - target of the CNAME 'hub' at Cloudflare."
+  description = "ALB DNS name - target of the 'notebook' record (Route53 owns it in this project)."
   value       = module.ingress_dns.alb_dns_name
 }
 
@@ -76,7 +86,7 @@ output "alb_security_group_id" {
 }
 
 output "target_group_arn" {
-  description = "Target group ARN (bound by the TargetGroupBinding in 04-hub-app)."
+  description = "Target group ARN (bound by the TargetGroupBinding in 03-hub-app)."
   value       = module.ingress_dns.target_group_arn
 }
 
@@ -86,8 +96,18 @@ output "target_group_name" {
 }
 
 output "certificate_arn" {
-  description = "ACM certificate ARN for hub.<domain>."
+  description = "ACM certificate ARN for notebook.<domain>."
   value       = module.ingress_dns.certificate_arn
+}
+
+output "apex_certificate_arn" {
+  description = "ACM certificate ARN for the apex <domain> (dashboard)."
+  value       = module.ingress_dns.apex_certificate_arn
+}
+
+output "apex_certificate_status" {
+  description = "Apex ACM certificate status (PENDING_VALIDATION / ISSUED / ...)."
+  value       = module.ingress_dns.apex_certificate_status
 }
 
 output "certificate_status" {

@@ -51,11 +51,11 @@ resource "aws_dynamodb_table" "lock" {
 # Generate backend.hcl inside every consuming stack so init picks it up
 # via `terraform init -backend-config=backend.hcl` with zero manual copying.
 resource "local_file" "stack_backends" {
-  for_each = toset(["01-foundation", "02-gpu", "03-platform", "04-hub-app"])
+  for_each = toset(["01-foundation", "02-platform", "03-hub-app", "04-dashboard", "99-unverified-gpu"])
 
   filename        = "${path.module}/../${each.value}/backend.hcl"
   file_permission = "0644"
-  content = <<-EOT
+  content         = <<-EOT
     bucket         = "${local.bucket}"
     key            = "${var.env}/${var.region}/${each.value}.tfstate"
     region         = "${var.region}"

@@ -16,12 +16,12 @@ variable "project" {
 }
 
 variable "domain" {
-  description = "Root domain (e.g. example.com). Hub lives at hub.<domain>."
+  description = "Root domain (e.g. example.com). Hub lives at notebook.<domain>, dashboard at the apex."
   type        = string
 }
 
 variable "cognito_domain_prefix" {
-  description = "Cognito hosted-UI prefix (unique per region). The pool itself lives in 03-platform."
+  description = "Cognito hosted-UI prefix (unique per region). The pool itself lives in 02-platform."
   type        = string
 }
 
@@ -34,7 +34,7 @@ variable "z2jh_chart_version" {
 # Image tags follow the pipeline convention: dev-<gitshortsha>.
 variable "cpu_image" {
   description = <<-EOT
-    CPU image (ECR). The ECR repo is created by 03-platform; this stack only
+    CPU image (ECR). The ECR repo is created by 02-platform; this stack only
     references the image. Tag = dev-<gitshortsha>.
   EOT
   type        = string
@@ -43,7 +43,7 @@ variable "cpu_image" {
 
 variable "gpu_image" {
   description = <<-EOT
-    GPU image (ECR). The ECR repo is created by 03-platform; this stack only
+    GPU image (ECR). The ECR repo is created by 02-platform; this stack only
     references the image. Tag = dev-<gitshortsha>.
   EOT
   type        = string
@@ -72,7 +72,7 @@ variable "enable_gpu_profiles" {
 }
 
 # ---------------------------------------------------------------------------
-# 03-platform remote state (read-only dependency)
+# 02-platform remote state (read-only dependency)
 # ---------------------------------------------------------------------------
 variable "state_bucket" {
   description = "S3 bucket holding the Terraform state of every stack."
@@ -81,9 +81,9 @@ variable "state_bucket" {
 }
 
 variable "state_key" {
-  description = "State object key of the 03-platform stack (infra: S3/RDS/Cognito/ECR/ALB/ACM)."
+  description = "State object key of the 02-platform stack (infra: S3/RDS/Cognito/ECR/ALB/ACM)."
   type        = string
-  default     = "dev/ap-southeast-2/03-platform.tfstate"
+  default     = "dev/ap-southeast-2/02-platform.tfstate"
 }
 
 # ---------------------------------------------------------------------------

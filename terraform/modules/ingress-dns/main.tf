@@ -11,7 +11,7 @@
 #   TXT records + the A-alias record pointing at the ALB created here.
 
 locals {
-  host = "hub.${var.domain}"
+  host = "notebook.${var.domain}"
 
   # Route53 mode: the zone is either an existing one (route53_zone_id) or created here.
   use_existing_zone = var.manage_route53 && var.route53_zone_id != ""
@@ -116,7 +116,7 @@ resource "aws_lb_target_group" "hub" {
 }
 
 # NOTE: the ALB listeners (80 -> 443 redirect, 443 -> target group) are NOT owned by
-# this module. They live in the 04-hub-app stack, because the HTTPS listener can only
+# this module. They live in the 03-hub-app stack, because the HTTPS listener can only
 # be created once the ACM certificate is ISSUED, which requires the operator to
 # publish the DNS validation record first (manual Cloudflare mode).
 
@@ -126,6 +126,19 @@ resource "aws_lb_target_group" "hub" {
 
 resource "aws_acm_certificate" "hub" {
   domain_name       = local.host
+  validation_method = "DNS"
+  tags              = var.tags
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# Apex certificate for the dashboard landing (mlbox.<...> itself, no subdomain).
+# The hub keeps its own notebook.<domain> certificate; the two never share a SAN,
+# so re-issuing one never touches the other.
+resource "aws_acm_certificate" "apex" {
+  domain_name       = var.domain
   validation_method = "DNS"
   tags              = var.tags
 
@@ -161,6 +174,23 @@ resource "aws_route53_record" "validation" {
   ttl     = 60
 }
 
+# ACM validation TXT records for the apex (dashboard) certificate.
+resource "aws_route53_record" "validation_apex" {
+  for_each = var.manage_route53 ? {
+    for dvo in aws_acm_certificate.apex.domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      record = dvo.resource_record_value
+      type   = dvo.resource_record_type
+    }
+  } : {}
+
+  zone_id = local.zone_id
+  name    = each.value.name
+  type    = each.value.type
+  records = [each.value.record]
+  ttl     = 60
+}
+
 # Waits until ACM validated the certificate (only possible when we own the records).
 # Opt-in: with an NS delegation the zone only becomes authoritative AFTER the
 # operator points the nameservers at Route53, so this resource would just block
@@ -178,6 +208,28 @@ resource "aws_route53_record" "hub" {
   count   = var.manage_route53 ? 1 : 0
   zone_id = local.zone_id
   name    = local.host
+  type    = "A"
+
+  # Renaming the record (hub. -> notebook.) must not create a DNS gap: create
+  # the new name first, then drop the old record.
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  alias {
+    name                   = aws_lb.hub.dns_name
+    zone_id                = data.aws_elb_hosted_zone_id.current.id
+    evaluate_target_health = true
+  }
+}
+
+# Apex record -> the same ALB. Until the 04-dashboard stack adds a host-header
+# listener rule for the apex, apex HTTPS traffic falls through to the listener's
+# default action (the hub target group) - the dashboard rule supersedes this.
+resource "aws_route53_record" "apex" {
+  count   = var.manage_route53 ? 1 : 0
+  zone_id = local.zone_id
+  name    = var.domain
   type    = "A"
 
   alias {

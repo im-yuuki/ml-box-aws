@@ -16,7 +16,7 @@ variable "project" {
 }
 
 variable "domain" {
-  description = "Root domain (e.g. example.com). Hub lives at hub.<domain>."
+  description = "Root domain (e.g. example.com). Hub lives at notebook.<domain>, dashboard at the apex."
   type        = string
 }
 

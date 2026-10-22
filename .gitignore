@@ -17,6 +17,7 @@
 
 # Local agent/dev context (never shared)
 .private/
+.openchamber/
 
 Thumbs.db
 .vscode/

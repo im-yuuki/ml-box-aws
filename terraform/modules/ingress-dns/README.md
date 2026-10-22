@@ -16,7 +16,8 @@ what reconciles that CRD).
 | `aws_vpc_security_group_ingress_rule.node_proxy_ingress` | Ingress on the **node** SG: from the ALB SG, `proxy_port` |
 | `aws_lb.hub` | Public ALB, `name_prefix = "hub-"` |
 | `aws_lb_target_group.hub` | `target_type = "ip"`, health check on `health_check_path` |
-| `aws_acm_certificate.hub` | `hub.<domain>`, DNS validation |
+| `aws_acm_certificate.hub` | `notebook.<domain>`, DNS validation |
+| `aws_acm_certificate.apex` | apex `<domain>` (dashboard landing), DNS validation |
 | `aws_iam_role/policy` + `helm_release.lb_controller` | aws-load-balancer-controller 3.6.0 (IRSA), for the TargetGroupBinding |
 
 The SG rules are standalone resources, not inline blocks, so the node SG (owned by the
@@ -32,20 +33,22 @@ No Route53 resource is created. Terraform only outputs what the operator must pu
 
 1. `terraform apply` -> the ALB + the certificate request exist.
 2. Read `certificate_validation_records` (output) - a map of
-   `_acme-challenge.hub.<domain>` -> TXT value. Add it at the DNS provider
+   `_acme-challenge.notebook.<domain>` -> TXT value. Add it at the DNS provider
    (Cloudflare: TXT record, name `_acme-challenge.hub`, value = the record value).
 3. ACM validates automatically (usually within ~1 minute). `certificate_status` turns
    `ISSUED` (visible in the next `terraform apply`/`refresh`).
-4. Add a `CNAME`/`A` record for `hub.<domain>` -> `alb_dns_name` at the DNS provider.
+4. Add a `CNAME`/`A` record for `notebook.<domain>` -> `alb_dns_name` at the DNS provider.
    Or keep a CNAME to the ALB DNS name, plus a `CAA` record if the provider asks for one.
 
 ### `manage_route53 = true` - the zone lives in Route53
 
 Terraform owns everything: the zone (created when `route53_zone_id` is empty), the ACM
-validation TXT records, the `aws_acm_certificate_validation` (which waits for the
-certificate to be issued) and the `A`-alias record `hub.<domain>` -> this module's ALB.
-For a newly created zone, point the NS records at the registrar
-(see the `zone_nameservers` output).
+validation TXT records (hub + apex), the `aws_acm_certificate_validation` (which waits
+for the hub certificate to be issued) and the `A`-alias records `notebook.<domain>` and
+apex `<domain>` -> this module's ALB. For a newly created zone, point the NS records at
+the registrar (see the `zone_nameservers` output). The apex A record points at the ALB
+from day one; until the dashboard stack adds a host-header listener rule for the apex,
+apex HTTPS falls through to the listener's default action (the hub target group).
 
 ## Outputs
 
@@ -76,7 +79,7 @@ Also kept from the previous version: `host`, `zone_id`, `zone_nameservers`.
 - `idle_timeout = 60` is the ALB default. JupyterHub keeps long-lived websockets; if
   idle notebooks get disconnected, raise it to `3600`.
 - This module does **not** own the listeners. The 80 -> 443 redirect and the 443
-  listener live in the `04-hub-app` stack, because ELBv2 only accepts an **ISSUED**
+  listener live in the `03-hub-app` stack, because ELBv2 only accepts an **ISSUED**
   certificate on an HTTPS listener - and the certificate is only issued after the
   operator publishes the DNS validation record. No other stack may create a listener on
   the same ALB, and the Z2JH `ingress.enabled` in the hub stack must be turned off,

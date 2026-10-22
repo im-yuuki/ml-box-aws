@@ -1,6 +1,6 @@
 # Application stack (JupyterHub / Z2JH).
 # Infra (S3, RDS, Cognito, ECR, LB controller, ALB + target group, ACM) now
-# lives in 03-platform and is consumed read-only through
+# lives in 02-platform and is consumed read-only through
 # data "terraform_remote_state" "platform".
 # Producers from 01-foundation are resolved automatically:
 #   - cluster endpoint/CA            via data "aws_eks_cluster" (naming from project-env-region)

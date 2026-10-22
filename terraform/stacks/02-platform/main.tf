@@ -1,5 +1,5 @@
 locals {
-  hub_host = "hub.${var.domain}"
+  hub_host = "notebook.${var.domain}"
 }
 
 # ---------------------------------------------------------------------------
@@ -123,7 +123,7 @@ module "ingress_dns" {
 }
 
 # ---------------------------------------------------------------------------
-# Hub database URL (consumed by 04-hub-app)
+# Hub database URL (consumed by 03-hub-app)
 # ---------------------------------------------------------------------------
 
 # Master password is managed by RDS inside Secrets Manager (never hard-coded).

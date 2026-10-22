@@ -22,7 +22,7 @@
 #   CACHE_TO         optional buildx --cache-to value
 #
 # Notes:
-#   * The ECR repositories must already exist (terraform/stacks/03-platform applies
+#   * The ECR repositories must already exist (terraform/stacks/02-platform applies
 #     terraform/modules/ecr) before PUSH=1 works.
 #   * `aws ecr get-login-password` is only called when PUSH=1, so a local build
 #     needs no AWS credentials.
