@@ -16,7 +16,7 @@ through `data "terraform_remote_state" "platform"`:
 | `target_group_arn` | `aws_lb_listener` + `TargetGroupBinding` |
 | `vpc_id` | `TargetGroupBinding.spec.vpcID` |
 | `certificate_arn` | HTTPS listener + cert wait |
-| `certificate_validation_records` | (operator input) ACM TXT records to publish at Cloudflare |
+| `certificate_validation_records` | (operator reference) ACM DNS validation records managed by Route53 |
 
 The stack also creates **no** S3 bucket, RDS instance, Cognito pool, ECR repo,
 ALB or ACM certificate — those are all in `02-platform`.
@@ -27,23 +27,23 @@ ALB or ACM certificate — those are all in `02-platform`.
 
 1. **`02-platform` must be applied first.** This stack reads its state object;
    if `02-platform` has never been applied the read fails immediately.
-2. **The operator publishes the DNS records at Cloudflare** — both
-   - the CNAME/ALIAS for `notebook.<domain>` → the ALB, and
-   - the ACM **validation TXT record** for the certificate.
-
-   Both come from `02-platform`:
+2. **Delegate the Route53 zone before applying this stack.** With
+   `manage_route53 = true`, `02-platform` creates the ACM validation records and
+   A-alias records. Change the zone nameservers at Cloudflare/registrar to the
+   four Route53 nameservers; do not create CNAME/TXT records manually in Cloudflare.
 
    ```bash
-   terraform -chdir=terraform/stacks/02-platform output alb_dns_name
-   terraform -chdir=terraform/stacks/02-platform output certificate_validation_records
+   terraform -chdir=terraform/stacks/02-platform output route53_zone_nameservers
+   terraform -chdir=terraform/stacks/02-platform output certificate_status
+   terraform -chdir=terraform/stacks/02-platform output apex_certificate_status
    ```
 
-   Publishing them in one sitting is the whole point of the split: the ALB
-   exists before the hub is deployed, so the operator never has to come back
-   for a second DNS round-trip.
+   See [`deploy/DNS-CLOUDFLARE.md`](../../../deploy/DNS-CLOUDFLARE.md) for the
+   delegation warning and full DNS procedure.
 3. **Then apply this stack.** It waits (up to 15 min) for the ACM certificate
-   to reach `ISSUED` before creating the HTTPS listener. If the TXT record is
-   missing, the wait fails with an explicit message instead of hanging.
+   to reach `ISSUED` before creating the HTTPS listener. If DNS delegation or
+   validation is incomplete, the wait fails with an explicit message instead
+   of hanging.
 4. **Then apply the theme** (see below).
 
 ---

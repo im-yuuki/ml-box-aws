@@ -64,15 +64,22 @@ Token cấp qua Secret trong cluster (04-dashboard stack), không hard-code.
 - Kỳ 2 (khi có GPU + kế toán): ghi nhận GPU-hours trong spawn hook vào bảng riêng
   trong hub DB (Postgres RDS) — BFF đọc qua hub API, không truy cập DB trực tiếp.
 
-## Hạ tầng (stack mới `04-dashboard`, chưa apply)
+## Hạ tầng (stack `04-dashboard`, đã apply nhưng chưa production-ready)
 
-- ECR repo `dashboard` + `bff` (module ecr mở rộng).
-- Deployment + Service trong cluster (namespace `hub` hoặc `dashboard`), chạy trên
-  NodePool `cpu-user`.
-- Cùng ALB hiện có: host **apex `mlbox.june8th.me`** (ACM cert mới cho apex, SAN chỉ
-  gồm apex) → listener rule host-header forward về dashboard Service; hub giữ default
-  action. BFF là ClusterIP nội bộ, dashboard gọi trong cluster.
-- DNS: đã delegate `mlbox.june8th.me` về Route53 → thêm record A apex (alias → ALB).
+- ECR repo `dashboard` + `bff` đã được tạo.
+- Dashboard Deployment + Service + TargetGroupBinding chạy trong namespace
+  `dashboard` trên NodePool `cpu-user`; ALB host-header rule dùng apex
+  `mlbox.june8th.me` và ACM certificate tương ứng.
+- Dashboard target đã nối được tới ALB, nhưng production runtime hiện trả HTTP
+  500 với `DYNAMIC_SERVER_USAGE` khi kết hợp cookie locale của `next-intl` với
+  `cacheComponents`/`partialPrefetching`. Đây là blocker cần xử lý trước khi
+  tuyên bố end-to-end complete.
+- BFF ECR repository tồn tại nhưng chưa có source `web/bff/`, Deployment hoặc
+  Service thật; các `/api/bff/*` route hiện là stub.
+- DNS đã delegate `mlbox.june8th.me` về Route53 và notebook dùng
+  `notebook.mlbox.june8th.me`.
+- Chi tiết lệnh deploy và kiểm tra nằm trong [`docs/DEPLOYMENT.md`](DEPLOYMENT.md)
+  và [`docs/OPERATIONS.md`](OPERATIONS.md).
 
 ## Cognito cần chỉnh (module auth)
 
@@ -82,13 +89,18 @@ Token cấp qua Secret trong cluster (04-dashboard stack), không hard-code.
 - User pool giữ `allow_admin_create_user_only = false` (self-signup) — dashboard
   dùng chính flow đăng ký của Cognito.
 
-## Lộ trình
+## Lộ trình và trạng thái
 
 1. ✅ Auto light/dark trong notebook (`adaptive-theme` trong `overrides.json`,
    image `cpu:dev-fa3b6fa-v5`).
-2. Scaffold `web/dashboard` + `web/bff`, chạy local với hub API mock.
-3. Terraform: Cognito client dashboard + hub service/token + ECR repos.
-4. Dockerfile + deploy `04-dashboard` (ALB rule host apex, DNS record apex).
-5. Nối dashboard với hub thật, verify end-to-end (đăng ký → spawn → mở Lab).
-6. Usage/quota views; GPU accounting (giai đoạn GPU).
+2. ⚠️ `web/dashboard` đã có UI scaffold; `web/bff` chưa được tạo và local mock
+   chỉ phục vụ review layout.
+3. ✅ Terraform: Cognito dashboard client, ECR repos, ALB/TLS/DNS và dashboard
+   workload đã provision/apply; Hub service/token cho BFF thật vẫn chưa hoàn tất.
+4. ⚠️ Dockerfile + `04-dashboard` đã deploy nhưng production runtime đang bị
+   `DYNAMIC_SERVER_USAGE`; cần sửa, build/push image mới và verify ALB target.
+5. ☐ Nối dashboard với Hub thật, verify end-to-end (đăng ký → spawn → mở Lab).
+6. ⚠️ Usage/quota hiện là mock; ☐ GPU accounting sau khi có GPU quota/policy.
+
+Checklist chi tiết được duy trì tại [`TODO.md`](../TODO.md).
 </content>
