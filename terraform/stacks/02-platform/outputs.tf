@@ -116,8 +116,13 @@ output "certificate_status" {
 }
 
 output "certificate_validation_records" {
-  description = "DNS TXT records needed to validate the ACM certificate (add at Cloudflare)."
+  description = "ACM DNS validation records managed in the Route53 zone."
   value       = module.ingress_dns.certificate_validation_records
+}
+
+output "route53_zone_nameservers" {
+  description = "Route53 nameservers to delegate the zone to when a new zone was created."
+  value       = module.ingress_dns.zone_nameservers
 }
 
 output "lb_controller_role_arn" {

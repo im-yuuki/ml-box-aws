@@ -50,13 +50,29 @@ docs/
   aws-resource-map.png# sơ đồ kèm logo AWS
 ```
 
+## Trạng thái hiện tại
+
+- Hạ tầng `00-bootstrap` → `03-hub-app` đã apply; notebook đang ở
+  `https://notebook.mlbox.june8th.me`.
+- Theme notebook đã apply và CPU profile đang được dùng; GPU profile chưa bật.
+- `04-dashboard` đã apply tại `https://mlbox.june8th.me`, nhưng production runtime
+  hiện còn lỗi `DYNAMIC_SERVER_USAGE`; BFF thật và các flow sandbox/auth end-to-end
+  chưa hoàn thành.
+- `99-unverified-gpu` là stack tùy chọn, chờ GPU quota.
+
+Tài liệu vận hành:
+
+- [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — triển khai, DNS/ACM, rollback và state rename.
+- [`docs/OPERATIONS.md`](docs/OPERATIONS.md) — health check, log, rollout, incident và chi phí.
+- [`TODO.md`](TODO.md) — checklist tính năng/công việc đã và chưa hoàn thành.
+
 ## Quy trình deploy (1 region/lần)
 
 ```bash
 source .private/aws-env.sh        # nạp credentials từ phiên `aws login`
 
 cd terraform/stacks/00-bootstrap
-terraform init; terraform apply   # 1 lần/account; tự sinh backend.hcl cho 01/02/03/04 và GPU tùy chọn
+terraform init; terraform apply   # 1 lần/account; tự sinh backend.hcl cho 01/02/03/04 và 99-unverified-gpu
 
 cd ../01-foundation
 terraform init -reconfigure -backend-config=backend.hcl
@@ -66,15 +82,16 @@ cd ../02-platform
 terraform init -reconfigure -backend-config=backend.hcl
 terraform plan; terraform apply   # ALB + cert + RDS + Cognito + ECR
 
-# >>> KHOẢNG NGHỈ: thêm DNS ở Cloudflare (CNAME + TXT ACM) - xem deploy/DNS-CLOUDFLARE.md
+# >>> KHOẢNG NGHỈ: delegate DNS zone sang Route53 và chờ ACM ISSUED - xem deploy/DNS-CLOUDFLARE.md
 
 cd ../03-hub-app
 terraform init -reconfigure -backend-config=backend.hcl
 terraform plan; terraform apply   # tự chờ cert ISSUED rồi tạo listener + hub
 
-deploy/apply-hub-theme.sh         # ConfigMap theme (Hub templates + static)
+cd ../../..                        # quay về repository root
+./deploy/apply-hub-theme.sh        # ConfigMap theme (Hub templates + static)
 
-cd ../04-dashboard
+cd terraform/stacks/04-dashboard
 terraform init -reconfigure -backend-config=backend.hcl
 terraform plan; terraform apply   # dashboard apex + BFF
 

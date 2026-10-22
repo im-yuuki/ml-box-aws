@@ -4,8 +4,8 @@ import { NextResponse, type NextRequest } from "next/server";
  * BFF stub: dashboard auth.
  *
  * The real implementation lives in `web/bff` (Node + Fastify) and is
- * exposed through the same /api/bff/* path once the dashboard pod and the
- * BFF pod are fronted by the same ALB host rule (app.mlbox.june8th.me).
+ * exposed through the same /api/bff/* path once the dashboard and BFF
+ * services are deployed behind the apex host rule (mlbox.june8th.me).
  *
  * This stub exists so the dashboard can be developed end-to-end against
  * a mock and so the request shape is reviewable before the BFF service

@@ -1,4 +1,4 @@
-# DNS thủ công ở Cloudflare (giữa 2 stack)
+# DNS/ACM: delegate nameserver từ Cloudflare sang Route53
 
 Bố cục deploy sau khi tách stack:
 
@@ -6,7 +6,7 @@ Bố cục deploy sau khi tách stack:
 00-bootstrap     S3 state + DDB lock
 01-foundation    VPC + EKS + Karpenter (NodePool cpu-user + gpu-shared-l4)
 02-platform      S3 workspace + RDS + Cognito + ECR + LB controller + ALB/TG + ACM cert
-   >>> KHOẢNG NGHỈ: cập nhật DNS ở Cloudflare (2 bản ghi bên dưới) <<<
+   >>> KHOẢNG NGHỈ: delegate zone sang Route53, đổi nameserver ở Cloudflare, chờ ACM ISSUED <<<
 03-hub-app       JupyterHub (Z2JH) + TargetGroupBinding + listener + profile CPU
 04-dashboard     Dashboard + BFF + apex listener rule
 
@@ -28,7 +28,7 @@ Sau khi apply `02-platform` với `manage_route53 = true`, Terraform đã tạo 
 - A-alias `notebook.mlbox.june8th.me` -> ALB
 
 Việc cần làm ở Cloudflare: đổi nameserver của zone `mlbox.june8th.me` sang 4 NS của
-Route53 (đọc từ zone, hoặc `terraform -chdir=terraform/stacks/02-platform output zone_nameservers`).
+Route53 (đọc từ zone, hoặc `terraform -chdir=terraform/stacks/02-platform output route53_zone_nameservers`).
 
 > Lưu ý: khi Cloudflare mất quyền authoritative với zone này, **mọi bản ghi khác đang
 > nằm ở Cloudflare của zone `mlbox.june8th.me` sẽ ngừng phục vụ** và phải tạo lại trong
