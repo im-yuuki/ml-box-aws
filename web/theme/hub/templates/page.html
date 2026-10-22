@@ -14,13 +14,13 @@
 {% block stylesheet %}
   {{ super() }}
   <link rel="stylesheet"
-        href="{{ base_url }}hub/static/heroui/heroui.css"
+        href="{{ base_url }}static/heroui/heroui.css"
         type="text/css" />
 {% endblock stylesheet %}
 
 {% block favicon %}
   <link rel="icon"
-        href="{{ base_url }}hub/static/heroui/logo.svg"
+        href="{{ base_url }}static/heroui/logo.svg"
         type="image/svg+xml" />
 {% endblock favicon %}
 
@@ -59,17 +59,38 @@
 {% endblock meta %}
 
 {# Motion (framer-motion vanilla, UMD) exposes window.Motion; loaded in the
-   head before the inline snippet in {% block script %} runs. #}
+   head before the inline snippet in {% block script %} runs.
+
+   JupyterHub serves require.js, whose global `define.amd` makes the UMD
+   wrapper register an anonymous AMD module instead of exporting to
+   window.Motion - require.js then throws "Mismatched anonymous define()".
+   Toggle define.amd off around the tag (the script is synchronous, so
+   require.js is back to normal right after) so Motion really lands on
+   window.Motion. #}
 {% block scripts %}
   {{ super() }}
-  <script src="{{ base_url }}hub/static/heroui/motion.js"
+  <script type="text/javascript">
+    (function () {
+      if (typeof window.define === 'undefined' || !window.define.amd) return;
+      window.__mlbDefineAmd = window.define.amd;
+      window.define.amd = undefined;
+    })();
+  </script>
+  <script src="{{ base_url }}static/heroui/motion.js"
           type="text/javascript"></script>
+  <script type="text/javascript">
+    (function () {
+      if (window.__mlbDefineAmd === undefined) return;
+      window.define.amd = window.__mlbDefineAmd;
+      delete window.__mlbDefineAmd;
+    })();
+  </script>
 {% endblock scripts %}
 
 {% block logo %}
   <span id="jupyterhub-logo" class="navbar-brand">
     <a href="{{ logo_url or base_url }}">
-      <img src="{{ base_url }}hub/static/heroui/logo.svg"
+      <img src="{{ base_url }}static/heroui/logo.svg"
            alt="ML Box"
            class="mlb-logo"
            title="ML Box — GPU notebooks for teams" />

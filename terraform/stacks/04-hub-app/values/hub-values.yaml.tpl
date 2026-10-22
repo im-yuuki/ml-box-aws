@@ -1,7 +1,15 @@
-# Z2JH values — rendered via templatefile() in stack 03-hub/main.tf.
+# Z2JH values — rendered via templatefile() in stack 04-hub-app/main.tf.
 # Cross-check field names against the Z2JH chart version in use (handoff doc §12); do not infer from this file.
 # Decisions applied: commit/ceiling VRAM, L4 shared replicas 3, userScheduler,
-# do-not-disrupt, Cognito OIDC, external RDS, ALB + ACM.
+# do-not-disrupt, Cognito OIDC, external RDS, pre-created ALB + ACM (no Ingress).
+#
+# The Ingress block was removed on purpose: the ALB lives in 03-platform, so
+# the chart must not create a second one. Traffic reaches the hub through the
+# TargetGroupBinding defined in 04-hub-app/main.tf.
+#
+# GPU profiles are gated by `enable_gpu_profiles`. Terraform templates use
+# HCL directive syntax (%%{ if } / %%{ endif }), NOT Go's {{ if }} - the
+# latter would be emitted verbatim and break the YAML.
 
 hub:
   db:
@@ -95,24 +103,7 @@ hub:
 
 proxy:
   service:
-    type: ClusterIP # ALB comes in via the Ingress; no LoadBalancer service
-
-ingress:
-  enabled: true
-  annotations:
-    kubernetes.io/ingress.class: alb
-    alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/certificate-arn: ${cert_arn} # free ACM
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
-    alb.ingress.kubernetes.io/ssl-redirect: "443"
-  hosts:
-    - ${hub_host}
-  tls:
-    - hosts:
-        - ${hub_host}
-      # Placeholder: the ALB uses the ACM cert from the annotation and ignores this secret.
-      secretName: hub-tls-placeholder
+    type: ClusterIP # ALB comes in via the TargetGroupBinding; no LoadBalancer service
 
 singleuser:
   defaultUrl: /lab
@@ -139,6 +130,7 @@ singleuser:
         mem_guarantee: 1G
         node_selector:
           karpenter.sh/nodepool: cpu-user
+%{ if enable_gpu_profiles ~}
     - display_name: "GPU shared L4 (commit/ceiling per config)"
       description: "L4 GPU split by time-slicing, best-effort, killed when exceeding the ceiling."
       kubespawner_override:
@@ -183,6 +175,7 @@ singleuser:
           karpenter.sh/do-not-disrupt: "true"
         extra_labels:
           plan: dedicated
+%{ endif ~}
 
 scheduling:
   userScheduler:

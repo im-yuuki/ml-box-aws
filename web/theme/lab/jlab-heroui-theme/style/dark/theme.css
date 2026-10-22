@@ -14,8 +14,9 @@
  * the token file changes, and see the README for the full duplication note.
  *
  * All mixes are re-aimed — "deep" variants mix toward --black/--eclipse,
- * "tint" variants toward --snow. No new raw oklch()/hex colors (RGB triplet
- * exception documented in style/index.css).
+ * "tint" variants toward --snow. The three --jp-* values marked FAST use
+ * sRGB equivalents because JupyterLab's FAST design-token parser rejects
+ * OKLCH values for those registered tokens.
  * ==========================================================================*/
 
 body[data-jp-theme-name='HeroUI Dark'] {
@@ -83,7 +84,7 @@ body[data-jp-theme-name='HeroUI Dark'] {
    * -tertiary). Dark goes dark → light.
    * ---------------------------------------------------------------------*/
   --jp-layout-color0: var(--background);
-  --jp-layout-color1: var(--surface);
+   --jp-layout-color1: #18181b; /* FAST parser fallback for --surface */
   --jp-layout-color2: var(--surface-secondary);
   --jp-layout-color3: var(--surface-tertiary);
   --jp-layout-color4: color-mix(
@@ -185,7 +186,7 @@ body[data-jp-theme-name='HeroUI Dark'] {
    * 2 = light tint (mix toward --snow), 3 = palest tint.
    * ---------------------------------------------------------------------*/
   --jp-brand-color0: color-mix(in srgb, var(--accent) 85%, var(--black));
-  --jp-brand-color1: var(--accent);
+   --jp-brand-color1: #0485f7; /* FAST parser fallback for --accent */
   --jp-brand-color2: color-mix(in srgb, var(--accent) 60%, var(--snow));
   --jp-brand-color3: color-mix(in srgb, var(--accent) 30%, var(--snow));
   --jp-brand-color4: color-mix(in srgb, var(--accent) 15%, var(--snow));
@@ -203,7 +204,7 @@ body[data-jp-theme-name='HeroUI Dark'] {
   --jp-warn-color3: color-mix(in srgb, var(--warning) 20%, var(--snow));
 
   --jp-error-color0: color-mix(in srgb, var(--danger) 80%, var(--black));
-  --jp-error-color1: var(--danger);
+   --jp-error-color1: #db3b3e; /* FAST parser fallback for --danger */
   --jp-error-color2: color-mix(in srgb, var(--danger) 50%, var(--snow));
   --jp-error-color3: color-mix(in srgb, var(--danger) 25%, var(--snow));
 

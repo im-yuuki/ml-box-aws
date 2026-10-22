@@ -13,12 +13,10 @@
  * and see the README for the full duplication note.
  *
  * Rules:
- *  - Every color here is EITHER a var() from the token block below, OR
- *    derived from tokens via rgba()/color-mix() mixing of token colors with
- *    each other or with transparency. There are NO new oklch()/hex colors in
- *    this file. (Exception: --jp-scrollbar-thumb-color in style/index.css is
- *    a neutral RGB triplet constant — JupyterLab's scrollbar code requires a
- *    triplet, which the oklch token file cannot express.)
+   *  - Colors are token aliases or token-derived mixes, except the three
+   *    --jp-* values marked FAST below. JupyterLab's FAST design-token parser
+   *    currently rejects OKLCH values for those registered tokens, so they
+   *    use sRGB equivalents of the canonical HeroUI tokens.
  *  - Scope: body[data-jp-theme-name='HeroUI Light'] — exact attribute set by
  *    @jupyterlab/apputils on every theme switch, so this palette applies only
  *    while the HeroUI Light theme is active.
@@ -105,7 +103,7 @@ body[data-jp-theme-name='HeroUI Light'] {
    * --surface-tertiary). Light goes light → dark.
    * ---------------------------------------------------------------------*/
   --jp-layout-color0: var(--background);
-  --jp-layout-color1: var(--surface);
+   --jp-layout-color1: #fcfcfc; /* FAST parser fallback for --snow */
   --jp-layout-color2: var(--surface-secondary);
   --jp-layout-color3: var(--surface-tertiary);
   --jp-layout-color4: color-mix(in srgb, var(--foreground) 30%, var(--surface));
@@ -206,7 +204,7 @@ body[data-jp-theme-name='HeroUI Light'] {
    * 3 = palest tint. Mixing is always token-color + token-color/white/black.
    * ---------------------------------------------------------------------*/
   --jp-brand-color0: color-mix(in srgb, var(--accent) 70%, var(--eclipse));
-  --jp-brand-color1: var(--accent);
+   --jp-brand-color1: #0485f7; /* FAST parser fallback for --accent */
   --jp-brand-color2: color-mix(in srgb, var(--accent) 65%, var(--white));
   --jp-brand-color3: color-mix(in srgb, var(--accent) 30%, var(--white));
   --jp-brand-color4: color-mix(in srgb, var(--accent) 15%, var(--white));
@@ -224,7 +222,7 @@ body[data-jp-theme-name='HeroUI Light'] {
   --jp-warn-color3: color-mix(in srgb, var(--warning) 30%, var(--white));
 
   --jp-error-color0: color-mix(in srgb, var(--danger) 75%, var(--eclipse));
-  --jp-error-color1: var(--danger);
+   --jp-error-color1: #db3b3e; /* FAST parser fallback for --danger */
   --jp-error-color2: color-mix(in srgb, var(--danger) 60%, var(--white));
   --jp-error-color3: color-mix(in srgb, var(--danger) 25%, var(--white));
 
