@@ -1,13 +1,13 @@
-# 04-hub-app — JupyterHub (Z2JH) application stack
+# 03-hub-app — JupyterHub (Z2JH) application stack
 
 This stack owns the **JupyterHub application** only: the Z2JH helm release, the
 TargetGroupBinding that points the pre-created ALB at the hub Service, and the
 ALB listeners (HTTP → HTTPS redirect, HTTPS → target group).
 
-Everything infra-shaped lives in **`03-platform`** and is consumed read-only
+Everything infra-shaped lives in **`02-platform`** and is consumed read-only
 through `data "terraform_remote_state" "platform"`:
 
-| 03-platform output | used for |
+| 02-platform output | used for |
 | --- | --- |
 | `db_url` (sensitive) | `hub.db.url` in the Z2JH values |
 | `cognito_issuer`, `cognito_client_id`, `cognito_client_secret`, `cognito_authorize_url`, `cognito_token_url`, `cognito_userdata_url` | `GenericOAuthenticator` |
@@ -19,23 +19,23 @@ through `data "terraform_remote_state" "platform"`:
 | `certificate_validation_records` | (operator input) ACM TXT records to publish at Cloudflare |
 
 The stack also creates **no** S3 bucket, RDS instance, Cognito pool, ECR repo,
-ALB or ACM certificate — those are all in `03-platform`.
+ALB or ACM certificate — those are all in `02-platform`.
 
 ---
 
 ## Order of operations (important)
 
-1. **`03-platform` must be applied first.** This stack reads its state object;
-   if `03-platform` has never been applied the read fails immediately.
+1. **`02-platform` must be applied first.** This stack reads its state object;
+   if `02-platform` has never been applied the read fails immediately.
 2. **The operator publishes the DNS records at Cloudflare** — both
-   - the CNAME/ALIAS for `hub.<domain>` → the ALB, and
+   - the CNAME/ALIAS for `notebook.<domain>` → the ALB, and
    - the ACM **validation TXT record** for the certificate.
 
-   Both come from `03-platform`:
+   Both come from `02-platform`:
 
    ```bash
-   terraform -chdir=terraform/stacks/03-platform output alb_dns_name
-   terraform -chdir=terraform/stacks/03-platform output certificate_validation_records
+   terraform -chdir=terraform/stacks/02-platform output alb_dns_name
+   terraform -chdir=terraform/stacks/02-platform output certificate_validation_records
    ```
 
    Publishing them in one sitting is the whole point of the split: the ALB
@@ -73,7 +73,7 @@ template).
 ## Image pinning
 
 `cpu_image` / `gpu_image` point at the ECR repositories created by
-`03-platform`. The tag follows the image-pipeline convention **`dev-<gitshortsha>`**,
+`02-platform`. The tag follows the image-pipeline convention **`dev-<gitshortsha>`**,
 currently `dev-fa3b6fa`:
 
 ```
@@ -99,9 +99,9 @@ kubectl get pods -n hub
 kubectl logs -n hub deploy/hub -c hub --tail=50
 
 # 3. Browser
-#    https://hub.<domain>/hub/login   -> Cognito hosted UI
-#    https://hub.<domain>/hub/home    -> JupyterHub
-#    https://hub.<domain>/hub/logo    -> ML Box logo
+#    https://notebook.<domain>/hub/login   -> Cognito hosted UI
+#    https://notebook.<domain>/hub/home    -> JupyterHub
+#    https://notebook.<domain>/hub/logo    -> ML Box logo
 ```
 
 The `target_service_name` / `target_service_port` variables feed the
@@ -125,7 +125,7 @@ the two variables if your chart version differs.
 ## Notes / gotchas
 
 - The chart's `ingress:` block was **removed** from the values template on
-  purpose — the ALB already exists in `03-platform`, and a second Ingress
+  purpose — the ALB already exists in `02-platform`, and a second Ingress
   would create a second ALB. Traffic flows via the `TargetGroupBinding`
   (`networking.k8s.aws/v1beta1`, `targetType: ip`).
 - Terraform template directives use HCL syntax (`%{ if }` / `%{ endif }`).

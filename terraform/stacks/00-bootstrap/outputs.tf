@@ -9,6 +9,6 @@ output "lock_table" {
 }
 
 output "backend_files" {
-  description = "backend.hcl files freshly generated for 01-foundation / 02-gpu / 03-platform / 04-hub-app. terraform init -backend-config=backend.hcl then just works."
+  description = "backend.hcl files freshly generated for 01-foundation / 02-platform / 03-hub-app / 04-dashboard / 99-unverified-gpu. terraform init -backend-config=backend.hcl then just works."
   value       = { for f in local_file.stack_backends : f.filename => basename(dirname(f.filename)) }
 }

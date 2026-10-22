@@ -58,7 +58,7 @@
                 <mxCell id="n2" parent="c1" style="outlineConnect=0;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;shape=mxgraph.aws3.elastic_load_balancing;fillColor=#F58536;gradientColor=none;" value="ALB internet-facing&lt;br&gt;TLS 443" vertex="1">
                     <mxGeometry height="72" width="69" x="130" y="45" as="geometry"/>
                 </mxCell>
-                <mxCell id="n3" parent="c1" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#7AA116;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.certificate_manager;" value="ACM cert&lt;br&gt;hub.mlbox.june8th.me" vertex="1">
+                <mxCell id="n3" parent="c1" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#7AA116;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.certificate_manager;" value="ACM cert&lt;br&gt;notebook.mlbox.june8th.me" vertex="1">
                     <mxGeometry height="78" width="59" x="240" y="40" as="geometry"/>
                 </mxCell>
                 <mxCell id="n4" parent="c1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=10;" value="ALB controller 3.6.0&lt;br&gt;chạy trên cluster (IRSA)&lt;br&gt;tạo ALB target-type ip" vertex="1">
@@ -351,7 +351,7 @@
                 <mxCell id="cA" parent="1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#FFFFFF;strokeColor=#666666;rounded=1;" value="A. Đăng nhập &amp; Spawn" vertex="1">
                     <mxGeometry height="210" width="1660" x="20" y="30" as="geometry"/>
                 </mxCell>
-                <mxCell id="n1" parent="cA" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#F5F5F5;strokeColor=#999999;fontSize=11;" value="(1) User mở&lt;br&gt;https://hub.mlbox.june8th.me" vertex="1">
+                <mxCell id="n1" parent="cA" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#F5F5F5;strokeColor=#999999;fontSize=11;" value="(1) User mở&lt;br&gt;https://notebook.mlbox.june8th.me" vertex="1">
                     <mxGeometry height="60" width="180" x="20" y="40" as="geometry"/>
                 </mxCell>
                 <mxCell id="n2" parent="cA" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;" value="(2) ALB TLS → proxy (chp)&lt;br&gt;→ Hub GenericOAuthenticator" vertex="1">
@@ -619,13 +619,13 @@
                 <mxCell id="n5" parent="c2" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" value="karpenter&#xa;chart 1.15.0 · controller IRSA (5 policy) · node role (EC2/EBSCNI/ECRPullOnly/SSM)&#xa;SQS interruption + 5 EventBridge rule&#xa;manifests: 3 NodePool (cpu-user, gpu-shared-l4, gpu-dedicated) + 2 EC2NodeClass" vertex="1">
                     <mxGeometry height="180" width="250" x="535" y="34" as="geometry"/>
                 </mxCell>
-                <mxCell id="c3" parent="1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#F8CECC;strokeColor=#B85450;rounded=1;dashed=1;" value="02-gpu — CHỜ QUOTA GPU ≥ 8 vCPU" vertex="1">
+                <mxCell id="c3" parent="1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#F8CECC;strokeColor=#B85450;rounded=1;dashed=1;" value="99-unverified-gpu — CHỜ QUOTA GPU ≥ 8 vCPU" vertex="1">
                     <mxGeometry height="100" width="800" x="40" y="500" as="geometry"/>
                 </mxCell>
                 <mxCell id="n6" parent="c3" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;dashed=1;" value="gpu-stack&#xa;nvidia-device-plugin 0.20.1 (time-slicing shared · nodeSelector/toleration tier=shared) · dcgm-exporter 4.8.4 + serviceMonitor&#xa;renameByDefault → nvidia.com/gpu.shared · replicas 3 · failRequestsGreaterThanOne" vertex="1">
                     <mxGeometry height="56" width="770" x="15" y="34" as="geometry"/>
                 </mxCell>
-                <mxCell id="c4" parent="1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#E1D5E7;strokeColor=#9673A6;rounded=1;" value="03-hub — TFVARS ĐÃ CHUẨN BỊ" vertex="1">
+                <mxCell id="c4" parent="1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#E1D5E7;strokeColor=#9673A6;rounded=1;" value="03-hub-app — TFVARS ĐÃ CHUẨN BỊ" vertex="1">
                     <mxGeometry height="280" width="800" x="40" y="660" as="geometry"/>
                 </mxCell>
                 <mxCell id="n7" parent="c4" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" value="storage&#xa;KMS key · S3 workspace versioning SSE-KMS&#xa;IRSA hub role sts:AssumeRole · workspace role prefix users/&lt;id&gt;" vertex="1">
@@ -634,19 +634,20 @@
                 <mxCell id="n8" parent="c4" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" value="hub-db&#xa;RDS Postgres 16.15 db.t4g.micro · 20GB gp3 encrypted&#xa;Secrets Manager managed secret · backup 7 ngày · subnet group + SG 5432" vertex="1">
                     <mxGeometry height="110" width="250" x="275" y="34" as="geometry"/>
                 </mxCell>
-                <mxCell id="n9" parent="c4" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" value="auth&#xa;Cognito pool mlbox-hub-apse2 · client jupyterhub (code · openid/email/profile)&#xa;callback hub.mlbox.june8th.me/hub/oauth_callback" vertex="1">
+                <mxCell id="n9" parent="c4" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" value="auth&#xa;Cognito pool mlbox-hub-apse2 · client jupyterhub (code · openid/email/profile)&#xa;callback notebook.mlbox.june8th.me/hub/oauth_callback" vertex="1">
                     <mxGeometry height="110" width="250" x="535" y="34" as="geometry"/>
                 </mxCell>
                 <mxCell id="n10" parent="c4" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" value="ecr&#xa;repo jhub-gpu-sandbox/cpu · /gpu&#xa;scan-on-push · lifecycle 10" vertex="1">
                     <mxGeometry height="110" width="250" x="15" y="154" as="geometry"/>
                 </mxCell>
-                <mxCell id="n11" parent="c4" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" value="ingress-dns&#xa;Route53 zone + ACM hub.mlbox.june8th.me (DNS validate)&#xa;ALB controller 3.6.0 IRSA · record hub → ALB" vertex="1">
+                <mxCell id="n11" parent="c4" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" value="ingress-dns&#xa;Route53 zone + ACM notebook.mlbox.june8th.me (DNS validate)&#xa;ALB controller 3.6.0 IRSA · record notebook → ALB" vertex="1">
                     <mxGeometry height="110" width="250" x="275" y="154" as="geometry"/>
                 </mxCell>
                 <mxCell id="n12" parent="c4" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" value="helm_release jupyterhub 4.4.2 · ns hub&#xa;values/hub-values.yaml.tpl: 3 profile · postgres · culler 1800s · placeholder 2 + userScheduler&#xa;pre_spawn_hook: vram commit-mib 8192 · ceiling-mib 12288 · nvidia.com/gpu.shared:1" vertex="1">
                     <mxGeometry height="110" width="250" x="535" y="154" as="geometry"/>
                 </mxCell>
-                <mxCell id="n13" parent="1" style="rounded=1;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacing=10;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;" value="Điểm cần nhớ khi vận hành&#xa;&#xa;• state key: dev/&lt;region&gt;/&lt;stack&gt;.tfstate&#xa;• 03-hub cần 2 lần apply (1: tạo ALB → 2: điền alb_dns_name để Route53 trỏ)&#xa;• destroy ngược: 03 → 02 → 01&#xa;• kubeconfig qua aws eks get-token&#xa;• cluster name ≤ 38 ký tự nhờ mã ngắn apse2&#xa;• không ngắt giữa chừng stack 01 (MNG node lơ lửng)&#xa;• destroy -refresh=false tránh lỗi data source addon&#xa;• xả object versioning trước khi delete bucket" vertex="1">
+                <mxCell id="n13" parent="1" style="rounded=1;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacing=10;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;" value="Điểm cần nhớ khi vận hành&#xa;&#xa;• state key: dev/&lt;region&gt;/&lt;stack&gt;.tfstate&#xa;• 03-hub-app cần apply sau khi 02-platform + DNS sẵn sàng
+• 04-dashboard dùng listener/cert từ 02-platform + 03-hub-app&#xa;• destroy ngược: 04-dashboard → 03-hub-app → 02-platform → 01-foundation → 00-bootstrap&#xa;• kubeconfig qua aws eks get-token&#xa;• cluster name ≤ 38 ký tự nhờ mã ngắn apse2&#xa;• không ngắt giữa chừng stack 01 (MNG node lơ lửng)&#xa;• destroy -refresh=false tránh lỗi data source addon&#xa;• xả object versioning trước khi delete bucket" vertex="1">
                     <mxGeometry height="470" width="740" x="920" y="210" as="geometry"/>
                 </mxCell>
                 <mxCell id="n14" parent="1" style="rounded=1;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacing=8;fillColor=#F5F5F5;strokeColor=#999999;fontSize=11;" value="&lt;b&gt;Chú giải&lt;/b&gt;&#xa;· tím = app/IaC · cam = storage/endpoint&#xa;· vàng = ops/trạng thái · đỏ nhạt = trạng thái cần chú ý&#xa;· xám = external · đường đứt = tùy chọn / kế hoạch" vertex="1">
@@ -672,7 +673,7 @@
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
-                <mxCell id="rt1" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;" value="Route53 — latency routing&lt;br&gt;hub.mlbox.june8th.me → 3 region" vertex="1">
+                <mxCell id="rt1" parent="1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#D5E8D4;strokeColor=#82B366;fontSize=11;" value="Route53 — latency routing&lt;br&gt;notebook.mlbox.june8th.me → 3 region" vertex="1">
                     <mxGeometry height="75" width="400" x="600" y="30" as="geometry"/>
                 </mxCell>
                 <mxCell id="cA" parent="1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#FFFFFF;strokeColor=#666666;rounded=1;" value="ap-southeast-2 (apse2) — ĐANG CHẠY" vertex="1">
@@ -742,24 +743,36 @@
                     <mxGeometry height="75" width="700" x="15" y="40" as="geometry"/>
                 </mxCell>
                 <mxCell id="r1" parent="cD" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=10;" value="01-foundation&lt;br&gt;(VPC, EKS nền)" vertex="1">
-                    <mxGeometry height="70" width="215" x="15" y="140" as="geometry"/>
+                    <mxGeometry height="70" width="160" x="15" y="140" as="geometry"/>
                 </mxCell>
-                <mxCell id="r2" parent="cD" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=10;" value="02-gpu&lt;br&gt;(chạy khi có quota)" vertex="1">
-                    <mxGeometry height="70" width="215" x="250" y="140" as="geometry"/>
+                <mxCell id="r2" parent="cD" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=10;" value="02-platform&lt;br&gt;(ALB, ACM, auth, data)" vertex="1">
+                    <mxGeometry height="70" width="160" x="190" y="140" as="geometry"/>
                 </mxCell>
-                <mxCell id="r3" parent="cD" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=10;" value="03-hub&lt;br&gt;(Z2JH + app)" vertex="1">
-                    <mxGeometry height="70" width="230" x="485" y="140" as="geometry"/>
+                <mxCell id="r3" parent="cD" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=10;" value="03-hub-app&lt;br&gt;(Z2JH + listener)" vertex="1">
+                    <mxGeometry height="70" width="160" x="365" y="140" as="geometry"/>
                 </mxCell>
-                <mxCell id="nt1" parent="cD" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;dashed=1;fontSize=10;" value="Lưu ý: destroy chạy ngược thứ tự (03-hub → 02-gpu → 01-foundation → 00-bootstrap)" vertex="1">
-                    <mxGeometry height="45" width="700" x="15" y="225" as="geometry"/>
+                <mxCell id="r4" parent="cD" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=10;" value="04-dashboard&lt;br&gt;(dashboard + BFF)" vertex="1">
+                    <mxGeometry height="70" width="160" x="540" y="140" as="geometry"/>
+                </mxCell>
+                <mxCell id="r5" parent="cD" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#F8CECC;strokeColor=#B85450;dashed=1;fontSize=10;" value="99-unverified-gpu&lt;br&gt;(optional; quota required)" vertex="1">
+                    <mxGeometry height="50" width="250" x="190" y="225" as="geometry"/>
+                </mxCell>
+                <mxCell id="nt1" parent="cD" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;dashed=1;fontSize=10;" value="Required destroy order: 04-dashboard → 03-hub-app → 02-platform → 01-foundation → 00-bootstrap&lt;br&gt;99-unverified-gpu is not in the required path and is applied only after GPU quota approval." vertex="1">
+                    <mxGeometry height="45" width="700" x="15" y="280" as="geometry"/>
                 </mxCell>
                 <mxCell id="g7" edge="1" parent="cD" source="r0" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="r1" value="">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="g8" edge="1" parent="cD" source="r1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="r2" value="khi quota đủ">
+                <mxCell id="g8" edge="1" parent="cD" source="r1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="r2" value="">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
                 <mxCell id="g9" edge="1" parent="cD" source="r2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="r3" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="g10" edge="1" parent="cD" source="r3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="r4" value="">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="g11" edge="1" parent="cD" source="r2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;dashed=1;" target="r5" value="quota đủ">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
                 <mxCell id="g1" edge="1" parent="1" source="rt1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="az2k" value="">

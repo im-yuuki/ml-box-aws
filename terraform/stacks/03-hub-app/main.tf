@@ -1,10 +1,10 @@
 locals {
-  hub_host = "hub.${var.domain}"
+  hub_host = "notebook.${var.domain}"
 }
 
 # ---------------------------------------------------------------------------
 # Auto-discovery of the 01-foundation resources. Kept for reference/debugging:
-# the infra this stack depends on is read from the 03-platform remote state.
+# the infra this stack depends on is read from the 02-platform remote state.
 # ---------------------------------------------------------------------------
 
 # Network module privately-labelled subnets carry:
@@ -48,9 +48,9 @@ locals {
 }
 
 # ---------------------------------------------------------------------------
-# 03-platform remote state (infra owned by the platform stack)
+# 02-platform remote state (infra owned by the platform stack)
 # ---------------------------------------------------------------------------
-# Everything infra-ish now lives in 03-platform: S3 workspace + IRSA role,
+# Everything infra-ish now lives in 02-platform: S3 workspace + IRSA role,
 # RDS hub DB, Cognito user pool, ECR repos, the AWS Load Balancer Controller,
 # the pre-created ALB + target group and the ACM certificate.
 #
@@ -98,13 +98,13 @@ resource "helm_release" "jupyterhub" {
 # ---------------------------------------------------------------------------
 # TargetGroupBinding: attach the public proxy Service to the pre-created target group
 # ---------------------------------------------------------------------------
-# The ALB + target group are created in 03-platform (so the operator can
+# The ALB + target group are created in 02-platform (so the operator can
 # publish the CNAME and the ACM TXT record in one sitting). The chart's own
 # Ingress block was removed from the values, therefore nothing would route
 # traffic to the public proxy - the TargetGroupBinding below does that job.
 #
 # The TargetGroupBinding CRD ships with the AWS Load Balancer Controller
-# (installed in 03-platform).
+# (installed in 02-platform).
 resource "kubectl_manifest" "hub_target_group_binding" {
   yaml_body = yamlencode({
     apiVersion = "elbv2.k8s.aws/v1beta1" # LB controller v3.x API group (not networking.k8s.aws)
@@ -125,7 +125,7 @@ resource "kubectl_manifest" "hub_target_group_binding" {
   })
 
   # The CRD is only guaranteed to exist once the LB controller is running
-  # (03-platform). Skip the provider-side schema validation so a missing CRD
+  # (02-platform). Skip the provider-side schema validation so a missing CRD
   # surfaces as a plain API error instead of an opaque validation failure.
   validate_schema = false
 
@@ -176,15 +176,15 @@ resource "terraform_data" "certificate_issued" {
 
       echo "ERROR: timed out after 15 minutes waiting for certificate $${CERT_ARN} to be ISSUED." >&2
       echo "The ACM certificate is still pending DNS validation. Publish the validation TXT records at Cloudflare, then re-run terraform apply in this stack." >&2
-      echo "Get the records from the 03-platform stack:" >&2
-      echo "  terraform -chdir=terraform/stacks/03-platform output certificate_validation_records" >&2
+      echo "Get the records from the 02-platform stack:" >&2
+      echo "  terraform -chdir=terraform/stacks/02-platform output certificate_validation_records" >&2
       exit 1
     EOT
   }
 }
 
 # ---------------------------------------------------------------------------
-# ALB listeners (the ALB itself is owned by 03-platform)
+# ALB listeners (the ALB itself is owned by 02-platform)
 # ---------------------------------------------------------------------------
 resource "aws_lb_listener" "https" {
   load_balancer_arn = data.terraform_remote_state.platform.outputs.alb_arn

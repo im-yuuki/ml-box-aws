@@ -33,9 +33,10 @@ terraform/
   stacks/
     00-bootstrap/   # S3 state bucket + DynamoDB lock (1 lần/account, state local)
     01-foundation/  # network + EKS + Karpenter (VPC dual-stack, MNG system, NodePools)
-    02-gpu/         # device plugin time-slicing + DCGM exporter (PHASE 2 - cần quota GPU)
-    03-platform/    # S3 workspace + RDS + Cognito + ECR + LB controller + ALB/TG + ACM cert
-    04-hub-app/     # JupyterHub (Z2JH) + TargetGroupBinding + listener + profile CPU
+    02-platform/    # S3 workspace + RDS + Cognito + ECR + LB controller + ALB/TG + ACM cert
+    03-hub-app/     # JupyterHub (Z2JH) + TargetGroupBinding + listener + profile CPU
+    04-dashboard/   # Dashboard + BFF + apex listener rule
+    99-unverified-gpu/ # optional GPU device plugin + DCGM exporter (chờ quota)
   modules/
     network/ eks/ karpenter/ gpu-stack/
     storage/ hub-db/ auth/ ecr/ ingress-dns/
@@ -55,32 +56,37 @@ docs/
 source .private/aws-env.sh        # nạp credentials từ phiên `aws login`
 
 cd terraform/stacks/00-bootstrap
-terraform init; terraform apply   # 1 lần/account; tự sinh backend.hcl cho 01/02/03/04
+terraform init; terraform apply   # 1 lần/account; tự sinh backend.hcl cho 01/02/03/04 và GPU tùy chọn
 
 cd ../01-foundation
 terraform init -reconfigure -backend-config=backend.hcl
 terraform plan; terraform apply   # ~15-20 phút, KHÔNG ngắt giữa chừng
 
-cd ../03-platform
+cd ../02-platform
 terraform init -reconfigure -backend-config=backend.hcl
 terraform plan; terraform apply   # ALB + cert + RDS + Cognito + ECR
 
 # >>> KHOẢNG NGHỈ: thêm DNS ở Cloudflare (CNAME + TXT ACM) - xem deploy/DNS-CLOUDFLARE.md
 
-cd ../04-hub-app
+cd ../03-hub-app
 terraform init -reconfigure -backend-config=backend.hcl
 terraform plan; terraform apply   # tự chờ cert ISSUED rồi tạo listener + hub
 
 deploy/apply-hub-theme.sh         # ConfigMap theme (Hub templates + static)
 
-# khi quota GPU về:
-cd ../02-gpu
+cd ../04-dashboard
 terraform init -reconfigure -backend-config=backend.hcl
-terraform plan; terraform apply   # rồi bật profile GPU trong 04-hub-app
+terraform plan; terraform apply   # dashboard apex + BFF
+
+# CPU-only chạy được ngay sau `04-dashboard` (NodePool `cpu-user` không cần quota GPU).
+
+# Chỉ khi quota GPU đã được cấp:
+cd ../99-unverified-gpu
+terraform init -reconfigure -backend-config=backend.hcl
+terraform plan; terraform apply   # rồi bật profile GPU trong 03-hub-app
 ```
 
-CPU-only chạy được ngay sau `04-hub-app` (NodePool `cpu-user` không cần quota GPU);
-profile GPU chỉ bật khi `enable_gpu_profiles = true` và stack `02-gpu` đã apply.
+Profile GPU chỉ bật khi `enable_gpu_profiles = true` và stack `99-unverified-gpu` đã apply.
 
 Verify: `aws eks update-kubeconfig --name jhub-gpu-sandbox-dev-apse2 --region ap-southeast-2`,
 rồi `kubectl get nodes/nodepools/ec2nodeclasses`.

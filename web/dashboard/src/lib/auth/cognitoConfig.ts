@@ -6,7 +6,7 @@
  * itself — no hosted UI redirect.
  *
  * Wire the values through Next.js env at build time so this module stays
- * tree-shakeable on the client.  Fill in `terraform/stacks/05-dashboard/`
+ * tree-shakeable on the client.  Fill in `terraform/stacks/04-dashboard/`
  * outputs when the stack is added; defaults are placeholders so the app
  * still renders without a backend.
  */

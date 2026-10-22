@@ -1,8 +1,8 @@
 # Values below are the only ones that must be typed by hand.
 # Cluster/vpc/subnets/SG/OIDC come from data sources - keep them out of tfvars.
-# S3/RDS/Cognito/ECR/ALB/ACM come from the 03-platform remote state.
+# S3/RDS/Cognito/ECR/ALB/ACM come from the 02-platform remote state.
 region                = "ap-southeast-2"
-domain                = "hub.example.com"     # your root domain; hub at hub.<domain>
+domain                = "example.com"         # your root domain; hub at notebook.<domain>
 cognito_domain_prefix = "mlbox-hub-apse2"     # unique per region
 
 # GPU profiles are hidden until the account has a GPU quota.

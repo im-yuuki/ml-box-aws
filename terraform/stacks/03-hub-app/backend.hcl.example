@@ -1,7 +1,7 @@
 # Per-region backend state. NOTE: 00-bootstrap generates the real backend.hcl
 # into this stack automatically - this file is only a manual fallback.
 bucket         = "REPLACEME-tfstate"
-key            = "dev/ap-southeast-2/02-gpu.tfstate"
+key            = "dev/ap-southeast-2/03-hub-app.tfstate"
 region         = "ap-southeast-2"
 dynamodb_table = "REPLACEME-tflock"
 encrypt        = true

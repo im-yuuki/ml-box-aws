@@ -23,7 +23,7 @@ web/bff/         Node (Fastify, TypeScript)  — verify Cognito JWT, proxy Hub R
 ### Luồng
 
 ```
-Browser ──► app.mlbox.june8th.me ──► dashboard (Next.js)
+Browser ──► mlbox.june8th.me (apex) ──► dashboard (Next.js)
                 │                         │
                 │                         ▼
                 └──────────────────► BFF /api/*
@@ -38,7 +38,7 @@ Browser ──► app.mlbox.june8th.me ──► dashboard (Next.js)
   bật `ALLOW_USER_SRP_AUTH` (+ confirm/forgot password). Client OAuth hiện tại của
   hub (`generate_secret=true`, code flow) giữ nguyên cho JupyterHub.
 - Sau khi đăng nhập ở dashboard, dashboard đổi access token lấy phiên JupyterHub:
-  BFF gọi hub API spawn server; user mở notebook qua link `hub.mlbox.june8th.me`
+  BFF gọi hub API spawn server; user mở notebook qua link `notebook.mlbox.june8th.me`
   (hub vẫn dùng Cognito OIDC nên SSO liền mạch trong cùng user pool).
 
 ### Hub service cho BFF
@@ -55,7 +55,7 @@ hub:
           admin: true              # cần quyền spawn/stop/list user servers
 ```
 
-Token cấp qua Secret trong cluster (05-dashboard stack), không hard-code.
+Token cấp qua Secret trong cluster (04-dashboard stack), không hard-code.
 
 ### Usage/quota
 
@@ -64,14 +64,15 @@ Token cấp qua Secret trong cluster (05-dashboard stack), không hard-code.
 - Kỳ 2 (khi có GPU + kế toán): ghi nhận GPU-hours trong spawn hook vào bảng riêng
   trong hub DB (Postgres RDS) — BFF đọc qua hub API, không truy cập DB trực tiếp.
 
-## Hạ tầng (stack mới `05-dashboard`, chưa apply)
+## Hạ tầng (stack mới `04-dashboard`, chưa apply)
 
 - ECR repo `dashboard` + `bff` (module ecr mở rộng).
 - Deployment + Service trong cluster (namespace `hub` hoặc `dashboard`), chạy trên
   NodePool `cpu-user`.
-- Cùng ALB hiện có: thêm host `app.mlbox.june8th.me` (ACM cert mới) → listener rule
-  forward về dashboard Service; BFF là ClusterIP nội bộ, dashboard gọi trong cluster.
-- DNS: đã delegate `mlbox.june8th.me` về Route53 → thêm record `app`.
+- Cùng ALB hiện có: host **apex `mlbox.june8th.me`** (ACM cert mới cho apex, SAN chỉ
+  gồm apex) → listener rule host-header forward về dashboard Service; hub giữ default
+  action. BFF là ClusterIP nội bộ, dashboard gọi trong cluster.
+- DNS: đã delegate `mlbox.june8th.me` về Route53 → thêm record A apex (alias → ALB).
 
 ## Cognito cần chỉnh (module auth)
 
@@ -87,7 +88,7 @@ Token cấp qua Secret trong cluster (05-dashboard stack), không hard-code.
    image `cpu:dev-fa3b6fa-v5`).
 2. Scaffold `web/dashboard` + `web/bff`, chạy local với hub API mock.
 3. Terraform: Cognito client dashboard + hub service/token + ECR repos.
-4. Dockerfile + deploy `05-dashboard` (ALB rule, DNS `app.`).
+4. Dockerfile + deploy `04-dashboard` (ALB rule host apex, DNS record apex).
 5. Nối dashboard với hub thật, verify end-to-end (đăng ký → spawn → mở Lab).
 6. Usage/quota views; GPU accounting (giai đoạn GPU).
 </content>

@@ -43,3 +43,17 @@ resource "aws_cognito_user_pool_client" "hub" {
 
   explicit_auth_flows = ["ALLOW_REFRESH_TOKEN_AUTH", "ALLOW_USER_SRP_AUTH"]
 }
+
+# Dashboard public client (SRP/OTP from the browser, no client secret).
+# No OAuth flows: the dashboard talks to Cognito directly, not via Hosted UI.
+resource "aws_cognito_user_pool_client" "dashboard" {
+  name            = "dashboard"
+  user_pool_id    = aws_cognito_user_pool.hub.id
+  generate_secret = false
+
+  explicit_auth_flows = [
+    "ALLOW_USER_SRP_AUTH",
+    "ALLOW_USER_AUTH",
+    "ALLOW_REFRESH_TOKEN_AUTH",
+  ]
+}

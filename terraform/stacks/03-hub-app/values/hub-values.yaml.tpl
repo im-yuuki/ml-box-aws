@@ -1,11 +1,11 @@
-# Z2JH values — rendered via templatefile() in stack 04-hub-app/main.tf.
+# Z2JH values — rendered via templatefile() in stack 03-hub-app/main.tf.
 # Cross-check field names against the Z2JH chart version in use (handoff doc §12); do not infer from this file.
 # Decisions applied: commit/ceiling VRAM, L4 shared replicas 3, userScheduler,
 # do-not-disrupt, Cognito OIDC, external RDS, pre-created ALB + ACM (no Ingress).
 #
-# The Ingress block was removed on purpose: the ALB lives in 03-platform, so
+# The Ingress block was removed on purpose: the ALB lives in 02-platform, so
 # the chart must not create a second one. Traffic reaches the hub through the
-# TargetGroupBinding defined in 04-hub-app/main.tf.
+# TargetGroupBinding defined in 03-hub-app/main.tf.
 #
 # GPU profiles are gated by `enable_gpu_profiles`. Terraform templates use
 # HCL directive syntax (%%{ if } / %%{ endif }), NOT Go's {{ if }} - the

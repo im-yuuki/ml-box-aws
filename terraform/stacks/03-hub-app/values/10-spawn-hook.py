@@ -1,4 +1,4 @@
-# Z2JH spawn hook (hub.extraConfig) — reference for attaching to the helm_release in stack 04-hub-app.
+# Z2JH spawn hook (hub.extraConfig) — reference for attaching to the helm_release in stack 03-hub-app.
 # Verify KubeSpawner/Authenticator APIs against the chart version in use.
 # Responsibilities: filter the profile by the plan claim, attach VRAM annotations + cost labels, count quota.
 
