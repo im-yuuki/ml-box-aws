@@ -1,0 +1,8 @@
+# Values below are the only ones that must be typed by hand.
+# Cluster/vpc/subnets/SG/OIDC come from data sources - keep them out of tfvars.
+region                = "ap-southeast-2"
+domain                = "mlbox.june8th.me"     # your root domain; hub at hub.<domain>
+cognito_domain_prefix = "mlbox-hub-apse2"     # unique per region
+
+# DNS is hosted at Cloudflare -> Terraform does not manage any Route53 record.
+manage_route53 = false
