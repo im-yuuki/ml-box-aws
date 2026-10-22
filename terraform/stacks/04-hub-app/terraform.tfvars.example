@@ -1,7 +1,13 @@
 # Values below are the only ones that must be typed by hand.
 # Cluster/vpc/subnets/SG/OIDC come from data sources - keep them out of tfvars.
+# S3/RDS/Cognito/ECR/ALB/ACM come from the 03-platform remote state.
 region                = "ap-southeast-2"
 domain                = "hub.example.com"     # your root domain; hub at hub.<domain>
 cognito_domain_prefix = "mlbox-hub-apse2"     # unique per region
 
-# alb_dns_name = ""  # second-apply pass after the Ingress creates the ALB
+# GPU profiles are hidden until the account has a GPU quota.
+enable_gpu_profiles = false
+
+# Images built by the image pipeline. Tag = dev-<gitshortsha>.
+cpu_image = "451058046864.dkr.ecr.ap-southeast-2.amazonaws.com/jhub-gpu-sandbox/cpu:dev-fa3b6fa"
+gpu_image = "451058046864.dkr.ecr.ap-southeast-2.amazonaws.com/jhub-gpu-sandbox/gpu:dev-fa3b6fa"
