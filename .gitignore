@@ -15,6 +15,9 @@
 **/*.auto.tfvars
 !**/*.auto.tfvars.example
 
+# Local agent/dev context (never shared)
+.private/
+
 Thumbs.db
 .vscode/
 .idea/
