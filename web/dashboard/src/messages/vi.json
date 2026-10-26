@@ -5,6 +5,7 @@
     "dashboardPreview": "ML Box · Bản xem trước Dashboard",
     "openLab": "Mở Lab",
     "start": "Khởi động",
+    "stop": "Dừng",
     "rename": "Đổi tên",
     "delete": "Xoá",
     "comingSoon": "Sắp có"
@@ -39,7 +40,8 @@
     "newHere": "Mới dùng lần đầu?",
     "createAccountCta": "Tạo tài khoản",
     "cognitoUnconfigured": "Chưa cấu hình Cognito (thiếu NEXT_PUBLIC_COGNITO_USER_POOL_ID / CLIENT_ID).",
-    "missingFields": "Vui lòng nhập email và mật khẩu."
+    "missingFields": "Vui lòng nhập email và mật khẩu.",
+    "requestFailed": "Không thể hoàn tất yêu cầu."
   },
   "register": {
     "title": "Tạo tài khoản",
@@ -53,7 +55,12 @@
     "haveAccount": "Đã có tài khoản?",
     "signInCta": "Đăng nhập",
     "cognitoUnconfigured": "Chưa cấu hình Cognito (thiếu NEXT_PUBLIC_COGNITO_USER_POOL_ID / CLIENT_ID).",
-    "missingFields": "Vui lòng nhập email và mật khẩu."
+    "missingFields": "Vui lòng nhập email và mật khẩu.",
+    "requestFailed": "Không thể hoàn tất yêu cầu.",
+    "missingCode": "Vui lòng nhập mã xác nhận.",
+    "codeLabel": "Mã xác nhận",
+    "confirmationSent": "Mã xác nhận đã được gửi tới {email}.",
+    "confirm": "Xác nhận email"
   },
   "sandboxes": {
     "title": "Sandbox",
@@ -61,8 +68,14 @@
     "new": "Sandbox mới",
     "profileCpu": "Chỉ CPU",
     "stateRunning": "đang chạy",
+    "statePending": "đang khởi động",
     "stateStopped": "đã tắt",
-    "lastActivity": "hoạt động gần nhất: {when}"
+    "lastActivity": "hoạt động gần nhất: {when}",
+    "loading": "Đang tải sandbox…",
+    "loadFailed": "Không thể tải danh sách sandbox.",
+    "actionFailed": "Không thể thay đổi trạng thái sandbox.",
+    "retry": "Thử lại",
+    "empty": "Chưa có sandbox nào."
   },
   "usage": {
     "title": "Dung lượng đã dùng",

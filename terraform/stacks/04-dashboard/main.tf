@@ -37,6 +37,14 @@ resource "aws_ecr_repository" "this" {
   tags = var.tags
 }
 
+# The session key is generated in Terraform and stored only in the Kubernetes
+# Secret below. It is also retained in Terraform state, which must stay in the
+# encrypted/locked bootstrap backend.
+resource "random_password" "bff_session_secret" {
+  length  = 48
+  special = false
+}
+
 # ---------------------------------------------------------------------------
 # Target group for the dashboard (ip mode, port 3000)
 # ---------------------------------------------------------------------------
@@ -83,7 +91,7 @@ resource "aws_vpc_security_group_ingress_rule" "node_dashboard_ingress" {
 }
 
 # ---------------------------------------------------------------------------
-# Kubernetes: namespace + Deployment + Service + TargetGroupBinding
+# Kubernetes: namespace + dashboard/BFF Deployments + Services + TGB
 # ---------------------------------------------------------------------------
 resource "kubectl_manifest" "namespace" {
   count = var.deploy_dashboard ? 1 : 0
@@ -128,6 +136,10 @@ resource "kubectl_manifest" "deployment" {
             env = [
               { name = "NODE_ENV", value = "production" },
               { name = "PORT", value = "3000" },
+              { name = "BFF_INTERNAL_URL", value = "http://bff:4000" },
+              { name = "NEXT_PUBLIC_COGNITO_REGION", value = var.region },
+              { name = "NEXT_PUBLIC_COGNITO_USER_POOL_ID", value = data.terraform_remote_state.platform.outputs.cognito_user_pool_id },
+              { name = "NEXT_PUBLIC_COGNITO_CLIENT_ID", value = data.terraform_remote_state.platform.outputs.cognito_dashboard_client_id },
             ]
             resources = {
               requests = {
@@ -142,6 +154,106 @@ resource "kubectl_manifest" "deployment" {
           }]
         }
       }
+    }
+  })
+
+  depends_on = [kubectl_manifest.namespace]
+}
+
+resource "kubectl_manifest" "bff_secret" {
+  count = var.deploy_dashboard ? 1 : 0
+
+  yaml_body = yamlencode({
+    apiVersion = "v1"
+    kind       = "Secret"
+    metadata = {
+      name      = "bff-config"
+      namespace = "dashboard"
+    }
+    type = "Opaque"
+    stringData = {
+      BFF_SESSION_SECRET = random_password.bff_session_secret.result
+      HUB_API_TOKEN      = data.terraform_remote_state.hub_app.outputs.bff_api_token
+    }
+  })
+
+  depends_on = [kubectl_manifest.namespace]
+}
+
+resource "kubectl_manifest" "bff_deployment" {
+  count = var.deploy_dashboard ? 1 : 0
+
+  yaml_body = yamlencode({
+    apiVersion = "apps/v1"
+    kind       = "Deployment"
+    metadata = {
+      name      = "bff"
+      namespace = "dashboard"
+      labels    = { app = "bff" }
+    }
+    spec = {
+      replicas = var.bff_replicas
+      selector = {
+        matchLabels = { app = "bff" }
+      }
+      template = {
+        metadata = {
+          labels = { app = "bff" }
+        }
+        spec = {
+          containers = [{
+            name  = "bff"
+            image = var.bff_image
+            ports = [{ containerPort = 4000, protocol = "TCP" }]
+            env = [
+              { name = "PORT", value = "4000" },
+              { name = "HOST", value = "0.0.0.0" },
+              { name = "AWS_REGION", value = var.region },
+              { name = "COGNITO_USER_POOL_ID", value = data.terraform_remote_state.platform.outputs.cognito_user_pool_id },
+              { name = "COGNITO_CLIENT_ID", value = data.terraform_remote_state.platform.outputs.cognito_dashboard_client_id },
+              { name = "HUB_URL", value = "http://proxy-public.hub.svc.cluster.local" },
+              { name = "SECURE_COOKIES", value = tostring(var.bff_secure_cookies) },
+            ]
+            envFrom = [{
+              secretRef = { name = "bff-config" }
+            }]
+            readinessProbe = {
+              httpGet             = { path = "/v1/health", port = 4000 }
+              initialDelaySeconds = 5
+              periodSeconds       = 10
+            }
+            livenessProbe = {
+              httpGet             = { path = "/v1/health", port = 4000 }
+              initialDelaySeconds = 15
+              periodSeconds       = 20
+            }
+            resources = {
+              requests = { cpu = "100m", memory = "128Mi" }
+              limits   = { cpu = "500m", memory = "512Mi" }
+            }
+          }]
+        }
+      }
+    }
+  })
+
+  depends_on = [kubectl_manifest.bff_secret]
+}
+
+resource "kubectl_manifest" "bff_service" {
+  count = var.deploy_dashboard ? 1 : 0
+
+  yaml_body = yamlencode({
+    apiVersion = "v1"
+    kind       = "Service"
+    metadata = {
+      name      = "bff"
+      namespace = "dashboard"
+      labels    = { app = "bff" }
+    }
+    spec = {
+      selector = { app = "bff" }
+      ports    = [{ port = 4000, targetPort = 4000, protocol = "TCP" }]
     }
   })
 

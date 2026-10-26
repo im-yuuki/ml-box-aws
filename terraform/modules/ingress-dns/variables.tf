@@ -62,19 +62,43 @@ variable "health_check_path" {
 # --- DNS ---
 
 variable "manage_route53" {
-  description = "true = the zone lives in Route53 (Terraform manages the ACM TXT + the A-alias record). false = DNS is managed manually (Cloudflare): Terraform creates no Route53 resource and only outputs the ACM TXT record to publish."
+  description = "true = Terraform manages Route53 A-alias records in the externally-owned project zone."
   type        = bool
   default     = false
 }
 
 variable "route53_zone_id" {
-  description = "Existing Route53 zone. Only used when manage_route53 = true. Leave empty to create a new zone (NS records must be set at the registrar)."
+  description = "Existing Route53 zone used for project A-alias records. The persistent zone is owned by 00-bootstrap."
   type        = string
   default     = ""
 }
 
-variable "validate_certificate" {
-  description = "true = also create aws_acm_certificate_validation, which blocks the apply until ACM issued the certificate. Needs the zone to be already authoritative (NS delegation done), otherwise the apply waits for the full timeout."
-  type        = bool
-  default     = false
+variable "certificate_arn" {
+  description = "Existing ACM certificate ARN for notebook.<domain>, owned by 00-bootstrap."
+  type        = string
+  default     = ""
+}
+
+variable "apex_certificate_arn" {
+  description = "Existing ACM certificate ARN for the dashboard apex, owned by 00-bootstrap."
+  type        = string
+  default     = ""
+}
+
+variable "certificate_status" {
+  description = "Known status of the persistent notebook ACM certificate."
+  type        = string
+  default     = ""
+}
+
+variable "apex_certificate_status" {
+  description = "Known status of the persistent dashboard ACM certificate."
+  type        = string
+  default     = ""
+}
+
+variable "route53_zone_nameservers" {
+  description = "Nameservers of the persistent delegated zone owned by 00-bootstrap."
+  type        = list(string)
+  default     = []
 }

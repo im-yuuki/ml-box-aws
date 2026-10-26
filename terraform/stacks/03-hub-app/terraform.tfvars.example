@@ -5,6 +5,9 @@ region                = "ap-southeast-2"
 domain                = "example.com"         # your root domain; hub at notebook.<domain>
 cognito_domain_prefix = "mlbox-hub-apse2"     # unique per region
 
+# JupyterHub service token for the dashboard BFF. Leave unset to let Terraform
+# generate and export a sensitive token for 04-dashboard via remote state.
+
 # GPU profiles are hidden until the account has a GPU quota.
 enable_gpu_profiles = false
 

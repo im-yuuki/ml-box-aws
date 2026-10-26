@@ -5,8 +5,8 @@ Bố cục deploy sau khi tách stack:
 ```
 00-bootstrap     S3 state + DDB lock
 01-foundation    VPC + EKS + Karpenter (NodePool cpu-user + gpu-shared-l4)
-02-platform      S3 workspace + RDS + Cognito + ECR + LB controller + ALB/TG + ACM cert
-   >>> KHOẢNG NGHỈ: delegate zone sang Route53, đổi nameserver ở Cloudflare, chờ ACM ISSUED <<<
+02-platform      S3 workspace + RDS + Cognito + ECR + LB controller + ALB/TG + Route53 aliases
+   >>> KHOẢNG NGHỈ: delegate subdomain mlbox sang Route53, đổi NS ở parent Cloudflare, chờ ACM ISSUED <<<
 03-hub-app       JupyterHub (Z2JH) + TargetGroupBinding + listener + profile CPU
 04-dashboard     Dashboard + BFF + apex listener rule
 
@@ -15,28 +15,30 @@ Bố cục deploy sau khi tách stack:
 
 ## Vì sao phải có khoảng nghỉ
 
-ALB và chứng thư ACM nằm ở `02-platform`, nên **sau khi apply xong 02-platform** thì
-mới có đủ thông tin để trỏ DNS. Không có bước này thì `https://notebook.<domain>` không mở được.
+Zone Route53 và chứng thư ACM được tạo ở `00-bootstrap`; ALB và alias record được tạo ở
+`02-platform`. Cần hoàn tất NS delegation và để ACM chuyển sang `ISSUED` trước khi
+apply các stack phụ thuộc vào HTTPS listener.
 
 ## Trỏ NS: Cloudflare -> Route53 (zone do Route53 quản lý)
 
 Zone `mlbox.june8th.me` do **Route53** giữ, Cloudflare chỉ là nơi khai báo nameserver.
-Sau khi apply `02-platform` với `manage_route53 = true`, Terraform đã tạo sẵn:
+Sau khi apply `00-bootstrap`, Terraform đã tạo sẵn:
 
-- zone Route53 `mlbox.june8th.me` (zone id trong output `zone_id` của module)
-- CNAME `_010010825fc1365b34bee431731aac0a.notebook.mlbox.june8th.me` -> giá trị validate của ACM
-- A-alias `notebook.mlbox.june8th.me` -> ALB
+- zone Route53 `mlbox.june8th.me` (output `route53_zone_id`)
+- ACM validation CNAME records trong zone Route53
+- chứng thư ACM cho `notebook.mlbox.june8th.me` và `mlbox.june8th.me`
 
-Việc cần làm ở Cloudflare: đổi nameserver của zone `mlbox.june8th.me` sang 4 NS của
-Route53 (đọc từ zone, hoặc `terraform -chdir=terraform/stacks/02-platform output route53_zone_nameservers`).
+Việc cần làm ở parent Cloudflare: tạo/cập nhật NS delegation cho subdomain `mlbox` bằng
+4 nameserver từ `terraform -chdir=terraform/stacks/00-bootstrap output route53_zone_nameservers`.
+Sau khi ACM chuyển sang `ISSUED`, apply `02-platform` để tạo ALB và các A-alias record.
 
 > Lưu ý: khi Cloudflare mất quyền authoritative với zone này, **mọi bản ghi khác đang
 > nằm ở Cloudflare của zone `mlbox.june8th.me` sẽ ngừng phục vụ** và phải tạo lại trong
 > Route53. Chỉ zone này bị ảnh hưởng, các zone khác của Cloudflare không đổi.
 
-Vì sao không dùng CNAME + TXT trong Cloudflare như phương án "grey cloud": phiên bản
-này Route53 là nguồn chính (như các lần deploy trước) nên Terraform tự lo cả TXT validate
-lẫn A-alias, Cloudflare chỉ trỏ NS một lần rồi không phải đụng vào zone nữa.
+Không tạo CNAME/TXT validation thủ công trong Cloudflare. Route53 là authoritative cho
+subdomain `mlbox`, nên `00-bootstrap` tự quản lý validation CNAME; Cloudflare chỉ giữ
+bản ghi NS delegation ở parent zone.
 
 ## Sau khi trỏ NS xong
 

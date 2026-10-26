@@ -18,6 +18,19 @@ hub:
   serviceAccount:
     annotations:
       eks.amazonaws.com/role-arn: ${hub_role_arn} # AssumeRole to the S3 workspace by prefix
+  services:
+    mlbox-bff:
+      name: mlbox-bff
+      api_token: ${bff_api_token}
+  loadRoles:
+    mlbox-bff:
+      services:
+        - mlbox-bff
+      scopes:
+        - list:users
+        - read:users:name
+        - read:servers
+        - admin:servers
   config:
     JupyterHub:
       authenticator_class: generic-oauth
@@ -30,12 +43,11 @@ hub:
       authorize_url: ${cognito_authorize_url}
       token_url: ${cognito_token_url}
       userdata_url: ${cognito_userdata_url}
-      userdata_method: GET
       scope:
         - openid
         - email
         - profile
-      username_key: email
+      username_claim: email
       enable_auth_state: true
   extraConfig:
     10-spawn-hook: |

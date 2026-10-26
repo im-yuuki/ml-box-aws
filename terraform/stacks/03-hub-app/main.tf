@@ -67,6 +67,16 @@ data "terraform_remote_state" "platform" {
 }
 
 # ---------------------------------------------------------------------------
+# Service token used by the dashboard BFF to call the JupyterHub REST API.
+# The value is retained in Terraform state and exported as a sensitive output
+# for 04-dashboard; never commit or print it.
+# ---------------------------------------------------------------------------
+resource "random_password" "bff_api_token" {
+  length  = 48
+  special = false
+}
+
+# ---------------------------------------------------------------------------
 # JupyterHub helm release
 # ---------------------------------------------------------------------------
 resource "helm_release" "jupyterhub" {
@@ -92,16 +102,17 @@ resource "helm_release" "jupyterhub" {
     vram_commit_mib       = var.vram_commit_mib
     vram_ceiling_mib      = var.vram_ceiling_mib
     enable_gpu_profiles   = var.enable_gpu_profiles
+    bff_api_token         = random_password.bff_api_token.result
   })]
 }
 
 # ---------------------------------------------------------------------------
 # TargetGroupBinding: attach the public proxy Service to the pre-created target group
 # ---------------------------------------------------------------------------
-# The ALB + target group are created in 02-platform (so the operator can
-# publish the CNAME and the ACM TXT record in one sitting). The chart's own
-# Ingress block was removed from the values, therefore nothing would route
-# traffic to the public proxy - the TargetGroupBinding below does that job.
+# The ALB + target group are created in 02-platform after 00-bootstrap has
+# created the persistent DNS/ACM boundary. The chart's own Ingress block was
+# removed from the values, therefore the TargetGroupBinding below attaches the
+# public proxy to the pre-created target group.
 #
 # The TargetGroupBinding CRD ships with the AWS Load Balancer Controller
 # (installed in 02-platform).
@@ -135,10 +146,10 @@ resource "kubectl_manifest" "hub_target_group_binding" {
 # ---------------------------------------------------------------------------
 # Wait until the ACM certificate is ISSUED before creating the HTTPS listener
 # ---------------------------------------------------------------------------
-# The certificate is validated with DNS TXT records that the operator has to
-# publish at Cloudflare. Until then ACM stays in PENDING_VALIDATION and the
-# listener creation fails. Poll for up to 15 minutes, then fail loudly with
-# the next action to take.
+# The certificate is validated through CNAME records owned by 00-bootstrap in
+# the delegated Route53 zone. Until the parent Cloudflare NS delegation is live,
+# ACM stays in PENDING_VALIDATION and the listener creation fails. Poll for up
+# to 15 minutes, then fail loudly with the next action to take.
 resource "terraform_data" "certificate_issued" {
   triggers_replace = {
     certificate_arn = data.terraform_remote_state.platform.outputs.certificate_arn
@@ -175,9 +186,10 @@ resource "terraform_data" "certificate_issued" {
       done
 
       echo "ERROR: timed out after 15 minutes waiting for certificate $${CERT_ARN} to be ISSUED." >&2
-      echo "The ACM certificate is still pending DNS validation. Publish the validation TXT records at Cloudflare, then re-run terraform apply in this stack." >&2
-      echo "Get the records from the 02-platform stack:" >&2
-      echo "  terraform -chdir=terraform/stacks/02-platform output certificate_validation_records" >&2
+      echo "The ACM certificate is still pending DNS validation. Verify the mlbox NS delegation at the parent Cloudflare zone and the bootstrap Route53 validation records, then re-run terraform apply in this stack." >&2
+      echo "Check the bootstrap outputs:" >&2
+      echo "  terraform -chdir=terraform/stacks/00-bootstrap output route53_zone_nameservers" >&2
+      echo "  terraform -chdir=terraform/stacks/00-bootstrap output notebook_certificate_status" >&2
       exit 1
     EOT
   }

@@ -16,10 +16,11 @@ through `data "terraform_remote_state" "platform"`:
 | `target_group_arn` | `aws_lb_listener` + `TargetGroupBinding` |
 | `vpc_id` | `TargetGroupBinding.spec.vpcID` |
 | `certificate_arn` | HTTPS listener + cert wait |
-| `certificate_validation_records` | (operator reference) ACM DNS validation records managed by Route53 |
+| `certificate_validation_records` | deprecated compatibility output; validation records are managed by `00-bootstrap` |
 
 The stack also creates **no** S3 bucket, RDS instance, Cognito pool, ECR repo,
-ALB or ACM certificate — those are all in `02-platform`.
+ALB or persistent ACM certificate — those belong to `02-platform` and `00-bootstrap`
+respectively.
 
 ---
 
@@ -27,15 +28,15 @@ ALB or ACM certificate — those are all in `02-platform`.
 
 1. **`02-platform` must be applied first.** This stack reads its state object;
    if `02-platform` has never been applied the read fails immediately.
-2. **Delegate the Route53 zone before applying this stack.** With
-   `manage_route53 = true`, `02-platform` creates the ACM validation records and
-   A-alias records. Change the zone nameservers at Cloudflare/registrar to the
-   four Route53 nameservers; do not create CNAME/TXT records manually in Cloudflare.
+2. **Delegate the subdomain before applying this stack.** `00-bootstrap` creates
+   the Route53 zone, ACM certificates and validation CNAME records. Change the
+   `mlbox` NS delegation at the parent Cloudflare zone/registrar to the four
+   Route53 nameservers; do not create CNAME/TXT records manually in Cloudflare.
 
    ```bash
-   terraform -chdir=terraform/stacks/02-platform output route53_zone_nameservers
-   terraform -chdir=terraform/stacks/02-platform output certificate_status
-   terraform -chdir=terraform/stacks/02-platform output apex_certificate_status
+   terraform -chdir=terraform/stacks/00-bootstrap output route53_zone_nameservers
+   terraform -chdir=terraform/stacks/00-bootstrap output notebook_certificate_status
+   terraform -chdir=terraform/stacks/00-bootstrap output dashboard_certificate_status
    ```
 
    See [`deploy/DNS-CLOUDFLARE.md`](../../../deploy/DNS-CLOUDFLARE.md) for the

@@ -1,5 +1,5 @@
-# Stack 00-bootstrap: creates the S3 state bucket + DynamoDB lock table.
-# Run once per account (bucket/table shared across every region/env).
+# Stack 00-bootstrap: persistent state backend plus delegated DNS/ACM resources.
+# Run once per account/environment (bucket/table shared across every region/env).
 # Local state — the terraform.tfstate file is NOT committed to git.
 terraform {
   required_version = ">= 1.6.0"

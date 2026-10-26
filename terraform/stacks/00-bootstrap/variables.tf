@@ -15,6 +15,18 @@ variable "env" {
   default     = "dev"
 }
 
+variable "domain" {
+  description = "Persistent project subdomain delegated from the parent Cloudflare zone."
+  type        = string
+  default     = "mlbox.june8th.me"
+}
+
+variable "validate_certificates" {
+  description = "Create blocking ACM validation resources after the Cloudflare NS delegation is active."
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   type = map(string)
   default = {

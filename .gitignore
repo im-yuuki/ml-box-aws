@@ -1,4 +1,6 @@
 **/.terraform/
+**/node_modules/
+web/bff/dist/
 **/*.tfstate
 **/*.tfstate.*
 **/crash.log
@@ -25,7 +27,7 @@ Thumbs.db
 *.swp
 
 # Local terraform plans/logs
-**/tfplan*.bin
+**/tfplan*
 **/apply-log.txt
 **/plan-log.txt
 

@@ -1,14 +1,14 @@
 /**
  * Cognito client config surfaced to the browser.
  *
- * The dashboard uses a public Cognito app client (no client secret) with
- * SRP auth so users can sign in / sign up / reset password from the dashboard
- * itself — no hosted UI redirect.
+ * The dashboard uses a public Cognito app client (no client secret) so the
+ * browser can be configured for the deployed user pool. Authentication
+ * requests are sent to the same-origin BFF; Cognito tokens never enter the
+ * browser session or a build argument.
  *
- * Wire the values through Next.js env at build time so this module stays
- * tree-shakeable on the client.  Fill in `terraform/stacks/04-dashboard/`
- * outputs when the stack is added; defaults are placeholders so the app
- * still renders without a backend.
+ * These public identifiers are embedded at Next.js build time. Empty defaults
+ * keep local UI previews usable, while the production image must receive the
+ * values from the 02-platform outputs.
  */
 export const cognitoConfig = {
   region: process.env.NEXT_PUBLIC_COGNITO_REGION ?? "ap-southeast-2",

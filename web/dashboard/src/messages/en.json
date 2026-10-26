@@ -5,6 +5,7 @@
     "dashboardPreview": "ML Box · Dashboard preview",
     "openLab": "Open Lab",
     "start": "Start",
+    "stop": "Stop",
     "rename": "Rename",
     "delete": "Delete",
     "comingSoon": "Coming soon"
@@ -39,7 +40,8 @@
     "newHere": "New here?",
     "createAccountCta": "Create an account",
     "cognitoUnconfigured": "Cognito is not configured yet (NEXT_PUBLIC_COGNITO_USER_POOL_ID / CLIENT_ID).",
-    "missingFields": "Email and password are required."
+    "missingFields": "Email and password are required.",
+    "requestFailed": "The request could not be completed."
   },
   "register": {
     "title": "Create your account",
@@ -53,7 +55,12 @@
     "haveAccount": "Already have one?",
     "signInCta": "Sign in",
     "cognitoUnconfigured": "Cognito is not configured yet (NEXT_PUBLIC_COGNITO_USER_POOL_ID / CLIENT_ID).",
-    "missingFields": "Email and password are required."
+    "missingFields": "Email and password are required.",
+    "requestFailed": "The request could not be completed.",
+    "missingCode": "Enter the confirmation code.",
+    "codeLabel": "Confirmation code",
+    "confirmationSent": "We sent a confirmation code to {email}.",
+    "confirm": "Confirm email"
   },
   "sandboxes": {
     "title": "Sandboxes",
@@ -61,8 +68,14 @@
     "new": "New sandbox",
     "profileCpu": "CPU only",
     "stateRunning": "running",
+    "statePending": "starting",
     "stateStopped": "stopped",
-    "lastActivity": "last activity: {when}"
+    "lastActivity": "last activity: {when}",
+    "loading": "Loading sandboxes…",
+    "loadFailed": "Could not load sandboxes.",
+    "actionFailed": "Could not change sandbox state.",
+    "retry": "Try again",
+    "empty": "No sandboxes are available yet."
   },
   "usage": {
     "title": "Usage",

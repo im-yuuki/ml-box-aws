@@ -1,5 +1,8 @@
 # ML Box — Deployment Runbook
 
+> AWS resources đã được dọn project-owned trước khi redeploy. Luồng dưới đây đã được chạy
+> lại theo kiểu external-clone từ `00-bootstrap`; remote state hiện nằm trong backend S3 mới.
+
 Tài liệu này là quy trình triển khai hiện tại cho một region. Quy trình mặc định được viết cho
 `ap-southeast-2` và account `451058046864`; thay các giá trị này nếu triển khai region khác.
 
@@ -7,15 +10,15 @@ Tài liệu này là quy trình triển khai hiện tại cho một region. Quy 
 
 | Thành phần | Trạng thái | Ghi chú |
 |---|---|---|
-| `00-bootstrap` | ✅ Đã apply | S3 Terraform state + DynamoDB lock |
+| `00-bootstrap` | ✅ Đã apply fresh | S3 state, DynamoDB lock, Route53 zone, ACM certificates và validation records |
 | `01-foundation` | ✅ Đã apply | VPC, EKS, system node group, Karpenter, CPU NodePool |
-| `02-platform` | ✅ Đã apply | RDS, Cognito, ECR, ALB, ACM, Load Balancer Controller |
-| DNS / ACM | ✅ Đã cấu hình | Route53 authoritative cho `mlbox.june8th.me`; cert đã `ISSUED` |
-| `03-hub-app` | ✅ Đã apply | JupyterHub tại `notebook.mlbox.june8th.me` |
-| Hub theme | ✅ Đã apply | ConfigMap theme ML Box |
-| `04-dashboard` | ⚠️ Đã apply, cần sửa production runtime | Dashboard target đã nối vào ALB; app production hiện trả HTTP 500 do `DYNAMIC_SERVER_USAGE` |
+| `02-platform` | ✅ Đã apply | RDS, Cognito, ECR, ALB, Route53 aliases, Load Balancer Controller |
+| DNS / ACM | ✅ Hoàn tất | Cloudflare delegate `mlbox` sang Route53; cả hai certificate đều `ISSUED` |
+| `03-hub-app` | ✅ Đã apply | JupyterHub tại `notebook.mlbox.june8th.me`, có BFF service token |
+| Hub theme | ✅ Đã apply | ConfigMap theme ML Box và rollout Hub |
+| `04-dashboard` | ✅ Đã apply | Dashboard + BFF, apex listener rule và healthy target |
 | `99-unverified-gpu` | ⏸ Chưa apply | Chờ AWS cấp GPU quota |
-| BFF thật | ❌ Chưa triển khai | Dashboard hiện chỉ có route stub trả `501` |
+| BFF thật | ⚠️ Đã deploy, chưa E2E | Readiness và unauthenticated routes đã verify; cần test user Cognito cho auth/sandbox |
 
 ## Thứ tự stack bắt buộc
 
@@ -170,18 +173,20 @@ aws elbv2 describe-target-health \
 curl -i https://mlbox.june8th.me/
 ```
 
-### Known blocker hiện tại
+### Acceptance sau khi redeploy
 
-Target group đã reach được pod, nhưng production dashboard hiện trả HTTP `500` với digest
-`DYNAMIC_SERVER_USAGE`. Nguyên nhân đã khoanh vùng là cookie locale của `next-intl` kết hợp
-với `cacheComponents`/`partialPrefetching` trong Next.js production. Dev server trả `200`.
+Lỗi production trước đây là HTTP `500` với digest `DYNAMIC_SERVER_USAGE`, do cookie locale của
+`next-intl` kết hợp với `cacheComponents`/`partialPrefetching`. Hai tùy chọn này đã được bỏ khỏi
+`web/dashboard/next.config.ts`; isolated production build/start đã trả `200` cho `/`, `/login`
+và `/usage` mà không có digest lỗi.
 
-Không đánh dấu dashboard là hoàn tất end-to-end cho đến khi:
+Chỉ đánh dấu dashboard hoàn tất end-to-end sau khi môi trường AWS mới đạt đủ:
 
-- `/` và `/login` trả `200` trong production;
-- login/register gọi Cognito thật;
-- BFF xác thực JWT và proxy được Hub API;
-- sandbox list/spawn/stop chạy với user thật.
+- `/` và `/login` trả `200` trong production và ALB target healthy;
+- register/confirm/login/logout gọi Cognito thật qua BFF;
+- BFF verify session/JWT và proxy được Hub API bằng service token server-side;
+- sandbox list/start/stop chạy với user thật và không thể truy cập user khác;
+- BFF readiness `/v1/health` trả `200` sau khi Secret và remote states được cấu hình.
 
 ## GPU (optional)
 

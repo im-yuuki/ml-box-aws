@@ -1,14 +1,6 @@
-import { NextResponse } from "next/server";
+import { type NextRequest } from "next/server";
+import { proxyBff } from "@/lib/bffProxy";
 
-/**
- * BFF stub: list user sandboxes (proxies JupyterHub /hub/api/users/{name}/servers).
- */
-export async function GET() {
-  return NextResponse.json(
-    {
-      error: "BFF_NOT_DEPLOYED",
-      message: "Sandbox listing will come from the BFF → hub API proxy.",
-    },
-    { status: 501 },
-  );
+export async function GET(request: NextRequest) {
+  return proxyBff(request, "/v1/sandboxes", { method: "GET" });
 }

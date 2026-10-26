@@ -33,7 +33,7 @@ terraform/
   stacks/
     00-bootstrap/   # S3 state bucket + DynamoDB lock (1 lần/account, state local)
     01-foundation/  # network + EKS + Karpenter (VPC dual-stack, MNG system, NodePools)
-    02-platform/    # S3 workspace + RDS + Cognito + ECR + LB controller + ALB/TG + ACM cert
+    02-platform/    # S3 workspace + RDS + Cognito + ECR + LB controller + ALB/TG + Route53 aliases
     03-hub-app/     # JupyterHub (Z2JH) + TargetGroupBinding + listener + profile CPU
     04-dashboard/   # Dashboard + BFF + apex listener rule
     99-unverified-gpu/ # optional GPU device plugin + DCGM exporter (chờ quota)
@@ -52,12 +52,10 @@ docs/
 
 ## Trạng thái hiện tại
 
-- Hạ tầng `00-bootstrap` → `03-hub-app` đã apply; notebook đang ở
-  `https://notebook.mlbox.june8th.me`.
-- Theme notebook đã apply và CPU profile đang được dùng; GPU profile chưa bật.
-- `04-dashboard` đã apply tại `https://mlbox.june8th.me`, nhưng production runtime
-  hiện còn lỗi `DYNAMIC_SERVER_USAGE`; BFF thật và các flow sandbox/auth end-to-end
-  chưa hoàn thành.
+- Luồng bắt buộc `00-bootstrap` → `04-dashboard` đã được redeploy fresh từ state/backend mới; CPU baseline đang chạy trên AWS.
+- Route53 subdomain đã được Cloudflare delegate; cả hai ACM certificate đều `ISSUED`, và notebook/dashboard đang phục vụ qua HTTPS.
+- Hub, dashboard và BFF đều Running; ALB targets healthy. Fix production `DYNAMIC_SERVER_USAGE` đã được xác nhận qua ALB với `/` và `/login` trả `200`.
+- BFF readiness `/v1/health` trả `200`; các API không xác thực trả `401` đúng kỳ vọng. Cognito login và sandbox lifecycle thật vẫn cần một test user.
 - `99-unverified-gpu` là stack tùy chọn, chờ GPU quota.
 
 Tài liệu vận hành:
@@ -82,7 +80,7 @@ cd ../02-platform
 terraform init -reconfigure -backend-config=backend.hcl
 terraform plan; terraform apply   # ALB + cert + RDS + Cognito + ECR
 
-# >>> KHOẢNG NGHỈ: delegate DNS zone sang Route53 và chờ ACM ISSUED - xem deploy/DNS-CLOUDFLARE.md
+# >>> KHOẢNG NGHỈ: delegate subdomain mlbox sang Route53 và chờ ACM ISSUED - xem deploy/DNS-CLOUDFLARE.md
 
 cd ../03-hub-app
 terraform init -reconfigure -backend-config=backend.hcl

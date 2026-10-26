@@ -1,7 +1,10 @@
-# 02-platform: phase 1 của deployment
+# 02-platform: ALB, platform services và Route53 aliases
 
-Stack này tạo toàn bộ hạ tầng **phải có trước** khi operator dừng lại để delegate DNS zone sang Route53 và chờ ACM validation.
-Không có JupyterHub ở đây - helm release của hub nằm ở stack `03-hub-app`.
+Stack này tạo hạ tầng platform sau `01-foundation`. Persistent DNS/ACM đã được tách
+sang `00-bootstrap`; operator delegate subdomain `mlbox` từ parent Cloudflare zone
+sang Route53 trước khi apply stack này. Có thể apply platform khi ACM còn pending;
+phải chờ chứng thư `ISSUED` trước khi apply `03-hub-app`.
+Không có JupyterHub ở đây - Helm release của hub nằm ở stack `03-hub-app`.
 
 ## Stack này tạo gì
 
@@ -11,46 +14,48 @@ Không có JupyterHub ở đây - helm release của hub nằm ở stack `03-hub
 | `hub_db` | RDS Postgres (private subnet, SG chỉ cho EKS node) + master password do RDS quản lý trong Secrets Manager |
 | `auth` | Cognito User Pool + hosted UI + OIDC app client (`hub_callback_url` = `https://notebook.<domain>/hub/oauth_callback`) |
 | `ecr` | ECR repos `jhub-gpu-sandbox/cpu` và `jhub-gpu-sandbox/gpu` |
-| `ingress_dns` | AWS Load Balancer Controller (helm + IRSA), ALB internet-facing ở public subnet, target group, chứng thư ACM cho `notebook.<domain>` |
+| `ingress_dns` | AWS Load Balancer Controller (Helm + IRSA), ALB internet-facing ở public subnet, target group và A-alias records trong zone do `00-bootstrap` sở hữu |
 
-ALB, target group và chứng thư ACM nằm ở đây nên sau khi apply xong stack này mới có đủ thông tin để trỏ DNS.
+ALB và target group nằm ở đây; Route53 zone và ACM certificates được giữ riêng trong
+`00-bootstrap` để việc destroy/redeploy platform không làm mất biên DNS/TLS lâu dài.
 
 ## Thứ tự apply
 
 ```
 00-bootstrap     S3 state + DDB lock
 01-foundation    VPC + EKS + Karpenter
-02-platform      S3 workspace + RDS + Cognito + ECR + LB controller + ALB/TG + ACM cert
-   >>> KHOẢNG NGHỈ: delegate zone sang Route53, đổi nameserver ở Cloudflare, chờ ACM ISSUED <<<
+02-platform      S3 workspace + RDS + Cognito + ECR + LB controller + ALB/TG + Route53 aliases
+   (zone + ACM do 00-bootstrap tạo; delegate NS và chờ ACM ISSUED trước bước này)
 03-hub-app       JupyterHub (Z2JH) + TargetGroupBinding + listener + profile CPU
 04-dashboard     Dashboard + BFF + apex listener rule
 
 99-unverified-gpu device plugin + DCGM + L4 shared [TÙY CHỌN - chỉ apply khi có GPU quota]
 ```
 
-## Operator pause: delegate zone sang Route53
+## DNS boundary: delegate zone sang Route53
 
-Với `manage_route53 = true`, Terraform tạo zone Route53, ACM DNS validation records
-và các A-alias record cho `notebook.<domain>` và `<domain>`. Cloudflare chỉ còn giữ
-vai trò đổi nameserver; không tạo CNAME/TXT thủ công trong Cloudflare.
+Với `manage_route53 = true`, Terraform chỉ tạo A-alias record cho
+`notebook.<domain>` và `<domain>` trong zone đã được `00-bootstrap` tạo. Zone,
+ACM certificates và validation CNAME không thuộc state của platform.
 
-Lấy thông tin cần thiết từ output của `02-platform`:
+Lấy thông tin cần thiết từ output của `00-bootstrap`:
 
 ```bash
-terraform -chdir=terraform/stacks/02-platform output alb_dns_name
-terraform -chdir=terraform/stacks/02-platform output route53_zone_nameservers
-terraform -chdir=terraform/stacks/02-platform output -json certificate_validation_records
-terraform -chdir=terraform/stacks/02-platform output certificate_status
-terraform -chdir=terraform/stacks/02-platform output apex_certificate_status
+terraform -chdir=terraform/stacks/00-bootstrap output route53_zone_id
+terraform -chdir=terraform/stacks/00-bootstrap output route53_zone_nameservers
+terraform -chdir=terraform/stacks/00-bootstrap output notebook_certificate_status
+terraform -chdir=terraform/stacks/00-bootstrap output dashboard_certificate_status
 ```
 
 Thực hiện:
 
-1. Đổi 4 nameserver của zone `mlbox.june8th.me` tại Cloudflare/registrar sang
-   `route53_zone_nameservers`.
-2. Chờ Route53 authoritative và cả hai ACM certificate chuyển sang `ISSUED`.
-3. Chỉ sau đó apply `03-hub-app`; stack này tự poll certificate trước khi tạo HTTPS listener.
-4. Xem chi tiết và cảnh báo về các record hiện có tại `deploy/DNS-CLOUDFLARE.md`.
+1. Đổi nameserver của subdomain `mlbox` tại parent Cloudflare zone sang
+   `route53_zone_nameservers` từ `00-bootstrap`.
+2. Apply `02-platform` để tạo ALB và A-alias records.
+3. Chờ Route53 authoritative và cả hai ACM certificate chuyển sang `ISSUED`.
+4. Apply `03-hub-app`.
+4. Xem chi tiết tại `deploy/DNS-CLOUDFLARE.md`; không tạo CNAME/TXT validation thủ công
+   trong Cloudflare.
 
 > Không apply stack sau với backend rỗng hoặc state sai key. Nếu đổi tên stack,
 > hãy kiểm tra/migrate state S3 trước; không tự động migrate trong README này.

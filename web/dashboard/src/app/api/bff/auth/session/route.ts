@@ -1,0 +1,6 @@
+import { type NextRequest } from "next/server";
+import { proxyBff } from "@/lib/bffProxy";
+
+export async function GET(request: NextRequest) {
+  return proxyBff(request, "/v1/auth/session", { method: "GET" });
+}

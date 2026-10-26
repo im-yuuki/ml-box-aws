@@ -1,23 +1,11 @@
-# ALB + target group + security groups + free ACM (DNS validation) + LB controller.
-# The hub's Kubernetes Ingress no longer creates the ALB: this module owns it, so the public
-# DNS name and the TLS certificate exist BEFORE the operator points DNS (Cloudflare) at it.
-# The hub service is attached to the target group later, via a TargetGroupBinding
-# (separate stack) - the LB controller helm release below is what reconciles that CRD.
-#
-# DNS modes:
-# - manage_route53 = false (default): DNS is managed by hand (Cloudflare). No Route53
-#   resource is created; the module only outputs the ACM TXT record the operator publishes.
-# - manage_route53 = true: the zone lives in Route53, Terraform owns the ACM validation
-#   TXT records + the A-alias record pointing at the ALB created here.
+# ALB + target group + security groups + Route53 aliases + LB controller.
+# The persistent delegated project zone and ACM certificates are owned by 00-bootstrap.
+# This module owns the current ALB, its target group, and aliases pointing at that ALB.
+# The hub service is attached later through a TargetGroupBinding in 03-hub-app.
 
 locals {
-  host = "notebook.${var.domain}"
-
-  # Route53 mode: the zone is either an existing one (route53_zone_id) or created here.
-  use_existing_zone = var.manage_route53 && var.route53_zone_id != ""
-  zone_id = var.manage_route53 ? (
-    var.route53_zone_id != "" ? var.route53_zone_id : try(aws_route53_zone.hub[0].zone_id, "")
-  ) : ""
+  host    = "notebook.${var.domain}"
+  zone_id = var.manage_route53 ? var.route53_zone_id : ""
 }
 
 # ---------------------------------------------------------------------------
@@ -117,101 +105,29 @@ resource "aws_lb_target_group" "hub" {
 
 # NOTE: the ALB listeners (80 -> 443 redirect, 443 -> target group) are NOT owned by
 # this module. They live in the 03-hub-app stack, because the HTTPS listener can only
-# be created once the ACM certificate is ISSUED, which requires the operator to
-# publish the DNS validation record first (manual Cloudflare mode).
+# be created once the ACM certificate is ISSUED. Persistent certificates and their
+# validation records are owned by 00-bootstrap; the parent Cloudflare zone delegates
+# the project subdomain to the Route53 zone created there.
 
 # ---------------------------------------------------------------------------
 # Certificate (free ACM, DNS validation)
 # ---------------------------------------------------------------------------
 
-resource "aws_acm_certificate" "hub" {
-  domain_name       = local.host
-  validation_method = "DNS"
-  tags              = var.tags
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-# Apex certificate for the dashboard landing (mlbox.<...> itself, no subdomain).
-# The hub keeps its own notebook.<domain> certificate; the two never share a SAN,
-# so re-issuing one never touches the other.
-resource "aws_acm_certificate" "apex" {
-  domain_name       = var.domain
-  validation_method = "DNS"
-  tags              = var.tags
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
+# ACM certificates are persistent resources owned by 00-bootstrap. This stack
+# consumes their ARNs and only owns ALB/DNS records tied to the current ALB.
 
 # ---------------------------------------------------------------------------
-# DNS - Route53 mode only (manage_route53 = true)
+# DNS - Route53 A-alias records for the current ALB
 # ---------------------------------------------------------------------------
 
-resource "aws_route53_zone" "hub" {
-  count = var.manage_route53 && var.route53_zone_id == "" ? 1 : 0
-  name  = var.domain
-  tags  = var.tags
-}
-
-# ACM validation TXT records inside the zone.
-resource "aws_route53_record" "validation" {
-  for_each = var.manage_route53 ? {
-    for dvo in aws_acm_certificate.hub.domain_validation_options : dvo.domain_name => {
-      name   = dvo.resource_record_name
-      record = dvo.resource_record_value
-      type   = dvo.resource_record_type
-    }
-  } : {}
-
-  zone_id = local.zone_id
-  name    = each.value.name
-  type    = each.value.type
-  records = [each.value.record]
-  ttl     = 60
-}
-
-# ACM validation TXT records for the apex (dashboard) certificate.
-resource "aws_route53_record" "validation_apex" {
-  for_each = var.manage_route53 ? {
-    for dvo in aws_acm_certificate.apex.domain_validation_options : dvo.domain_name => {
-      name   = dvo.resource_record_name
-      record = dvo.resource_record_value
-      type   = dvo.resource_record_type
-    }
-  } : {}
-
-  zone_id = local.zone_id
-  name    = each.value.name
-  type    = each.value.type
-  records = [each.value.record]
-  ttl     = 60
-}
-
-# Waits until ACM validated the certificate (only possible when we own the records).
-# Opt-in: with an NS delegation the zone only becomes authoritative AFTER the
-# operator points the nameservers at Route53, so this resource would just block
-# the apply for its full timeout. ACM issues the certificate on its own as soon
-# as the TXT record is resolvable; the hub-app stack polls for the ISSUED state.
-resource "aws_acm_certificate_validation" "hub" {
-  count = var.manage_route53 && var.validate_certificate ? 1 : 0
-
-  certificate_arn         = aws_acm_certificate.hub.arn
-  validation_record_fqdns = [for r in aws_route53_record.validation : r.fqdn]
-}
-
-# Hub record -> the ALB created by this module.
+# The delegated zone and ACM validation records are owned by 00-bootstrap.
+# This stack owns only aliases whose target is the ALB created below.
 resource "aws_route53_record" "hub" {
   count   = var.manage_route53 ? 1 : 0
   zone_id = local.zone_id
   name    = local.host
   type    = "A"
 
-  # Renaming the record (hub. -> notebook.) must not create a DNS gap: create
-  # the new name first, then drop the old record.
   lifecycle {
     create_before_destroy = true
   }
@@ -223,9 +139,6 @@ resource "aws_route53_record" "hub" {
   }
 }
 
-# Apex record -> the same ALB. Until the 04-dashboard stack adds a host-header
-# listener rule for the apex, apex HTTPS traffic falls through to the listener's
-# default action (the hub target group) - the dashboard rule supersedes this.
 resource "aws_route53_record" "apex" {
   count   = var.manage_route53 ? 1 : 0
   zone_id = local.zone_id

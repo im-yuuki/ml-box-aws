@@ -1,5 +1,6 @@
 # ---------------------------------------------------------------------------
-# Outputs consumed by 03-hub-app (and by the operator at the Cloudflare pause).
+# Outputs consumed by 03-hub-app and 04-dashboard. Persistent DNS/ACM metadata is
+# originally owned by 00-bootstrap; these values remain stable for downstream stacks.
 # Names are the contract between the two stacks - keep them stable.
 # ---------------------------------------------------------------------------
 
@@ -116,12 +117,12 @@ output "certificate_status" {
 }
 
 output "certificate_validation_records" {
-  description = "ACM DNS validation records managed in the Route53 zone."
+  description = "Deprecated compatibility output; ACM validation records are owned by 00-bootstrap."
   value       = module.ingress_dns.certificate_validation_records
 }
 
 output "route53_zone_nameservers" {
-  description = "Route53 nameservers to delegate the zone to when a new zone was created."
+  description = "Nameservers of the persistent Route53 zone created by 00-bootstrap."
   value       = module.ingress_dns.zone_nameservers
 }
 

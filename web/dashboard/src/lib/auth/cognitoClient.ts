@@ -1,27 +1,16 @@
 /**
- * Tiny client-side wrapper around the Cognito Identity Provider API.
+ * Legacy low-level Cognito request helper.
  *
- * We don't pull in the full `aws-amplify` SDK for the small surface we need
- * (sign up, confirm sign up, SRP-respond, forgot password, get session).
- * All endpoints are public POSTs documented at
- * https://docs.aws.amazon.com/cognito-user-identity-pools/latest/APIReference/API_Operations.html
- *
- * The SRP flow is the only one that requires crypto: Cognito expects the
- * client to compute `PASSWORD_CLAIM_SIGNATURE` and the auth challenge
- * responses. For now we keep the helper minimal and let the dashboard fall
- * back to a server-proxied login if the env is unconfigured.
+ * Dashboard authentication is handled by the server-side BFF so browser
+ * code never stores Cognito tokens. Keep this helper isolated for diagnostics
+ * or future flows; application UI should call the same-origin BFF routes.
  */
 import { cognitoConfig } from "./cognitoConfig";
 
 type CognitoError = { __type: string; message: string };
 
-export function cognitoEndpoint(action: string): string {
+export function cognitoEndpoint(): string {
   return `https://cognito-idp.${cognitoConfig.region}.amazonaws.com/`;
-}
-
-export function userPoolEndpoint(action: string): string {
-  // Same endpoint for every action; the action goes in the X-Amz-Target header.
-  return cognitoEndpoint(action);
 }
 
 export async function cognitoRequest<T = unknown>(
@@ -29,7 +18,7 @@ export async function cognitoRequest<T = unknown>(
   payload: Record<string, unknown>,
   headers: Record<string, string> = {},
 ): Promise<T> {
-  const res = await fetch(cognitoEndpoint(action), {
+  const res = await fetch(cognitoEndpoint(), {
     method: "POST",
     headers: {
       "Content-Type": "application/x-amz-json-1.1",

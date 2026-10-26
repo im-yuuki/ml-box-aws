@@ -1,6 +1,6 @@
 # ML Box — TODO checklist
 
-Cập nhật: 2026-10-23
+Cập nhật: 2026-10-27
 
 Ký hiệu:
 
@@ -16,10 +16,13 @@ Ký hiệu:
 - ✅ Route53 authoritative cho `mlbox.june8th.me`; certificate notebook và apex đã `ISSUED`.
 - ✅ `03-hub-app`: JupyterHub tại `notebook.mlbox.june8th.me` với CPU profile.
 - ✅ Notebook theme light/dark adaptive và ML Box theme đã apply.
-- ⚠️ `04-dashboard`: ECR, Deployment, Service, TargetGroupBinding, apex listener rule và SG rules đã apply.
-- ☐ Sửa lỗi production `DYNAMIC_SERVER_USAGE` của dashboard, build image mới và redeploy.
-- ☐ Xác nhận ALB target dashboard healthy và `/`, `/login` trả `200` trong production.
-- ☐ Rà soát/migrate remote state keys sau khi đổi tên stack; chưa tự động migrate.
+- ✅ `04-dashboard`: dashboard/BFF đã fresh deploy; pods Running và ALB target healthy.
+- ✅ Sửa config production `DYNAMIC_SERVER_USAGE`: đã bỏ `cacheComponents`/`partialPrefetching` và xác nhận qua ALB (`/`, `/login` trả `200`).
+- ✅ Build/push immutable dashboard+BFF images và apply lại toàn bộ luồng 00→04.
+- ✅ Xác nhận ALB target dashboard healthy và `/`, `/login` trả `200` trong production.
+- ✅ Remote state keys của `01`→`04` đã được tạo mới trong backend S3; không thực hiện state migration từ state cũ.
+- ☐ Rà soát/migrate remote state keys sau khi đổi tên stack nếu có thay đổi naming tiếp theo.
+- ✅ KMS key lịch sử không còn sử dụng đã được xác nhận ở `PendingDeletion`; không cancel deletion.
 - ☐ Hoàn thiện CI/CD build, scan, push image và rollout có approval.
 
 ## Dashboard UI
@@ -30,32 +33,33 @@ Ký hiệu:
 - ✅ i18n English/Vietnamese bằng `next-intl` và cookie `mlbox-locale`.
 - ✅ Locale switcher và `/api/locale` route.
 - ✅ Dockerfile multi-stage và build args Cognito/BFF.
-- ⚠️ Production runtime chưa healthy; dev server hoạt động nhưng không thay thế production validation.
+- ✅ Production runtime healthy qua ALB; dashboard pod và target đều healthy, `/` và `/login` trả `200`.
 - ☐ Hoàn thiện `/verify` email confirmation page.
 - ☐ Hoàn thiện `/sandboxes/new` flow.
 - ☐ Thay mock data bằng API thật trên toàn bộ dashboard.
 
 ## Authentication và BFF
 
-- ✅ Cognito user pool và public dashboard app client đã tạo trong `02-platform`.
-- ✅ Dashboard có config/client scaffolding cho Cognito.
-- ☐ Hoàn thiện sign-up, email confirmation, sign-in, sign-out, refresh và forgot-password.
-- ☐ Thiết kế và harden session cookie/token storage, CSRF, expiry và logout/revocation.
-- ☐ Tạo source `web/bff/` (Fastify/TypeScript hoặc phương án đã duyệt).
-- ☐ BFF verify Cognito JWT bằng JWKS, issuer, audience/client và claims.
-- ☐ Tạo Hub service/token trong Secret, không hard-code admin token.
-- ☐ BFF map Cognito user sang Hub username và proxy Hub REST API.
-- ☐ Thay `/api/bff/*` route stubs đang trả `501 BFF_NOT_DEPLOYED`.
-- ☐ Deploy BFF Deployment/Service/NetworkPolicy và nối dashboard với BFF thật.
+- ✅ Cognito user pool và public dashboard app client đã được fresh apply trong `02-platform`.
+- ✅ Dashboard có config/client scaffolding; auth UI đã gọi same-origin BFF.
+- ✅ Source `web/bff/` (Fastify/TypeScript), Dockerfile và lockfile đã có.
+- ✅ BFF verify Cognito JWT bằng JWKS, issuer, client và claims; session dùng encrypted HttpOnly cookie.
+- ✅ Hub service token được random trong `03-hub-app`, xuất sensitive và inject vào Kubernetes Secret.
+- ✅ BFF map Cognito email sang Hub username và proxy list/start/stop Hub REST API.
+- ✅ Các `/api/bff/*` route proxy không còn trả `501 BFF_NOT_DEPLOYED`.
+- ✅ Terraform đã có BFF Deployment/Service/Secret và nối dashboard qua `BFF_INTERNAL_URL`.
+- ⚠️ Hạ tầng đã apply; BFF health/readiness đã xác nhận, còn test Cognito thật cần test user.
+- ☐ Bổ sung refresh-token/session rotation, CSRF protection, forgot-password và revoke/logout hardening.
 
 ## Sandbox lifecycle
 
-- ✅ Đã có UI danh sách sandbox và mock server states để review layout.
-- ☐ List server thật theo user qua BFF.
+- ✅ UI danh sách sandbox đã nối API BFF và có loading/error/empty state.
+- ✅ BFF list server thật theo user và giới hạn username từ session đã verify.
+- ⚠️ Đã redeploy; test sandbox list với Cognito/JupyterHub user thật cần test user.
 - ☐ Spawn sandbox mới từ `/sandboxes/new`.
-- ☐ Stop/delete/restart sandbox và hiển thị trạng thái chuyển tiếp.
-- ☐ Link vào Lab thật qua `notebook.mlbox.june8th.me` sau khi SSO/session mapping hoàn tất.
-- ☐ Xử lý timeout, quota exceeded, pending/failed server và retry.
+- ✅ Stop/start sandbox hiện có qua BFF và hiển thị trạng thái pending.
+- ☐ Link vào Lab thật qua `notebook.mlbox.june8th.me` sau khi SSO/session mapping được xác nhận.
+- ☐ Xử lý timeout, quota exceeded, failed server và retry đầy đủ.
 - ☐ Thêm authorization test: user A không thấy hoặc điều khiển sandbox của user B.
 
 ## Usage và quota

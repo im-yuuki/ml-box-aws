@@ -26,14 +26,13 @@ variable "cognito_domain_prefix" {
 }
 
 variable "manage_route53" {
-  # DNS nằm ở Cloudflare nên mặc định false: module không tạo Route53 zone/record.
-  # Chỉ bật true nếu domain thực sự được hosted trên Route53.
-  type    = bool
-  default = false
+  description = "Manage A-alias records in the Route53 zone created by 00-bootstrap."
+  type        = bool
+  default     = true
 }
 
 variable "route53_zone_id" {
-  description = "Existing Route53 zone id. Only used when manage_route53 = true."
+  description = "Deprecated compatibility input; the zone ID is discovered by project tags from 00-bootstrap."
   type        = string
   default     = ""
 }

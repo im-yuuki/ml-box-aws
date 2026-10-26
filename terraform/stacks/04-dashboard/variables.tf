@@ -49,6 +49,23 @@ variable "dashboard_image" {
   type        = string
 }
 
+variable "bff_image" {
+  description = "ECR image for the dashboard BFF (tag = dev-<sha>). Must be pushed before deploy_dashboard=true."
+  type        = string
+}
+
+variable "bff_secure_cookies" {
+  description = "Set Secure on the BFF session cookie. Keep true behind the HTTPS ALB."
+  type        = bool
+  default     = true
+}
+
+variable "bff_replicas" {
+  description = "Number of BFF replicas. Keep at least 2 for production once session storage is externalized."
+  type        = number
+  default     = 1
+}
+
 variable "deploy_dashboard" {
   description = <<-EOT
     Gate k8s resources (Deployment, Service, TGB) + ALB listener rule/cert.

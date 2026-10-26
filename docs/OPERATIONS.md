@@ -8,15 +8,20 @@ mặc định dùng account `451058046864`, region `ap-southeast-2` và cluster
 
 - JupyterHub là notebook/API backend tại `https://notebook.mlbox.june8th.me`.
 - Dashboard là public frontend tại `https://mlbox.june8th.me`.
-- Dashboard production hiện **chưa healthy end-to-end**: pod có thể chạy nhưng request production
-  trả HTTP 500 với digest `DYNAMIC_SERVER_USAGE`. Xem [Deployment Runbook](DEPLOYMENT.md).
-- BFF chưa có source/service chạy trong cluster. Các route `/api/bff/*` hiện là stub và có thể trả
-  `501 BFF_NOT_DEPLOYED`.
+- Luồng bắt buộc đã được redeploy fresh; CPU baseline đang chạy trên cluster
+  `jhub-gpu-sandbox-dev-apse2`.
+- Dashboard production đã được xác nhận qua ALB: `/` và `/login` trả `200`, target healthy,
+  không còn lỗi `DYNAMIC_SERVER_USAGE`. BFF readiness nội bộ `/v1/health` trả `200`.
+- Authenticated Cognito và sandbox lifecycle chưa được test vì chưa có test user.
 - GPU chưa được bật; `99-unverified-gpu` chỉ được apply sau khi AWS cấp quota và image/plugin GPU
   đã được kiểm tra.
 - Luôn pin image bằng tag immutable, ví dụ `dev-<git-short-sha>`. Không dùng `latest` cho rollout.
 - Không sửa hoặc xóa state Terraform, secret, backend config hay resource production thủ công nếu
   chưa xác định stack sở hữu resource đó.
+- Bốn KMS key lịch sử của project đã được xác nhận không còn alias/grant sử dụng và đang ở
+  `PendingDeletion`; đây là trạng thái cleanup đúng của AWS. Không cancel deletion, vì KMS bắt
+  buộc giữ waiting period trước khi xóa vĩnh viễn. Các key hiện tại của workspace/cluster vẫn
+  do stack mới quản lý.
 
 ## Quyền truy cập và context
 
@@ -161,14 +166,16 @@ curl -i https://mlbox.june8th.me/
 curl -i https://mlbox.june8th.me/login
 ```
 
-Các chức năng hiện chỉ là scaffold/mock:
+Các chức năng hiện có mức độ hoàn thiện khác nhau:
 
-- Login/register chưa hoàn tất Cognito flow trong production.
-- `/api/bff/auth/login` và `/api/bff/sandboxes` là stub `501`.
-- Sandboxes, account và usage dùng dữ liệu/mock UI, chưa đọc state user thật.
+- Login/register/confirm đã gọi Cognito qua BFF; cần test với user thật sau khi redeploy.
+- BFF verify JWT, mã hóa session cookie và proxy list/start/stop tới JupyterHub; readiness chỉ đạt
+  khi Secret, remote state và Hub service token đã được cấu hình.
+- Sandboxes đã dùng API thật cho list/start/stop; `/sandboxes/new`, rename, account và usage vẫn là
+  scaffold/mock.
 
-Vì vậy không dùng dashboard hiện tại làm nguồn sự thật cho quota hoặc trạng thái server. Dùng Hub,
-Kubernetes và AWS console/CLI để kiểm tra trực tiếp cho đến khi BFF và auth hoàn tất.
+Không dùng dashboard làm nguồn sự thật cho quota cho đến khi usage API thật được triển khai. Khi
+điều tra sandbox, đối chiếu dashboard với Hub/Kubernetes và AWS console/CLI.
 
 ## Cognito và session
 
@@ -261,8 +268,6 @@ Luôn chạy `terraform plan` trước destroy và lưu plan/output phục vụ 
 
 ## Giới hạn đã biết
 
-- Dashboard production đang bị block bởi `DYNAMIC_SERVER_USAGE`.
-- BFF chưa triển khai; Hub admin token/session mapping chưa hoàn tất.
-- Login/register, sandbox lifecycle, account và usage/quota chưa end-to-end.
+- Login/register/confirm/logout và sandbox list/start/stop đã có code thật, nhưng chưa end-to-end với Cognito/JupyterHub vì chưa có test user.
 - GPU quota chưa được cấp; GPU stack và GPU profiles chưa bật.
 - Chưa có monitoring/alerting/CI-CD/backup automation hoàn chỉnh.

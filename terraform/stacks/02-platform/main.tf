@@ -2,6 +2,38 @@ locals {
   hub_host = "notebook.${var.domain}"
 }
 
+# Persistent DNS and ACM resources are created by 00-bootstrap and kept in its
+# local state. Discover them by stable names after bootstrap has been applied.
+# 02-platform owns only the ALB and its Route53 alias records.
+data "aws_route53_zone" "project" {
+  name         = var.domain
+  private_zone = false
+  tags = {
+    Project   = var.project
+    ManagedBy = "terraform"
+  }
+}
+
+data "aws_acm_certificate" "notebook" {
+  domain      = local.hub_host
+  statuses    = ["PENDING_VALIDATION", "ISSUED"]
+  most_recent = true
+  tags = {
+    Project   = var.project
+    ManagedBy = "terraform"
+  }
+}
+
+data "aws_acm_certificate" "dashboard" {
+  domain      = var.domain
+  statuses    = ["PENDING_VALIDATION", "ISSUED"]
+  most_recent = true
+  tags = {
+    Project   = var.project
+    ManagedBy = "terraform"
+  }
+}
+
 # ---------------------------------------------------------------------------
 # Auto-discovery of the 01-foundation resources. Keep here (not versions.tf)
 # because module.* consumers below reference these locals.
@@ -103,8 +135,8 @@ module "ecr" {
   tags    = var.tags
 }
 
-# ALB + target group + ACM certificate + AWS Load Balancer Controller.
-# Everything the operator needs to point DNS at Cloudflare lives here.
+# ALB + target group + Route53 aliases + AWS Load Balancer Controller.
+# The persistent delegated zone and ACM certificates are owned by 00-bootstrap.
 module "ingress_dns" {
   source = "../../modules/ingress-dns"
 
@@ -118,7 +150,12 @@ module "ingress_dns" {
   node_security_group_id      = local.node_security_group_id
   proxy_port                  = var.proxy_port
   manage_route53              = var.manage_route53
-  route53_zone_id             = var.route53_zone_id
+  route53_zone_id             = data.aws_route53_zone.project.zone_id
+  certificate_arn             = data.aws_acm_certificate.notebook.arn
+  apex_certificate_arn        = data.aws_acm_certificate.dashboard.arn
+  certificate_status          = data.aws_acm_certificate.notebook.status
+  apex_certificate_status     = data.aws_acm_certificate.dashboard.status
+  route53_zone_nameservers    = data.aws_route53_zone.project.name_servers
   tags                        = var.tags
 }
 

@@ -1,7 +1,8 @@
 # 04-dashboard — dashboard application stack
 
-Stack này triển khai dashboard ML Box ở apex domain và chuẩn bị ECR repository cho
-BFF. Đây là stack ứng dụng, không tạo VPC, EKS, RDS, Cognito hoặc ALB mới.
+Stack này triển khai dashboard ML Box tại apex domain và BFF nội bộ để xử lý
+Cognito session và JupyterHub API. Đây là stack ứng dụng, không tạo VPC, EKS,
+RDS, Cognito hoặc ALB mới.
 
 ## Phụ thuộc
 
@@ -11,40 +12,59 @@ Phải apply theo thứ tự:
 00-bootstrap → 01-foundation → 02-platform → 03-hub-app → 04-dashboard
 ```
 
-Stack đọc remote state của:
+DNS/ACM phải hoàn tất trước khi apply stack này. Stack đọc remote state của:
 
-- `02-platform`: VPC, ALB, ACM, Cognito và node security group.
-- `03-hub-app`: HTTPS listener ARN để thêm host-header rule cho dashboard.
+- `02-platform`: VPC, ALB, Route53 aliases, Cognito và node security group; ACM certificates đến từ `00-bootstrap`.
+- `03-hub-app`: HTTPS listener ARN và BFF service token của JupyterHub.
 
-DNS/ACM phải hoàn tất trước khi apply stack này. Xem:
-
-- [`docs/DEPLOYMENT.md`](../../../docs/DEPLOYMENT.md)
-- [`docs/OPERATIONS.md`](../../../docs/OPERATIONS.md)
-- [`deploy/DNS-CLOUDFLARE.md`](../../../deploy/DNS-CLOUDFLARE.md)
+Xem thêm [`docs/DEPLOYMENT.md`](../../../docs/DEPLOYMENT.md) và
+[`docs/OPERATIONS.md`](../../../docs/OPERATIONS.md).
 
 ## Tài nguyên
 
-- ECR repositories:
+- ECR repositories immutable, scan-on-push:
   - `jhub-gpu-sandbox/dashboard`
   - `jhub-gpu-sandbox/bff`
-- ALB target group cho dashboard trên port `3000`.
-- Security-group rules cho phép ALB truy cập node/pod dashboard trên port `3000`.
-- Namespace `dashboard`, Deployment, Service và TargetGroupBinding khi
-  `deploy_dashboard = true`.
+- ALB target group cho dashboard trên port `3000` và security-group rules tương ứng.
+- Namespace `dashboard` với:
+  - Deployment/Service `dashboard`;
+  - Deployment/Service `bff` trên port `4000`;
+  - Kubernetes Secret `bff-config` chứa session secret và Hub API token;
+  - TargetGroupBinding cho dashboard.
 - Apex listener rule cho `https://mlbox.june8th.me` và certificate apex từ
   `02-platform`.
 
+BFF chỉ nhận request từ Next.js qua `BFF_INTERNAL_URL`; Hub API token không được
+đưa vào image hoặc trình duyệt. BFF session dùng cookie HttpOnly được mã hóa bằng
+secret sinh trong state của stack này. Do đó state backend S3 phải bật encryption,
+versioning và lock; không đưa `terraform.tfvars`, backend hoặc state vào Git.
+
 ## Trạng thái hiện tại
 
-Terraform stack đã được apply và Deployment dashboard đang chạy. Tuy nhiên,
-production chưa đạt acceptance vì Next.js production trả HTTP 500 với digest
-`DYNAMIC_SERVER_USAGE`; dev mode trả 200. Vì vậy không coi dashboard hiện tại là
-production-ready cho đến khi sửa runtime, build/push image mới, apply lại stack và
-xác nhận ALB target healthy.
+Luồng `00-bootstrap` → `04-dashboard` đã được fresh deploy từ state/backend mới.
+Dashboard và BFF đang Running; TargetGroupBinding đã reconcile và dashboard ALB
+target đang healthy. Hai image immutable `dev-16de76b` đã được push vào ECR và
+được dùng trong rollout.
 
-BFF ECR repository đã được tạo nhưng source/service BFF thật chưa có trong repo.
-Các route `/api/bff/*` hiện là stub hoặc trả `501 BFF_NOT_DEPLOYED`; không được
-coi mock data là trạng thái thật của sandbox, quota hoặc account.
+Production dashboard đã xử lý `DYNAMIC_SERVER_USAGE` bằng cách bỏ
+`cacheComponents`/`partialPrefetching`; kiểm tra qua ALB cho thấy `/` và `/login`
+trả `200`. BFF readiness nội bộ `/v1/health` trả `200`; các API yêu cầu đăng nhập
+trả `401` khi chưa có session. Acceptance authenticated Cognito/JupyterHub và
+sandbox lifecycle vẫn cần test user thật.
+
+## Build images
+
+Từ repository root, sau khi `02-platform` tạo ECR và Cognito:
+
+```bash
+source .private/aws-env.sh
+export NEXT_PUBLIC_COGNITO_USER_POOL_ID="$(terraform -chdir=terraform/stacks/02-platform output -raw cognito_user_pool_id)"
+export NEXT_PUBLIC_COGNITO_CLIENT_ID="$(terraform -chdir=terraform/stacks/02-platform output -raw cognito_dashboard_client_id)"
+PUSH=1 ./scripts/build-dashboard.sh
+```
+
+Script tạo cùng một immutable tag `dev-<gitshortsha>` cho dashboard và BFF. BFF
+không nhận secret lúc build; secret chỉ được inject lúc chạy bởi Terraform.
 
 ## Apply / rollout
 
@@ -54,21 +74,23 @@ terraform init -reconfigure -backend-config=backend.hcl
 terraform plan
 terraform apply
 
-kubectl -n dashboard rollout status deployment/dashboard
+kubectl -n dashboard rollout status deployment/dashboard --timeout=300s
+kubectl -n dashboard rollout status deployment/bff --timeout=300s
 kubectl -n dashboard get pods,svc,targetgroupbinding
 ```
 
-`dashboard_image` phải là immutable ECR tag dạng `dev-<gitshortsha>` và phải được
-push trước khi đặt `deploy_dashboard = true`. Không dùng `latest`.
+`dashboard_image` và `bff_image` phải là immutable ECR tags, không dùng `latest`.
 
-Sau khi rollout, kiểm tra:
+Sau rollout:
 
 ```bash
 curl -sS -o /dev/null -w '%{http_code}\n' https://mlbox.june8th.me/
+curl -sS -o /dev/null -w '%{http_code}\n' https://mlbox.june8th.me/login
+kubectl -n dashboard logs deploy/bff --tail=100
 aws elbv2 describe-target-health \
   --target-group-arn "$(terraform output -raw dashboard_target_group_arn)"
-kubectl -n dashboard logs deploy/dashboard --tail=100
 ```
 
-Nếu target unhealthy, đọc reason của ALB trước khi sửa; đặc biệt phân biệt lỗi
-kết nối/SG với lỗi HTTP 5xx từ ứng dụng. Runbook chi tiết ở `docs/OPERATIONS.md`.
+BFF readiness/liveness dùng `/v1/health`. Nếu thiếu env/Secret, endpoint trả
+503 và pod không Ready. Nếu target ALB unhealthy, phân biệt lỗi kết nối/SG với
+HTTP 5xx của dashboard theo runbook vận hành.

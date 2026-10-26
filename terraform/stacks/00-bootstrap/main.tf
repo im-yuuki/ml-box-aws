@@ -6,6 +6,63 @@ locals {
   table  = "${var.project}-tflock"
 }
 
+# Persistent DNS boundary for the project. Cloudflare remains authoritative for
+# the parent zone; it delegates only `mlbox.june8th.me` to these nameservers.
+resource "aws_route53_zone" "project" {
+  name = var.domain
+  tags = var.tags
+}
+
+resource "aws_acm_certificate" "notebook" {
+  domain_name       = "notebook.${var.domain}"
+  validation_method = "DNS"
+  tags              = var.tags
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_acm_certificate" "dashboard" {
+  domain_name       = var.domain
+  validation_method = "DNS"
+  tags              = var.tags
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_route53_record" "acm_validation_notebook" {
+  zone_id = aws_route53_zone.project.zone_id
+  name    = one(aws_acm_certificate.notebook.domain_validation_options).resource_record_name
+  type    = one(aws_acm_certificate.notebook.domain_validation_options).resource_record_type
+  ttl     = 60
+  records = [one(aws_acm_certificate.notebook.domain_validation_options).resource_record_value]
+}
+
+resource "aws_route53_record" "acm_validation_dashboard" {
+  zone_id = aws_route53_zone.project.zone_id
+  name    = one(aws_acm_certificate.dashboard.domain_validation_options).resource_record_name
+  type    = one(aws_acm_certificate.dashboard.domain_validation_options).resource_record_type
+  ttl     = 60
+  records = [one(aws_acm_certificate.dashboard.domain_validation_options).resource_record_value]
+}
+
+resource "aws_acm_certificate_validation" "notebook" {
+  count = var.validate_certificates ? 1 : 0
+
+  certificate_arn         = aws_acm_certificate.notebook.arn
+  validation_record_fqdns = [aws_route53_record.acm_validation_notebook.fqdn]
+}
+
+resource "aws_acm_certificate_validation" "dashboard" {
+  count = var.validate_certificates ? 1 : 0
+
+  certificate_arn         = aws_acm_certificate.dashboard.arn
+  validation_record_fqdns = [aws_route53_record.acm_validation_dashboard.fqdn]
+}
+
 resource "aws_s3_bucket" "state" {
   bucket = local.bucket
   tags   = var.tags
