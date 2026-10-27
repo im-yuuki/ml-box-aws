@@ -482,6 +482,10 @@ app.post<{ Params: { name: string } }>("/v1/sandboxes/:name/start", async (reque
     return { ok: true, name: request.params.name, state: "pending" };
   } catch (error) {
     request.log.error({ err: error }, "JupyterHub sandbox start failed");
+    if (hubStatus(error) === 404) {
+      reply.code(409).send({ error: "HUB_USER_UNKNOWN", message: "Tài khoản chưa được kích hoạt trên Hub. Đăng nhập vào notebook hub một lần để kích hoạt." });
+      return;
+    }
     return handleHubError(reply, error);
   }
 });

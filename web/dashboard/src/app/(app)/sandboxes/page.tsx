@@ -18,7 +18,7 @@ export default async function SandboxesPage() {
           <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
           <p className="text-sm" style={{ color: "var(--muted)" }}>{t("subtitle")}</p>
         </div>
-        <Link href="/sandboxes/new"><Button variant="primary" isDisabled>{t("new")}</Button></Link>
+        <Link href="/sandboxes/new"><Button variant="primary">{t("new")}</Button></Link>
       </header>
       <SandboxList />
     </div>
