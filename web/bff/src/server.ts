@@ -8,6 +8,12 @@ import cookie from "@fastify/cookie";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { createHash, createSecretKey } from "node:crypto";
 import {
+  buildUsageResponse,
+  parseCpuCores,
+  parseMemoryGb,
+  type UsageServer,
+} from "./usage.js";
+import {
   CompactEncrypt,
   compactDecrypt,
   createRemoteJWKSet,
@@ -15,6 +21,13 @@ import {
   type JWTPayload,
   type JWTVerifyGetKey,
 } from "jose";
+
+function quotaEnv(name: string): number | undefined {
+  const value = process.env[name];
+  if (value === undefined || value.trim() === "") return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+}
 
 const config = {
   port: Number(process.env.PORT ?? 4000),
@@ -26,6 +39,10 @@ const config = {
   hubUrl: process.env.HUB_URL?.replace(/\/$/, ""),
   hubApiToken: process.env.HUB_API_TOKEN,
   secureCookies: process.env.SECURE_COOKIES !== "false",
+  cpuQuotaHours: quotaEnv("CPU_QUOTA_HOURS"),
+  ramQuotaGb: quotaEnv("RAM_QUOTA_GB"),
+  storageQuotaGb: quotaEnv("STORAGE_QUOTA_GB"),
+  gpuQuotaHours: quotaEnv("GPU_QUOTA_HOURS"),
 };
 
 type RuntimeConfig = typeof config & {
@@ -34,6 +51,10 @@ type RuntimeConfig = typeof config & {
   sessionSecret: string;
   hubUrl: string;
   hubApiToken: string;
+  cpuQuotaHours: number;
+  ramQuotaGb: number;
+  storageQuotaGb: number;
+  gpuQuotaHours: number;
 };
 
 type Session = {
@@ -58,6 +79,11 @@ type HubServer = {
   pending?: boolean;
   url?: string;
   last_activity?: string;
+  cpu_limit?: unknown;
+  mem_limit?: unknown;
+  cpu_guarantee?: unknown;
+  mem_guarantee?: unknown;
+  resources?: { cpu?: unknown; memory?: unknown };
 };
 
 type HubUser = {
@@ -80,12 +106,23 @@ function missingConfig(): string[] {
     "BFF_SESSION_SECRET",
     "HUB_URL",
     "HUB_API_TOKEN",
+    "CPU_QUOTA_HOURS",
+    "RAM_QUOTA_GB",
+    "STORAGE_QUOTA_GB",
+    "GPU_QUOTA_HOURS",
   ].filter((name) => !process.env[name]);
 }
 
 function runtimeConfig(): RuntimeConfig {
   const missing = missingConfig();
-  if (missing.length > 0) throw new Error(`${missing.join(", ")} is required`);
+  const invalid = ([
+    ["CPU_QUOTA_HOURS", config.cpuQuotaHours],
+    ["RAM_QUOTA_GB", config.ramQuotaGb],
+    ["STORAGE_QUOTA_GB", config.storageQuotaGb],
+    ["GPU_QUOTA_HOURS", config.gpuQuotaHours],
+  ] as const).filter(([, value]) => value === undefined).map(([name]) => name);
+  const errors = [...missing, ...invalid.filter((name) => !missing.includes(name))];
+  if (errors.length > 0) throw new Error(`${errors.join(", ")} is required and must be a non-negative number`);
   return config as RuntimeConfig;
 }
 
@@ -237,6 +274,18 @@ function serverPath(username: string, name: string): string {
   return `/hub/api/users/${usernamePath(username)}/servers/${validateServerName(name)}`;
 }
 
+function usageServer(key: string, server: HubServer): UsageServer {
+  const resources = server.resources ?? {};
+  return {
+    name: server.name || key || "default",
+    state: server.ready ? "running" : server.pending ? "pending" : "stopped",
+    url: server.url ?? null,
+    lastActivity: server.last_activity ?? null,
+    cpuCoresAllocated: parseCpuCores(resources.cpu ?? server.cpu_limit ?? server.cpu_guarantee),
+    ramGbAllocated: parseMemoryGb(resources.memory ?? server.mem_limit ?? server.mem_guarantee),
+  };
+}
+
 async function hubRequest<T>(runtime: RuntimeConfig, method: string, path: string, body?: unknown): Promise<T> {
   const response = await fetch(`${runtime.hubUrl}${path}`, {
     method,
@@ -279,11 +328,18 @@ function handleHubError(reply: FastifyReply, error: unknown): void {
 app.register(cookie);
 
 app.get("/v1/health", async (_request, reply) => {
-  const missing = missingConfig();
-  if (missing.length > 0) {
-    return reply.code(503).send({ status: "degraded", configured: false, missing });
+  try {
+    runtimeConfig();
+    return { status: "ok", configured: true };
+  } catch (error) {
+    const missing = missingConfig();
+    return reply.code(503).send({
+      status: "degraded",
+      configured: false,
+      missing,
+      message: error instanceof Error ? error.message : "Invalid runtime configuration",
+    });
   }
-  return { status: "ok", configured: true };
 });
 
 app.post<{ Body: AuthBody }>("/v1/auth/login", async (request, reply) => {
@@ -378,6 +434,25 @@ app.get("/v1/sandboxes", async (request, reply) => {
     return { user: { email: session.email }, sandboxes: servers };
   } catch (error) {
     request.log.error({ err: error }, "JupyterHub sandbox list failed");
+    return handleHubError(reply, error);
+  }
+});
+
+app.get("/v1/usage", async (request, reply) => {
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  try {
+    const runtime = runtimeConfig();
+    const user = await hubRequest<HubUser>(runtime, "GET", `/hub/api/users/${usernamePath(session.username)}`);
+    const servers = Object.entries(user.servers ?? {}).map(([key, server]) => usageServer(key, server));
+    return buildUsageResponse(servers, {
+      cpuHours: runtime.cpuQuotaHours,
+      ramGb: runtime.ramQuotaGb,
+      storageGb: runtime.storageQuotaGb,
+      gpuHours: runtime.gpuQuotaHours,
+    });
+  } catch (error) {
+    request.log.error({ err: error }, "JupyterHub usage query failed");
     return handleHubError(reply, error);
   }
 });

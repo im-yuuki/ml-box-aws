@@ -60,6 +60,46 @@ variable "bff_secure_cookies" {
   default     = true
 }
 
+variable "cpu_quota_hours" {
+  description = "Policy quota exposed by the BFF; historical CPU-hours tracking is not enabled."
+  type        = number
+  default     = 32
+  validation {
+    condition     = var.cpu_quota_hours >= 0
+    error_message = "cpu_quota_hours must be non-negative."
+  }
+}
+
+variable "ram_quota_gb" {
+  description = "RAM quota exposed by the BFF."
+  type        = number
+  default     = 24
+  validation {
+    condition     = var.ram_quota_gb >= 0
+    error_message = "ram_quota_gb must be non-negative."
+  }
+}
+
+variable "storage_quota_gb" {
+  description = "Storage quota exposed by the BFF; storage usage tracking is not enabled."
+  type        = number
+  default     = 20
+  validation {
+    condition     = var.storage_quota_gb >= 0
+    error_message = "storage_quota_gb must be non-negative."
+  }
+}
+
+variable "gpu_quota_hours" {
+  description = "GPU-hours policy quota. Keep at zero while GPU is disabled."
+  type        = number
+  default     = 0
+  validation {
+    condition     = var.gpu_quota_hours >= 0
+    error_message = "gpu_quota_hours must be non-negative."
+  }
+}
+
 variable "bff_replicas" {
   description = "Number of BFF replicas. Keep at least 2 for production once session storage is externalized."
   type        = number

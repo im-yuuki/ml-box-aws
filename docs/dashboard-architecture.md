@@ -57,8 +57,13 @@ hardening tiếp theo.
 
 ### Usage/quota
 
-- Nguồn kỳ 1: hub REST API (`GET /hub/api/users`, server state, last_activity)
-  + cấu hình quota trong values/profile (CPU profile hiện tại: 2 CPU / 4G RAM).
+- MVP đọc realtime từ Hub REST API (`GET /hub/api/users/<username>`): server state,
+  `last_activity` và resource metadata nếu Hub trả về.
+- Quota policy được inject vào BFF runtime qua Terraform: `32 CPU-hours`, `24 GB RAM`,
+  `20 GB storage`, `0 GPU-hours`.
+- CPU-hours và storage usage không được suy diễn từ `last_activity` hoặc server state;
+  API trả `null` và UI hiển thị trạng thái chưa tracking/chưa có dữ liệu.
+- RAM footprint chỉ được cộng khi resource metadata hợp lệ; thiếu metadata trả `null`.
 - Kỳ 2 (khi có GPU + kế toán): ghi nhận GPU-hours trong spawn hook vào bảng riêng
   trong hub DB (Postgres RDS) — BFF đọc qua hub API, không truy cập DB trực tiếp.
 
@@ -99,8 +104,9 @@ hardening tiếp theo.
    Dashboard+BFF workload; pods và ALB targets đang healthy.
 5. ✅ Lỗi `DYNAMIC_SERVER_USAGE` đã được sửa và verify `/`/`/login` qua ALB;
    authenticated Cognito và sandbox vẫn cần test với AWS thật bằng test user.
-6. ⚠️ Usage/quota, account, tạo/đổi tên sandbox vẫn mock/chưa triển khai; GPU
-   accounting chỉ làm sau khi có quota và policy.
+6. ✅ Usage/quota MVP đã nối BFF và Hub realtime footprint; historical accounting,
+   account, tạo/đổi tên sandbox vẫn là các hạng mục tiếp theo. GPU accounting chỉ làm
+   sau khi có quota và policy.
 
 Checklist chi tiết được duy trì tại [`TODO.md`](../TODO.md).
 </content>

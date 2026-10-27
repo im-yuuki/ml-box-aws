@@ -7,6 +7,11 @@ bff_image       = "123456789012.dkr.ecr.ap-southeast-2.amazonaws.com/jhub-gpu-sa
 
 # Terraform reads the sensitive Hub service token from 03-hub-app remote state
 # and generates the BFF session-encryption key in this stack.
+# Realtime usage quotas are policy limits; historical CPU/storage accounting is not enabled.
+cpu_quota_hours    = 32
+ram_quota_gb       = 24
+storage_quota_gb   = 20
+gpu_quota_hours     = 0
 
 # First apply: set false to create ECR + TG only, then flip true after push.
 deploy_dashboard = false

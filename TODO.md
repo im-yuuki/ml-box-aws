@@ -36,7 +36,7 @@ Ký hiệu:
 - ✅ Production runtime healthy qua ALB; dashboard pod và target đều healthy, `/` và `/login` trả `200`.
 - ☐ Hoàn thiện `/verify` email confirmation page.
 - ☐ Hoàn thiện `/sandboxes/new` flow.
-- ☐ Thay mock data bằng API thật trên toàn bộ dashboard.
+- ⚠️ Usage/quota realtime đã nối API thật; các màn hình khác vẫn còn phần mock cần thay dần.
 
 ## Authentication và BFF
 
@@ -64,13 +64,15 @@ Ký hiệu:
 
 ## Usage và quota
 
-- ✅ Có UI quota cards cho CPU, RAM, storage và GPU-hours dạng mock.
-- ☐ Định nghĩa nguồn dữ liệu và semantics quota theo user/period.
-- ☐ BFF cung cấp usage/quota API từ Hub và nguồn dữ liệu đã duyệt.
-- ☐ Persist usage/quota thay vì dữ liệu hard-coded.
-- ☐ Implement CPU/RAM/storage limits và thông báo khi gần/vượt quota.
+- ✅ Usage page hiển thị quota policy `32 CPU-hours / 24 GB RAM / 20 GB storage / 0 GPU-hours`.
+- ✅ BFF `GET /v1/usage` lấy server/state/last_activity từ JupyterHub và trả timestamp realtime.
+- ✅ Realtime footprint tách khỏi historical usage; CPU-hours và storage usage trả `null` khi chưa tracking.
+- ✅ RAM footprint chỉ hiển thị khi Hub trả resource metadata; thiếu metadata không đoán giá trị.
+- ✅ Dashboard có loading, error, unauthenticated, empty và unavailable states; có English/Vietnamese translations.
+- ☐ Persist historical usage/quota thay vì chỉ đọc footprint realtime.
+- ☐ Implement CPU/RAM/storage enforcement và thông báo khi gần/vượt quota.
 - ☐ GPU-hours accounting; chỉ làm sau khi GPU stack và policy quota được chốt.
-- ☐ Hiển thị timezone, kỳ quota, last updated và trạng thái dữ liệu.
+- ✅ Hiển thị timestamp cập nhật và trạng thái tracking của từng metric.
 
 ## GPU
 
