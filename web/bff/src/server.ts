@@ -312,6 +312,12 @@ async function hubRequest<T>(runtime: RuntimeConfig, method: string, path: strin
   return parsed as T;
 }
 
+function hubStatus(error: unknown): number | null {
+  if (typeof error !== "object" || error === null || !("status" in error)) return null;
+  const value = Number((error as { status?: unknown }).status);
+  return Number.isFinite(value) ? value : null;
+}
+
 function handleHubError(reply: FastifyReply, error: unknown): void {
   if (error instanceof Error && error.message === "Invalid sandbox name") {
     reply.code(400).send({ error: "INVALID_SANDBOX_NAME", message: "Tên sandbox không hợp lệ." });
@@ -433,6 +439,10 @@ app.get("/v1/sandboxes", async (request, reply) => {
     }));
     return { user: { email: session.email }, sandboxes: servers };
   } catch (error) {
+    // A user unknown to the Hub (never spawned a server) has an empty list, not an error.
+    if (hubStatus(error) === 404) {
+      return { user: { email: session.email }, sandboxes: [] };
+    }
     request.log.error({ err: error }, "JupyterHub sandbox list failed");
     return handleHubError(reply, error);
   }
@@ -443,14 +453,22 @@ app.get("/v1/usage", async (request, reply) => {
   if (!session) return;
   try {
     const runtime = runtimeConfig();
-    const user = await hubRequest<HubUser>(runtime, "GET", `/hub/api/users/${usernamePath(session.username)}`);
-    const servers = Object.entries(user.servers ?? {}).map(([key, server]) => usageServer(key, server));
-    return buildUsageResponse(servers, {
+    const quotas = {
       cpuHours: runtime.cpuQuotaHours,
       ramGb: runtime.ramQuotaGb,
       storageGb: runtime.storageQuotaGb,
       gpuHours: runtime.gpuQuotaHours,
-    });
+    };
+    let user: HubUser;
+    try {
+      user = await hubRequest<HubUser>(runtime, "GET", `/hub/api/users/${usernamePath(session.username)}`);
+    } catch (error) {
+      // A user unknown to the Hub (never spawned a server) has an empty footprint, not an error.
+      if (hubStatus(error) === 404) return buildUsageResponse([], quotas);
+      throw error;
+    }
+    const servers = Object.entries(user.servers ?? {}).map(([key, server]) => usageServer(key, server));
+    return buildUsageResponse(servers, quotas);
   } catch (error) {
     request.log.error({ err: error }, "JupyterHub usage query failed");
     return handleHubError(reply, error);
