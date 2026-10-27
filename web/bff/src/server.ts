@@ -59,8 +59,6 @@ type RuntimeConfig = typeof config & {
 
 type Session = {
   accessToken: string;
-  idToken: string;
-  refreshToken?: string;
   email: string;
   username: string;
   expiresAt: number;
@@ -204,7 +202,6 @@ async function decryptSession(runtime: RuntimeConfig, value: string): Promise<Se
   const parsed = JSON.parse(new TextDecoder().decode(plaintext)) as Partial<Session>;
   if (
     typeof parsed.accessToken !== "string" ||
-    typeof parsed.idToken !== "string" ||
     typeof parsed.email !== "string" ||
     typeof parsed.username !== "string" ||
     typeof parsed.expiresAt !== "number"
@@ -366,9 +363,10 @@ app.post<{ Body: AuthBody }>("/v1/auth/login", async (request, reply) => {
     const idClaims = await verifyIdToken(runtime, result.AuthenticationResult.IdToken);
     const sessionEmail = normalizeEmail(idClaims.email) ?? email;
     const session: Session = {
+      // Only the access token rides in the session cookie: the full token set
+      // inflates the encrypted JWE past the ~4 KB browser cookie limit and the
+      // cookie would be silently dropped by browsers.
       accessToken: result.AuthenticationResult.AccessToken,
-      idToken: result.AuthenticationResult.IdToken,
-      refreshToken: result.AuthenticationResult.RefreshToken,
       email: sessionEmail,
       username: sessionEmail,
       expiresAt: Math.floor(Date.now() / 1000) + (result.AuthenticationResult.ExpiresIn ?? 3600),
