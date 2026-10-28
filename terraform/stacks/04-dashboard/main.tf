@@ -33,7 +33,7 @@ locals {
   dashboard_usage_db_password_encoded = replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(
     local.dashboard_usage_db_password,
   "%", "%25"), "@", "%40"), ":", "%3A"), "/", "%2F"), "?", "%3F"), "#", "%23"), "&", "%26"), "=", "%3D"), "[", "%5B"), "]", "%5D")
-  dashboard_usage_db_url = var.enable_usage_history ? "postgresql://${data.terraform_remote_state.platform.outputs.dashboard_usage_db_username}:${local.dashboard_usage_db_password_encoded}@${data.terraform_remote_state.platform.outputs.dashboard_usage_db_address}:${data.terraform_remote_state.platform.outputs.dashboard_usage_db_port}/${data.terraform_remote_state.platform.outputs.dashboard_usage_db_name}?sslmode=require" : ""
+  dashboard_usage_db_url = var.enable_usage_history ? "postgresql://${data.terraform_remote_state.platform.outputs.dashboard_usage_db_username}:${local.dashboard_usage_db_password_encoded}@${data.terraform_remote_state.platform.outputs.dashboard_usage_db_address}:${data.terraform_remote_state.platform.outputs.dashboard_usage_db_port}/${data.terraform_remote_state.platform.outputs.dashboard_usage_db_name}" : ""
 }
 
 # ---------------------------------------------------------------------------

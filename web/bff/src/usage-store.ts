@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { Pool } from "pg";
 
 export type UsageSample = {
@@ -11,7 +12,13 @@ export class UsageStore {
   private readonly pool: Pool;
 
   constructor(connectionString: string) {
-    this.pool = new Pool({ connectionString, ssl: { rejectUnauthorized: true }, max: 3, connectionTimeoutMillis: 3000, idleTimeoutMillis: 30_000 });
+    this.pool = new Pool({
+      connectionString,
+      ssl: { ca: readFileSync("/etc/ssl/certs/rds-ca-bundle.pem", "utf8"), rejectUnauthorized: true },
+      max: 3,
+      connectionTimeoutMillis: 3000,
+      idleTimeoutMillis: 30_000,
+    });
   }
 
   async ensureSchema(): Promise<void> {

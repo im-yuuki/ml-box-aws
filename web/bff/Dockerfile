@@ -24,6 +24,7 @@ RUN groupadd --system --gid 1001 nodejs \
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder --chown=bff:nodejs /app/dist ./dist
+COPY web/bff/certs/rds-ca-bundle.pem /etc/ssl/certs/rds-ca-bundle.pem
 USER bff
 EXPOSE 4000
 CMD ["node", "dist/server.js"]
