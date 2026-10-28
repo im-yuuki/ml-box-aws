@@ -1,8 +1,9 @@
-# ML Box Dashboard — kiến trúc (đã chốt hướng)
+# ML Box Dashboard — kiến trúc MVP hiện tại
 
-Một web duy nhất thay thế trải nghiệm JupyterHub hub pages: đăng nhập/đăng ký,
-quản lý tài khoản, quản lý sandbox và theo dõi usage/quota. JupyterHub lùi về
-vai trò **API-only** (spawn/stop/status qua REST API).
+Dashboard hiện là web app cho đăng nhập/đăng ký, tài khoản, sandbox và usage/quota.
+JupyterHub lùi về vai trò **API-only** (spawn/stop/status qua REST API).
+
+> Tài liệu này ghi trạng thái MVP/single-user hiện tại, không phải target architecture. Kế hoạch project-first và multi-tenant đã được chốt tại [`multi-tenant-product-plan.md`](multi-tenant-product-plan.md); tài liệu đó là nguồn chuẩn cho product model và các phase tiếp theo. Các mục “tương lai” cũ ở dưới cần được hiểu trong bối cảnh MVP ban đầu.
 
 ## Quyết định đã chốt (2026-10-27)
 
@@ -94,6 +95,11 @@ hardening tiếp theo.
   dùng chính flow đăng ký của Cognito.
 
 ## Lộ trình và trạng thái
+
+Kế hoạch chuyển từ sandbox-first sang Space → Team → Project được theo dõi trong
+[`multi-tenant-product-plan.md`](multi-tenant-product-plan.md) và [`TODO.md`](../TODO.md).
+Các trạng thái dưới đây chỉ ghi nhận MVP đã triển khai/xác nhận tại thời điểm tài liệu
+được cập nhật; không có nghĩa các phần multi-tenant đã tồn tại.
 
 1. ✅ Auto light/dark trong notebook (`adaptive-theme` trong `overrides.json`,
    image `cpu:dev-fa3b6fa-v5`).

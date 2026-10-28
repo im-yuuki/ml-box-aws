@@ -1,6 +1,10 @@
 # ML Box — TODO checklist
 
-Cập nhật: 2026-10-27
+Cập nhật: 2026-10-29
+
+Target WebUI multi-tenant và trình tự triển khai được mô tả tại
+[`docs/multi-tenant-product-plan.md`](docs/multi-tenant-product-plan.md). Các mục
+trong kế hoạch đó chưa được coi là hoàn thành chỉ vì đã được thiết kế.
 
 Ký hiệu:
 
@@ -106,3 +110,54 @@ Ký hiệu:
 - ☐ Khi migrate state key, ghi lại mapping, backup và kết quả verify trong change record.
 - ☐ Cập nhật tài liệu sau mỗi lần thay đổi public URL, stack output, image tag hoặc auth flow.
 - ☐ Viết acceptance checklist cho release dashboard và BFF trước khi tuyên bố production-ready.
+
+## Product control plane: Space → Team → Project
+
+Target model: Personal/Organization là loại của Space; mỗi Space có Team phẳng; mỗi
+Project thuộc đúng một Team; Sandbox tạm thời 1:1 với Project; Artifacts tồn tại độc
+lập runtime. Không nested Team, không cross-Space project sharing, không shared
+multi-user Sandbox. Xem [`docs/multi-tenant-product-plan.md`](docs/multi-tenant-product-plan.md)
+để biết schema logic, quyền, UX, branding, migration và acceptance criteria đầy đủ.
+
+### Phase 1 — Foundation và authorization
+
+- ☐ Chốt app-owned relational schema/migration framework; đánh giá mở rộng dashboard usage PostgreSQL hay tạo app DB riêng; tuyệt đối không dùng Hub-owned schema.
+- ☐ Chuyển application user key sang Cognito `sub`; bootstrap Personal Space + default Team cho user hiện tại/mới.
+- ☐ Implement Space membership, invitation lifecycle và role cố định Owner/Admin/Member/Viewer.
+- ☐ Implement flat Team CRUD/membership/Lead; bảo đảm Team và Project luôn cùng Space.
+- ☐ Implement server-side permission resolution, Project direct overrides (Manager/Contributor/Viewer/Blocked), Owner/Admin bypass và permission cache invalidation.
+- ☐ Thêm audit events cho invite, membership/role/team/project access, billing mock và thay đổi runtime.
+- ☐ Viết authz tests: default deny, isolation giữa Space, Team inheritance, direct override/Blocked, Viewer cap, revocation và Owner/Admin không bị khóa.
+
+### Phase 2 — Project-first và runtime
+
+- ☐ Tạo Project CRUD/API/UI; mọi Project thuộc đúng một Team; thêm project search theo Space hiện tại.
+- ☐ Migration idempotent: ánh xạ named Hub sandbox hiện hữu vào Project mặc định trong Personal Space/Team; giữ nguyên server/dữ liệu và có backup/rollback.
+- ☐ Thêm Space switcher, Teams/Members admin, project detail/settings; giữ `/sandboxes` và API cũ làm compatibility alias trong migration.
+- ☐ Chuyển BFF sandbox actions sang authorize theo Project rồi resolve server từ Project record; không nhận Hub username tùy ý.
+- ☐ Giữ một Sandbox/Project, user-owned Hub runtime và single active user; thêm start/stop/change profile cùng pending/failure/quota states.
+- ☐ Test project-level permission trước mọi Hub list/start/stop, kể cả sửa Space/Project ID từ client.
+
+### Phase 3 — Persistent artifacts và tenant isolation
+
+- ☐ Thêm Artifact metadata và upload/download API gắn Project.
+- ☐ Chuyển object key sang `spaces/{space_id}/projects/{project_id}/...`; BFF authorize trước khi cấp presigned URL.
+- ☐ Rà IAM/bucket policy/session scope thực tế; chứng minh runtime/browser không thể đọc prefix ngoài Project được cấp.
+- ☐ Viết migration/backup/restore và integration tests cho S3 isolation; dừng/xóa Sandbox không xóa Artifacts.
+
+### Phase 4 — Subscription, usage và Turnstile
+
+- ☐ Tạo subscription/entitlement theo Space; mock plan activation cập nhật trạng thái ngay và ghi audit, không tích hợp payment provider.
+- ☐ Thiết kế usage ledger theo Space/Project/Sandbox/User/resource; xác minh nguồn dữ liệu trước khi enforce hoặc hiển thị billing chính xác.
+- ☐ Thêm Turnstile config bật/tắt riêng cho registration và mock checkout; mặc định tắt local/dev.
+- ☐ Khi bật registration protection, hiển thị widget ở `/register`; gửi token qua BFF và verify server-side trước Cognito SignUp.
+- ☐ Khi bật checkout protection, verify server-side trước khi activate mock subscription; secret chỉ ở BFF, không log token.
+- ☐ Test Turnstile disabled/enabled, token thiếu/sai/hết hạn/replay và Siteverify unavailable; bật mà verify lỗi phải fail closed.
+
+### Phase 5 — Brand pack và release readiness
+
+- ☐ Chốt logo concept open-box M/B, kiểm tra contrast/light-dark và tạo wordmark, symbol, compact mark, favicon/app icon, monochrome/reversed SVG.
+- ☐ Áp dụng token dùng chung cho Dashboard, Hub và Lab; giữ `web/theme/tokens/heroui-tokens.css` là nguồn sự thật.
+- ☐ Hoàn thiện project-first navigation: logo + Space switcher, project search, preferences (theme/language), avatar menu (Usage/Account/billing theo quyền).
+- ☐ Hoàn tất en/vi, responsive, keyboard/focus, loading/empty/error/unauthorized states và E2E với ít nhất hai Space.
+- ☐ Viết release, data migration, backup/restore, rollback và operations checklist; chỉ đánh dấu hoàn tất sau khi kiểm chứng.

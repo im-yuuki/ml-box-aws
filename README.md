@@ -62,6 +62,8 @@ Tài liệu vận hành:
 
 - [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — triển khai, DNS/ACM, rollback và state rename.
 - [`docs/OPERATIONS.md`](docs/OPERATIONS.md) — health check, log, rollout, incident và chi phí.
+- [`docs/dashboard-architecture.md`](docs/dashboard-architecture.md) — kiến trúc dashboard MVP hiện tại.
+- [`docs/multi-tenant-product-plan.md`](docs/multi-tenant-product-plan.md) — target model Space → Team → Project, branding và kế hoạch chuyển đổi WebUI.
 - [`TODO.md`](TODO.md) — checklist tính năng/công việc đã và chưa hoàn thành.
 
 ## Quy trình deploy (1 region/lần)
