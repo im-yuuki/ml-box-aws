@@ -12,6 +12,7 @@
 # latter would be emitted verbatim and break the YAML.
 
 hub:
+  allowNamedServers: true # BFF creates named servers via POST /hub/api/users/:user/servers/:name
   db:
     type: postgres
     url: ${hub_db_url} # RDS (Secrets Manager, not hard-coded)
