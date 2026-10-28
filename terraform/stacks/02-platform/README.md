@@ -15,6 +15,7 @@ Không có JupyterHub ở đây - Helm release của hub nằm ở stack `03-hub
 | `auth` | Cognito User Pool + hosted UI + OIDC app client (`hub_callback_url` = `https://notebook.<domain>/hub/oauth_callback`) |
 | `ecr` | ECR repos `jhub-gpu-sandbox/cpu` và `jhub-gpu-sandbox/gpu` |
 | `ingress_dns` | AWS Load Balancer Controller (Helm + IRSA), ALB internet-facing ở public subnet, target group và A-alias records trong zone do `00-bootstrap` sở hữu |
+| GitHub Actions | GitHub OIDC provider, publisher role giới hạn ở 4 ECR repos, production deployer role và RBAC chỉ cho hai dashboard Deployments |
 
 ALB và target group nằm ở đây; Route53 zone và ACM certificates được giữ riêng trong
 `00-bootstrap` để việc destroy/redeploy platform không làm mất biên DNS/TLS lâu dài.
@@ -31,6 +32,33 @@ ALB và target group nằm ở đây; Route53 zone và ACM certificates được
 
 99-unverified-gpu device plugin + DCGM + L4 shared [TÙY CHỌN - chỉ apply khi có GPU quota]
 ```
+
+## GitHub Actions OIDC
+
+`github_publisher_role_arn` dùng cho repository variable `AWS_ECR_PUBLISH_ROLE_ARN`;
+`github_deployer_role_arn` và `github_actions_cluster_name` dùng làm production
+environment variables `AWS_DEPLOY_ROLE_ARN` và `EKS_CLUSTER_NAME`. Outputs:
+
+```bash
+terraform -chdir=terraform/stacks/02-platform output -raw github_publisher_role_arn
+terraform -chdir=terraform/stacks/02-platform output -raw github_deployer_role_arn
+terraform -chdir=terraform/stacks/02-platform output -raw github_actions_cluster_name
+```
+
+Publisher trust is exactly `repo:im-yuuki/ml-box-aws:ref:refs/heads/master`;
+deployer trust is exactly `repo:im-yuuki/ml-box-aws:environment:production`; both
+require audience `sts.amazonaws.com`. The deployer IAM policy grants only
+`eks:DescribeCluster`. EKS authorization uses a `STANDARD` access entry and a
+namespace `dashboard` Role limited to `get`, `patch`, and `watch` on Deployments
+named `dashboard` and `bff` (no EKS access policy association).
+
+The foundation EKS module enables IRSA and declares an EKS access entry for the
+Karpenter node role, so access-entry authentication is part of the existing
+architecture; this change does not alter the cluster authentication mode. If the
+GitHub OIDC provider already exists in the account, import its provider ARN into
+`aws_iam_openid_connect_provider.github_actions` before the first apply rather
+than trying to create a duplicate. Terraform provider credentials must already
+have Kubernetes permission to manage the Role and RoleBinding in `dashboard`.
 
 ## DNS boundary: delegate zone sang Route53
 

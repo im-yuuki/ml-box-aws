@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { bffFetch } from "@/lib/bffFetch";
 import {
   Button,
   Form,
@@ -45,7 +46,7 @@ export default function LoginForm() {
 
     setIsPending(true);
     try {
-      const response = await fetch("/api/bff/auth/login", {
+      const response = await bffFetch("/api/bff/auth/login", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -78,6 +79,7 @@ export default function LoginForm() {
       <Button type="submit" variant="primary" size="lg" isPending={isPending} isDisabled={isPending}>
         {t("submit")}
       </Button>
+      <p className="text-sm text-center"><a className="underline" href="/forgot-password">{t("forgotPassword")}</a></p>
       <p className="text-sm text-center" style={{ color: "var(--muted)" }}>
         {t("newHere")} <a className="underline" href="/register">{t("createAccountCta")}</a>.
       </p>

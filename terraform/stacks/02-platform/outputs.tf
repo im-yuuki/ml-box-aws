@@ -11,6 +11,33 @@ output "db_url" {
   value       = local.db_url
 }
 
+# Dashboard usage database contract: publish identifiers only, never credentials
+# or a constructed connection URL. 04-dashboard retrieves the RDS-managed secret.
+output "dashboard_usage_db_address" {
+  description = "Private endpoint for the optional dashboard usage-history database; null when disabled."
+  value       = var.enable_dashboard_usage_history ? aws_db_instance.dashboard_usage[0].address : null
+}
+
+output "dashboard_usage_db_port" {
+  description = "Port for the optional dashboard usage-history database; null when disabled."
+  value       = var.enable_dashboard_usage_history ? aws_db_instance.dashboard_usage[0].port : null
+}
+
+output "dashboard_usage_db_name" {
+  description = "Database name for dashboard usage history; null when disabled."
+  value       = var.enable_dashboard_usage_history ? aws_db_instance.dashboard_usage[0].db_name : null
+}
+
+output "dashboard_usage_db_username" {
+  description = "Master username for dashboard usage history; null when disabled."
+  value       = var.enable_dashboard_usage_history ? aws_db_instance.dashboard_usage[0].username : null
+}
+
+output "dashboard_usage_db_master_secret_arn" {
+  description = "ARN of the RDS-managed credential secret; null when disabled."
+  value       = var.enable_dashboard_usage_history ? aws_db_instance.dashboard_usage[0].master_user_secret[0].secret_arn : null
+}
+
 # --- Cognito (oauthenticator) ---
 output "cognito_issuer" {
   description = "Cognito issuer URL (GenericOAuthenticator.issuer)."
@@ -57,6 +84,37 @@ output "cognito_dashboard_client_id" {
 output "hub_role_arn" {
   description = "IRSA role of the hub SA (attaches to the hub service account in 03-hub-app)."
   value       = module.storage.hub_role_arn
+}
+
+output "bff_sessions_table_name" {
+  description = "DynamoDB table name used by the dashboard BFF for refresh-token sessions."
+  value       = aws_dynamodb_table.bff_sessions.name
+}
+
+output "bff_sessions_role_arn" {
+  description = "IRSA role for the dashboard BFF; grants access only to its sessions table."
+  value       = aws_iam_role.bff_sessions.arn
+}
+
+# --- GitHub Actions OIDC ---
+output "github_oidc_provider_arn" {
+  description = "IAM OIDC provider ARN used by the GitHub Actions publisher and production deployer roles."
+  value       = aws_iam_openid_connect_provider.github_actions.arn
+}
+
+output "github_publisher_role_arn" {
+  description = "Set GitHub Actions repository variable AWS_ECR_PUBLISH_ROLE_ARN to this value."
+  value       = aws_iam_role.github_publisher.arn
+}
+
+output "github_deployer_role_arn" {
+  description = "Set GitHub Actions production environment variable AWS_DEPLOY_ROLE_ARN to this value."
+  value       = aws_iam_role.github_deployer.arn
+}
+
+output "github_actions_cluster_name" {
+  description = "Set GitHub Actions production environment variable EKS_CLUSTER_NAME to this value."
+  value       = local.cluster_name
 }
 
 # --- ECR ---

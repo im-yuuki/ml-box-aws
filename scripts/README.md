@@ -97,6 +97,55 @@ role: the Karpenter node role attaches `AmazonEC2ContainerRegistryPullOnly`
 `ecr:GetAuthorizationToken`, `ecr:BatchGetImage` and
 `ecr:GetDownloadUrlForLayer` on these repositories.
 
+## GitHub Actions release and deployment (temporarily disabled)
+
+The CI and deployment workflow definitions are retained as
+`.github/workflows/ci.yml.disabled` and `.github/workflows/deploy.yml.disabled`.
+GitHub Actions does not load these `.disabled` files, so pushes, pull requests,
+tags, and manual dispatches currently trigger no CI/CD jobs. They are intentionally
+parked until the near-final project phase.
+
+To reopen CI/CD later, rename them back to `ci.yml` and `deploy.yml`, then review
+the workflow contents and complete the one-time GitHub setup below before
+enabling the triggers.
+
+### One-time GitHub setup
+
+1. In repository **Settings → Environments**, create `production` and add the
+   production approvers as required reviewers. Restrict deployment branches to
+   `master` as an additional guard.
+2. In **Settings → Secrets and variables → Actions → Variables**, set
+   `AWS_ECR_PUBLISH_ROLE_ARN`, `AWS_DEPLOY_ROLE_ARN`, and `EKS_CLUSTER_NAME` to
+   the role ARNs and cluster name emitted/configured by `terraform/stacks/02-platform`.
+   These are identifiers, not secrets; do not put AWS access keys in GitHub.
+3. When re-enabled and after role changes exist in AWS, open a PR to test
+   validation without AWS access, merge to `master` to publish images, then
+   dispatch **Approved production rollout** from `master` with the exact commit
+   SHA. Confirm environment approval and both rollout statuses before closing
+   the release.
+
+The CI publisher and deployment role are separate roles with separate trust
+subjects: branch-ref trust for publishing and production-environment trust for
+deployment. The platform stack should create/reuse the GitHub OIDC provider
+(`https://token.actions.githubusercontent.com`, client ID `sts.amazonaws.com`)
+and provision these narrowly scoped roles; do not broaden either role to
+wildcard repository/branch subjects. No Terraform apply is performed by these
+workflows.
+
+Usage history is opt-in: enable `enable_dashboard_usage_history=true` in stack
+02 to provision the private PostgreSQL instance, then set
+`enable_usage_history=true` in stack 04. The DB has deletion protection and
+final snapshots; disabling history alone does not destroy the DB. Samples are
+recorded at most once per hour when an authenticated usage GET occurs; there is
+no background sampler, so idle periods and missed visits are not accounted for.
+CPU-hours remain untracked. The BFF uses verified TLS and logs only generic
+database error names. The DB URL is materialized into Terraform-managed
+Kubernetes Secret state; protect both Terraform state backends accordingly.
+
+When re-enabled, deploy updates only dashboard and BFF deployments. Notebook
+image builds are published by CI, but hub image selection remains a separately
+approved Terraform change.
+
 ## Verify
 
 Inside the image:

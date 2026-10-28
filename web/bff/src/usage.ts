@@ -18,6 +18,8 @@ export type UsageQuotas = {
 
 export type UsageResponse = {
   generatedAt: string;
+  history?: Array<{ sampledAt: string; runningServers: number; cpuCoresAllocated: number | null; ramGbAllocated: number | null }>;
+  historyAvailable?: boolean;
   quota: {
     cpuHours: { limit: number; unit: "cpu-hours"; usage: null; tracking: "not-tracked" };
     ramGb: { limit: number; unit: "GB"; usage: number | null; tracking: "allocated-footprint" };
@@ -32,6 +34,22 @@ export type UsageResponse = {
     servers: UsageServer[];
   };
 };
+
+export type RamQuotaDecision =
+  | { allowed: true; enforcement: "enforced" | "degraded"; currentGb?: number; limitGb: number }
+  | { allowed: false; enforcement: "enforced"; currentGb: number; requestedGb: number; limitGb: number };
+
+/** Fail open when current allocation cannot be established; otherwise enforce the default CPU profile's 1 GiB guarantee. */
+export function checkRamQuota(servers: UsageServer[], limitGb: number, requestedGb = 1): RamQuotaDecision {
+  const active = servers.filter((server) => server.state === "running" || server.state === "pending");
+  const known = active.every((server) => server.ramGbAllocated !== null);
+  if (!known) return { allowed: true, enforcement: "degraded", limitGb };
+  const currentGb = active.reduce((sum, server) => sum + (server.ramGbAllocated ?? 0), 0);
+  if (currentGb + requestedGb > limitGb) {
+    return { allowed: false, enforcement: "enforced", currentGb, requestedGb, limitGb };
+  }
+  return { allowed: true, enforcement: "enforced", currentGb, limitGb };
+}
 
 function sumKnown(values: Array<number | null>, emptyValue: number): number | null {
   if (values.length === 0) return emptyValue;

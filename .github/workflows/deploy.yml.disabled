@@ -1,0 +1,40 @@
+name: Approved production rollout (disabled)
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Immutable commit SHA tag already published by CI
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/master'
+    environment: production
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-southeast-2
+      - uses: azure/setup-kubectl@v4
+      - name: Configure cluster access
+        run: aws eks update-kubeconfig --region ap-southeast-2 --name "${{ vars.EKS_CLUSTER_NAME }}"
+      - name: Roll out approved images
+        env:
+          TAG: ${{ inputs.image_tag }}
+          REGISTRY: 451058046864.dkr.ecr.ap-southeast-2.amazonaws.com
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^[0-9a-f]{40}$ ]] || { echo 'image_tag must be a full commit SHA' >&2; exit 1; }
+          kubectl -n dashboard set image deployment/dashboard dashboard="$REGISTRY/jhub-gpu-sandbox/dashboard:$TAG"
+          kubectl -n dashboard set image deployment/bff bff="$REGISTRY/jhub-gpu-sandbox/bff:$TAG"
+          kubectl -n dashboard rollout status deployment/dashboard --timeout=5m
+          kubectl -n dashboard rollout status deployment/bff --timeout=5m

@@ -15,6 +15,10 @@ terraform {
       source  = "hashicorp/helm"
       version = "~> 2.0"
     }
+    kubectl = {
+      source  = "gavinbunney/kubectl"
+      version = ">= 1.7.0"
+    }
   }
   backend "s3" {}
 }
@@ -43,5 +47,18 @@ provider "helm" {
       command     = "aws"
       args        = ["eks", "get-token", "--cluster-name", local.cluster_name, "--region", var.region]
     }
+  }
+}
+
+# GitHub deployer is granted a Kubernetes group through an EKS access entry;
+# this stack's operator credentials create the corresponding narrow RoleBinding.
+provider "kubectl" {
+  host                   = data.aws_eks_cluster.core.endpoint
+  cluster_ca_certificate = base64decode(data.aws_eks_cluster.core.certificate_authority[0].data)
+  load_config_file       = false
+  exec {
+    api_version = "client.authentication.k8s.io/v1beta1"
+    command     = "aws"
+    args        = ["eks", "get-token", "--cluster-name", local.cluster_name, "--region", var.region]
   }
 }

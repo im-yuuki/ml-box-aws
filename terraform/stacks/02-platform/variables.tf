@@ -31,6 +31,12 @@ variable "manage_route53" {
   default     = true
 }
 
+variable "enable_dashboard_usage_history" {
+  description = "Create the private PostgreSQL database used only for dashboard usage history."
+  type        = bool
+  default     = false
+}
+
 variable "route53_zone_id" {
   description = "Deprecated compatibility input; the zone ID is discovered by project tags from 00-bootstrap."
   type        = string

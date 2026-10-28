@@ -21,6 +21,8 @@ export async function proxyBff(
   const headers: Record<string, string> = { accept: "application/json" };
   const cookie = request.headers.get("cookie");
   if (cookie) headers.cookie = cookie;
+  const csrfToken = request.headers.get("x-csrf-token");
+  if (csrfToken) headers["x-csrf-token"] = csrfToken;
   if (options.body !== undefined) headers["content-type"] = "application/json";
 
   let response: Response;

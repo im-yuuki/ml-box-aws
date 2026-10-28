@@ -21,6 +21,21 @@ data "terraform_remote_state" "hub_app" {
   }
 }
 
+# Read the credential only when usage history is enabled. The ARN is a
+# non-sensitive platform output; the secret value is never a Terraform output.
+data "aws_secretsmanager_secret_version" "dashboard_usage_db" {
+  count     = var.enable_usage_history ? 1 : 0
+  secret_id = data.terraform_remote_state.platform.outputs.dashboard_usage_db_master_secret_arn
+}
+
+locals {
+  dashboard_usage_db_password = var.enable_usage_history ? jsondecode(data.aws_secretsmanager_secret_version.dashboard_usage_db[0].secret_string)["password"] : ""
+  dashboard_usage_db_password_encoded = replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(
+    local.dashboard_usage_db_password,
+  "%", "%25"), "@", "%40"), ":", "%3A"), "/", "%2F"), "?", "%3F"), "#", "%23"), "&", "%26"), "=", "%3D"), "[", "%5B"), "]", "%5D")
+  dashboard_usage_db_url = var.enable_usage_history ? "postgresql://${data.terraform_remote_state.platform.outputs.dashboard_usage_db_username}:${local.dashboard_usage_db_password_encoded}@${data.terraform_remote_state.platform.outputs.dashboard_usage_db_address}:${data.terraform_remote_state.platform.outputs.dashboard_usage_db_port}/${data.terraform_remote_state.platform.outputs.dashboard_usage_db_name}?sslmode=require" : ""
+}
+
 # ---------------------------------------------------------------------------
 # ECR repositories (dashboard + bff)
 # ---------------------------------------------------------------------------
@@ -174,6 +189,25 @@ resource "kubectl_manifest" "bff_secret" {
     stringData = {
       BFF_SESSION_SECRET = random_password.bff_session_secret.result
       HUB_API_TOKEN      = data.terraform_remote_state.hub_app.outputs.bff_api_token
+      USAGE_DATABASE_URL = local.dashboard_usage_db_url
+    }
+  })
+
+  depends_on = [kubectl_manifest.namespace]
+}
+
+resource "kubectl_manifest" "bff_service_account" {
+  count = var.deploy_dashboard ? 1 : 0
+
+  yaml_body = yamlencode({
+    apiVersion = "v1"
+    kind       = "ServiceAccount"
+    metadata = {
+      name      = "bff"
+      namespace = "dashboard"
+      annotations = {
+        "eks.amazonaws.com/role-arn" = data.terraform_remote_state.platform.outputs.bff_sessions_role_arn
+      }
     }
   })
 
@@ -201,6 +235,7 @@ resource "kubectl_manifest" "bff_deployment" {
           labels = { app = "bff" }
         }
         spec = {
+          serviceAccountName = "bff"
           containers = [{
             name  = "bff"
             image = var.bff_image
@@ -209,9 +244,11 @@ resource "kubectl_manifest" "bff_deployment" {
               { name = "PORT", value = "4000" },
               { name = "HOST", value = "0.0.0.0" },
               { name = "AWS_REGION", value = var.region },
+              { name = "MLBOX_SESSIONS_TABLE", value = data.terraform_remote_state.platform.outputs.bff_sessions_table_name },
               { name = "COGNITO_USER_POOL_ID", value = data.terraform_remote_state.platform.outputs.cognito_user_pool_id },
               { name = "COGNITO_CLIENT_ID", value = data.terraform_remote_state.platform.outputs.cognito_dashboard_client_id },
               { name = "HUB_URL", value = "http://proxy-public.hub.svc.cluster.local" },
+              { name = "HUB_PUBLIC_URL", value = "https://notebook.mlbox.june8th.me" },
               { name = "SECURE_COOKIES", value = tostring(var.bff_secure_cookies) },
               { name = "CPU_QUOTA_HOURS", value = tostring(var.cpu_quota_hours) },
               { name = "RAM_QUOTA_GB", value = tostring(var.ram_quota_gb) },
@@ -241,7 +278,7 @@ resource "kubectl_manifest" "bff_deployment" {
     }
   })
 
-  depends_on = [kubectl_manifest.bff_secret]
+  depends_on = [kubectl_manifest.bff_secret, kubectl_manifest.bff_service_account]
 }
 
 resource "kubectl_manifest" "bff_service" {

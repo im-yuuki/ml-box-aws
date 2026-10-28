@@ -35,7 +35,7 @@ Ký hiệu:
 - ✅ Dockerfile multi-stage và build args Cognito/BFF.
 - ✅ Production runtime healthy qua ALB; dashboard pod và target đều healthy, `/` và `/login` trả `200`.
 - ☐ Hoàn thiện `/verify` email confirmation page.
-- ☐ Hoàn thiện `/sandboxes/new` flow.
+- ✅ Hoàn thiện `/sandboxes/new` flow.
 - ⚠️ Usage/quota realtime đã nối API thật; các màn hình khác vẫn còn phần mock cần thay dần.
 
 ## Authentication và BFF
@@ -56,7 +56,7 @@ Ký hiệu:
 - ✅ UI danh sách sandbox đã nối API BFF và có loading/error/empty state.
 - ✅ BFF list server thật theo user và giới hạn username từ session đã verify.
 - ⚠️ Đã redeploy; test sandbox list với Cognito/JupyterHub user thật cần test user.
-- ☐ Spawn sandbox mới từ `/sandboxes/new`.
+- ✅ Spawn sandbox mới từ `/sandboxes/new`.
 - ✅ Stop/start sandbox hiện có qua BFF và hiển thị trạng thái pending.
 - ☐ Link vào Lab thật qua `notebook.mlbox.june8th.me` sau khi SSO/session mapping được xác nhận.
 - ☐ Xử lý timeout, quota exceeded, failed server và retry đầy đủ.

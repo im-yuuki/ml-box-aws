@@ -39,6 +39,7 @@
     "submit": "Sign in",
     "newHere": "New here?",
     "createAccountCta": "Create an account",
+    "forgotPassword": "Forgot password?",
     "cognitoUnconfigured": "Cognito is not configured yet (NEXT_PUBLIC_COGNITO_USER_POOL_ID / CLIENT_ID).",
     "missingFields": "Email and password are required.",
     "requestFailed": "The request could not be completed."
@@ -62,6 +63,33 @@
     "confirmationSent": "We sent a confirmation code to {email}.",
     "confirm": "Confirm email"
   },
+  "forgotPassword": {
+    "title": "Forgot your password?",
+    "subtitle": "Enter your account email and we’ll send password reset instructions.",
+    "resetTitle": "Reset your password",
+    "resetSubtitle": "Enter the email, confirmation code, and your new password.",
+    "emailLabel": "Email",
+    "codeLabel": "Confirmation code",
+    "newPasswordLabel": "New password",
+    "send": "Send instructions",
+    "reset": "Reset password",
+    "sent": "If an account exists, password reset instructions have been sent.",
+    "resetComplete": "Your password has been reset. You can now sign in.",
+    "missingFields": "Complete all required fields.",
+    "requestFailed": "The request could not be completed.",
+    "backToLogin": "Back to sign in"
+  },
+  "verify": {
+    "title": "Confirm your email",
+    "subtitle": "Enter the confirmation code sent to your email address.",
+    "emailLabel": "Email",
+    "codeLabel": "Confirmation code",
+    "confirm": "Confirm email",
+    "missingFields": "Email and confirmation code are required.",
+    "resend": "Resend code",
+    "resendCooldown": "Resend in {seconds}s",
+    "requestFailed": "The request could not be completed."
+  },
   "sandboxes": {
     "title": "Sandboxes",
     "subtitle": "One notebook environment per profile. Start a sandbox when you need it — the hub will shut it down after it goes idle.",
@@ -77,6 +105,7 @@
     "profileCpuHint": "2 CPU cores, 4 GB RAM. GPU profiles are not available yet.",
     "create": "Create sandbox",
     "createFailed": "Could not create the sandbox.",
+    "checkStatus": "Check sandbox status",
     "cancel": "Cancel",
     "stateRunning": "running",
     "statePending": "starting",
@@ -85,14 +114,31 @@
     "loading": "Loading sandboxes…",
     "loadFailed": "Could not load sandboxes.",
     "actionFailed": "Could not change sandbox state.",
+    "stateFailed": "failed",
+    "restart": "Restart",
+    "errors": {
+      "hubTimeout": "JupyterHub did not respond in time. Check the sandbox status before trying again.",
+      "hubUnavailable": "JupyterHub is temporarily unavailable. Check the sandbox status before trying again.",
+      "quotaExceeded": "You have reached your current usage limit.",
+      "forbidden": "You are not allowed to perform this action.",
+      "badRequest": "JupyterHub could not accept this request.",
+      "conflict": "The sandbox cannot be changed in its current state.",
+      "notFound": "The sandbox could not be found.",
+      "hubUserUnknown": "Your account is not activated on JupyterHub yet. Sign in to the notebook hub once, then check your sandbox status.",
+      "createFailed": "Could not create the sandbox.",
+      "loadFailed": "Could not load sandboxes.",
+      "actionFailed": "Could not change sandbox state."
+    },
     "retry": "Try again",
-    "empty": "No sandboxes are available yet."
+    "empty": "No sandboxes are available yet.",
+    "enforcementDegraded": "The sandbox started, but current RAM usage could not be checked. The RAM quota check was temporarily bypassed."
   },
   "usage": {
     "title": "Usage and quota",
     "subtitle": "Policy limits and the resources your running sandboxes currently occupy.",
     "quotaHeading": "Plan quota",
-    "quotaDescription": "Historical CPU-hours and storage consumption are not tracked yet.",
+    "quotaDescription": "RAM is checked against the current allocation. CPU-hours and storage consumption are not tracked yet.",
+    "quotaWarningRam": "RAM usage is at least 80% of your quota. Stop an unused sandbox before starting another.",
     "footprintHeading": "Realtime footprint",
     "footprintDescription": "Allocated resources from your current JupyterHub servers.",
     "cpuHours": "CPU hours",
@@ -116,15 +162,32 @@
     "noRunningServers": "No sandboxes are running right now.",
     "loading": "Loading usage…",
     "loadFailed": "Could not load usage data.",
-    "retry": "Try again"
+    "retry": "Try again",
+    "historyHeading": "Usage history",
+    "historyDescription": "Hourly snapshots sampled when you open this page; up to 7 days are shown.",
+    "historyUnavailable": "Usage history is not configured or temporarily unavailable.",
+    "historyEmpty": "No history samples yet. Open this page again later to record a snapshot.",
+    "historySample": "{servers} running · {cpu} CPU cores · {ram} GB RAM"
   },
   "account": {
     "title": "Account",
     "subtitle": "Manage how you sign in to ML Box.",
     "emailHeading": "Email",
-    "emailPlaceholder": "your-email@team.com (placeholder; the real value comes from the Cognito session once the BFF is wired up).",
+    "loading": "Loading account…",
+    "loadFailed": "Could not load your account details.",
+    "retry": "Try again",
     "passwordHeading": "Password",
-    "passwordBody": "Change the password used to sign in to the dashboard and the hub.",
-    "passwordHint": "Coming once the BFF exposes a password-change endpoint."
+    "passwordBody": "Change the password you use to sign in.",
+    "currentPasswordLabel": "Current password",
+    "newPasswordLabel": "New password",
+    "confirmPasswordLabel": "Confirm new password",
+    "passwordHint": "At least 12 characters.",
+    "changePassword": "Change password",
+    "missingFields": "Complete all password fields.",
+    "passwordTooShort": "The new password must be at least 12 characters.",
+    "passwordMismatch": "The new passwords do not match.",
+    "invalidPassword": "The current password is incorrect or the new password does not meet the requirements.",
+    "requestFailed": "Could not change your password. Try again.",
+    "passwordChanged": "Your password has been changed."
   }
 }

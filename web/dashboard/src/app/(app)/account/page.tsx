@@ -1,5 +1,5 @@
 import { getTranslations } from "next-intl/server";
-import { Card } from "@heroui/react";
+import AccountPanel from "./AccountPanel";
 
 export async function generateMetadata() {
   const t = await getTranslations("account");
@@ -17,21 +17,7 @@ export default async function AccountPage() {
           {t("subtitle")}
         </p>
       </header>
-      <Card className="flex flex-col gap-3 p-5">
-        <h2 className="text-base font-medium">{t("emailHeading")}</h2>
-        <p className="text-sm" style={{ color: "var(--muted)" }}>
-          {t("emailPlaceholder")}
-        </p>
-      </Card>
-      <Card className="flex flex-col gap-3 p-5">
-        <h2 className="text-base font-medium">{t("passwordHeading")}</h2>
-        <p className="text-sm" style={{ color: "var(--muted)" }}>
-          {t("passwordBody")}
-        </p>
-        <p className="text-xs" style={{ color: "var(--muted)" }}>
-          {t("passwordHint")}
-        </p>
-      </Card>
+      <AccountPanel />
     </div>
   );
 }

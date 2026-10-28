@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { bffFetch } from "@/lib/bffFetch";
 import {
   Button,
   Form,
@@ -25,8 +26,6 @@ export default function RegisterForm() {
   const t = useTranslations("register");
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [email, setEmail] = useState("");
-  const [confirmationSent, setConfirmationSent] = useState(false);
 
   const submitRegistration = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -41,7 +40,7 @@ export default function RegisterForm() {
 
     setIsPending(true);
     try {
-      const response = await fetch("/api/bff/auth/register", {
+      const response = await bffFetch("/api/bff/auth/register", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ email: nextEmail, password }),
@@ -50,57 +49,13 @@ export default function RegisterForm() {
         setError(await responseMessage(response, t("requestFailed")));
         return;
       }
-      setEmail(nextEmail);
-      setConfirmationSent(true);
+      router.replace(`/verify?email=${encodeURIComponent(nextEmail)}`);
     } catch {
       setError(t("requestFailed"));
     } finally {
       setIsPending(false);
     }
   };
-
-  const confirmRegistration = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setError(null);
-    const data = new FormData(event.currentTarget);
-    const code = String(data.get("code") ?? "").trim();
-    if (!code) {
-      setError(t("missingCode"));
-      return;
-    }
-
-    setIsPending(true);
-    try {
-      const response = await fetch("/api/bff/auth/confirm", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, code }),
-      });
-      if (!response.ok) {
-        setError(await responseMessage(response, t("requestFailed")));
-        return;
-      }
-      router.replace(`/login?email=${encodeURIComponent(email)}`);
-    } catch {
-      setError(t("requestFailed"));
-    } finally {
-      setIsPending(false);
-    }
-  };
-
-  if (confirmationSent) {
-    return (
-      <Form onSubmit={confirmRegistration} className="flex flex-col gap-4">
-        <p className="text-sm" style={{ color: "var(--muted)" }}>{t("confirmationSent", { email })}</p>
-        <TextField isRequired>
-          <Label>{t("codeLabel")}</Label>
-          <Input name="code" inputMode="numeric" autoComplete="one-time-code" variant="secondary" fullWidth />
-        </TextField>
-        {error ? <p className="text-sm" style={{ color: "var(--danger)" }} role="alert">{error}</p> : null}
-        <Button type="submit" variant="primary" size="lg" isPending={isPending} isDisabled={isPending}>{t("confirm")}</Button>
-      </Form>
-    );
-  }
 
   return (
     <Form onSubmit={submitRegistration} className="flex flex-col gap-4">

@@ -1,18 +1,30 @@
 import {
   CognitoIdentityProviderClient,
+  ConfirmForgotPasswordCommand,
   ConfirmSignUpCommand,
+  ForgotPasswordCommand,
+  GetTokensFromRefreshTokenCommand,
+  GlobalSignOutCommand,
   InitiateAuthCommand,
+  RevokeTokenCommand,
+  ChangePasswordCommand,
+  ResendConfirmationCodeCommand,
   SignUpCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
+import { DeleteItemCommand, DynamoDBClient, GetItemCommand, PutItemCommand } from "@aws-sdk/client-dynamodb";
 import cookie from "@fastify/cookie";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
-import { createHash, createSecretKey } from "node:crypto";
+import { createHash, createSecretKey, randomBytes, randomUUID } from "node:crypto";
+import { validCsrfPair } from "./csrf.js";
+import { hubFailure, sandboxPath, sandboxUrl, type HubError } from "./hub.js";
 import {
   buildUsageResponse,
+  checkRamQuota,
   parseCpuCores,
   parseMemoryGb,
   type UsageServer,
 } from "./usage.js";
+import { UsageStore } from "./usage-store.js";
 import {
   CompactEncrypt,
   compactDecrypt,
@@ -36,7 +48,9 @@ const config = {
   userPoolId: process.env.COGNITO_USER_POOL_ID,
   clientId: process.env.COGNITO_CLIENT_ID,
   sessionSecret: process.env.BFF_SESSION_SECRET,
+  sessionsTable: process.env.MLBOX_SESSIONS_TABLE,
   hubUrl: process.env.HUB_URL?.replace(/\/$/, ""),
+  hubPublicUrl: process.env.HUB_PUBLIC_URL?.replace(/\/$/, ""),
   hubApiToken: process.env.HUB_API_TOKEN,
   secureCookies: process.env.SECURE_COOKIES !== "false",
   cpuQuotaHours: quotaEnv("CPU_QUOTA_HOURS"),
@@ -49,7 +63,9 @@ type RuntimeConfig = typeof config & {
   userPoolId: string;
   clientId: string;
   sessionSecret: string;
+  sessionsTable: string;
   hubUrl: string;
+  hubPublicUrl: string;
   hubApiToken: string;
   cpuQuotaHours: number;
   ramQuotaGb: number;
@@ -58,6 +74,7 @@ type RuntimeConfig = typeof config & {
 };
 
 type Session = {
+  sessionId: string;
   accessToken: string;
   email: string;
   username: string;
@@ -67,12 +84,16 @@ type Session = {
 type AuthBody = {
   email?: string;
   password?: string;
+  currentPassword?: string;
+  newPassword?: string;
 };
 
 type ConfirmBody = AuthBody & { code?: string };
+type ResetBody = AuthBody & { code?: string; confirmationCode?: string; newPassword?: string };
 
 type HubServer = {
   name?: string;
+  state?: string;
   ready?: boolean;
   pending?: boolean;
   url?: string;
@@ -89,12 +110,15 @@ type HubUser = {
   servers?: Record<string, HubServer>;
 };
 
-type HubError = Error & { status?: number };
 
 const SESSION_COOKIE = "mlbox_session";
+const CSRF_COOKIE = "mlbox_csrf";
 const SESSION_MAX_AGE = 60 * 60 * 8;
 const cognito = new CognitoIdentityProviderClient({ region: config.region });
+const dynamodb = new DynamoDBClient({ region: config.region });
 const app = Fastify({ logger: true, bodyLimit: 64 * 1024 });
+const usageStore = process.env.USAGE_DATABASE_URL ? new UsageStore(process.env.USAGE_DATABASE_URL) : null;
+let usageSchemaReady: Promise<void> | null = null;
 let jwks: JWTVerifyGetKey | undefined;
 
 function missingConfig(): string[] {
@@ -102,7 +126,9 @@ function missingConfig(): string[] {
     "COGNITO_USER_POOL_ID",
     "COGNITO_CLIENT_ID",
     "BFF_SESSION_SECRET",
+    "MLBOX_SESSIONS_TABLE",
     "HUB_URL",
+    "HUB_PUBLIC_URL",
     "HUB_API_TOKEN",
     "CPU_QUOTA_HOURS",
     "RAM_QUOTA_GB",
@@ -202,6 +228,7 @@ async function decryptSession(runtime: RuntimeConfig, value: string): Promise<Se
   const parsed = JSON.parse(new TextDecoder().decode(plaintext)) as Partial<Session>;
   if (
     typeof parsed.accessToken !== "string" ||
+    typeof parsed.sessionId !== "string" ||
     typeof parsed.email !== "string" ||
     typeof parsed.username !== "string" ||
     typeof parsed.expiresAt !== "number"
@@ -221,6 +248,43 @@ async function setSessionCookie(reply: FastifyReply, runtime: RuntimeConfig, ses
   });
 }
 
+function setCsrfCookie(reply: FastifyReply, secure: boolean): string {
+  const token = randomBytes(32).toString("base64url");
+  reply.setCookie(CSRF_COOKIE, token, { httpOnly: false, secure, sameSite: "lax", path: "/", maxAge: SESSION_MAX_AGE });
+  return token;
+}
+
+function requireCsrf(request: FastifyRequest, reply: FastifyReply): boolean {
+  const cookieToken = request.cookies[CSRF_COOKIE];
+  const headerToken = request.headers["x-csrf-token"];
+  if (!validCsrfPair(cookieToken, headerToken)) {
+    reply.code(403).send({ error: "CSRF_INVALID", message: "Yêu cầu bảo mật không hợp lệ." });
+    return false;
+  }
+  return true;
+}
+
+async function saveRefreshToken(runtime: RuntimeConfig, sessionId: string, refreshToken: string): Promise<void> {
+  const encrypted = await new CompactEncrypt(new TextEncoder().encode(refreshToken))
+    .setProtectedHeader({ alg: "dir", enc: "A256GCM" }).encrypt(sessionKeyFor(runtime));
+  await dynamodb.send(new PutItemCommand({
+    TableName: runtime.sessionsTable,
+    Item: { sessionId: { S: sessionId }, refreshToken: { S: encrypted }, expiresAt: { N: String(Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60) } },
+  }));
+}
+
+async function loadRefreshToken(runtime: RuntimeConfig, sessionId: string): Promise<string | null> {
+  const result = await dynamodb.send(new GetItemCommand({ TableName: runtime.sessionsTable, Key: { sessionId: { S: sessionId } }, ConsistentRead: true }));
+  const encrypted = result.Item?.refreshToken?.S;
+  if (!encrypted) return null;
+  const { plaintext } = await compactDecrypt(encrypted, sessionKeyFor(runtime));
+  return new TextDecoder().decode(plaintext);
+}
+
+async function deleteRefreshToken(runtime: RuntimeConfig, sessionId: string): Promise<void> {
+  await dynamodb.send(new DeleteItemCommand({ TableName: runtime.sessionsTable, Key: { sessionId: { S: sessionId } } }));
+}
+
 async function verifyAccessToken(runtime: RuntimeConfig, token: string): Promise<JWTPayload> {
   const { payload } = await jwtVerify(token, jwksFor(runtime), { issuer: issuerFor(runtime) });
   if (payload.token_use !== "access" || payload.client_id !== runtime.clientId) {
@@ -238,13 +302,15 @@ async function verifyIdToken(runtime: RuntimeConfig, token: string): Promise<JWT
   return payload;
 }
 
-async function sessionFromRequest(request: FastifyRequest): Promise<Session> {
+async function sessionFromRequest(request: FastifyRequest, allowExpired = false): Promise<Session> {
   const runtime = runtimeConfig();
   const cookieValue = request.cookies[SESSION_COOKIE];
   if (!cookieValue) throw new Error("Not authenticated");
   const session = await decryptSession(runtime, cookieValue);
-  await verifyAccessToken(runtime, session.accessToken);
-  if (session.expiresAt <= Math.floor(Date.now() / 1000)) throw new Error("Session expired");
+  if (!allowExpired) {
+    await verifyAccessToken(runtime, session.accessToken);
+    if (session.expiresAt <= Math.floor(Date.now() / 1000)) throw new Error("Session expired");
+  }
   return session;
 }
 
@@ -261,14 +327,8 @@ function usernamePath(username: string): string {
   return encodeURIComponent(username);
 }
 
-function validateServerName(name: string): string {
-  if (name === "default") return "";
-  if (!/^[a-z0-9][a-z0-9-]{0,62}$/i.test(name)) throw new Error("Invalid sandbox name");
-  return encodeURIComponent(name);
-}
-
 function serverPath(username: string, name: string): string {
-  return `/hub/api/users/${usernamePath(username)}/servers/${validateServerName(name)}`;
+  return sandboxPath(username, name);
 }
 
 function usageServer(key: string, server: HubServer): UsageServer {
@@ -279,7 +339,7 @@ function usageServer(key: string, server: HubServer): UsageServer {
     url: server.url ?? null,
     lastActivity: server.last_activity ?? null,
     cpuCoresAllocated: parseCpuCores(resources.cpu ?? server.cpu_limit ?? server.cpu_guarantee),
-    ramGbAllocated: parseMemoryGb(resources.memory ?? server.mem_limit ?? server.mem_guarantee),
+    ramGbAllocated: parseMemoryGb(resources.memory ?? server.mem_guarantee ?? server.mem_limit),
   };
 }
 
@@ -316,19 +376,18 @@ function hubStatus(error: unknown): number | null {
 }
 
 function handleHubError(reply: FastifyReply, error: unknown): void {
-  if (error instanceof Error && error.message === "Invalid sandbox name") {
-    reply.code(400).send({ error: "INVALID_SANDBOX_NAME", message: "Tên sandbox không hợp lệ." });
-    return;
-  }
-  const status = typeof error === "object" && error && "status" in error ? Number(error.status) : 502;
-  if (status === 404) {
-    reply.code(404).send({ error: "SANDBOX_NOT_FOUND", message: "Không tìm thấy sandbox." });
-    return;
-  }
-  reply.code(502).send({ error: "HUB_UNAVAILABLE", message: "Không thể kết nối tới JupyterHub." });
+  const failure = hubFailure(error);
+  reply.code(failure.status).send({ error: failure.code, message: failure.message });
 }
 
 app.register(cookie);
+
+// Protect every state-changing BFF endpoint, including public auth flows.
+// The dashboard proxy obtains the double-submit token from /v1/auth/csrf.
+app.addHook("onRequest", async (request, reply) => {
+  if (["GET", "HEAD", "OPTIONS"].includes(request.method)) return;
+  requireCsrf(request, reply);
+});
 
 app.get("/v1/health", async (_request, reply) => {
   try {
@@ -343,6 +402,11 @@ app.get("/v1/health", async (_request, reply) => {
       message: error instanceof Error ? error.message : "Invalid runtime configuration",
     });
   }
+});
+
+app.get("/v1/auth/csrf", async (_request, reply) => {
+  reply.header("cache-control", "no-store");
+  return { csrfToken: setCsrfCookie(reply, config.secureCookies) };
 });
 
 app.post<{ Body: AuthBody }>("/v1/auth/login", async (request, reply) => {
@@ -363,6 +427,7 @@ app.post<{ Body: AuthBody }>("/v1/auth/login", async (request, reply) => {
     const idClaims = await verifyIdToken(runtime, result.AuthenticationResult.IdToken);
     const sessionEmail = normalizeEmail(idClaims.email) ?? email;
     const session: Session = {
+      sessionId: randomUUID(),
       // Only the access token rides in the session cookie: the full token set
       // inflates the encrypted JWE past the ~4 KB browser cookie limit and the
       // cookie would be silently dropped by browsers.
@@ -371,10 +436,44 @@ app.post<{ Body: AuthBody }>("/v1/auth/login", async (request, reply) => {
       username: sessionEmail,
       expiresAt: Math.floor(Date.now() / 1000) + (result.AuthenticationResult.ExpiresIn ?? 3600),
     };
+    const refreshToken = result.AuthenticationResult.RefreshToken;
+    if (refreshToken) await saveRefreshToken(runtime, session.sessionId, refreshToken);
     await setSessionCookie(reply, runtime, session);
+    setCsrfCookie(reply, runtime.secureCookies);
     return { user: { email: session.email } };
   } catch (error) {
     request.log.warn({ err: error }, "Cognito login failed");
+    return reply.code(authErrorStatus(error)).send(publicError(error));
+  }
+});
+
+app.post<{ Body: AuthBody }>("/v1/auth/forgot-password", async (request, reply) => {
+  const runtime = runtimeConfig();
+  const email = normalizeEmail(request.body?.email);
+  if (!email) return reply.code(400).send({ error: "INVALID_INPUT", message: "Email không hợp lệ." });
+  try {
+    await cognito.send(new ForgotPasswordCommand({ ClientId: runtime.clientId, Username: email }));
+    return { ok: true, message: "Nếu tài khoản tồn tại, hướng dẫn đặt lại mật khẩu sẽ được gửi đến email." };
+  } catch (error) {
+    request.log.warn({ err: error }, "Cognito forgot-password request failed");
+    if (["UserNotFoundException", "LimitExceededException", "TooManyRequestsException"].includes(errorName(error))) {
+      return { ok: true, message: "Nếu tài khoản tồn tại, hướng dẫn đặt lại mật khẩu sẽ được gửi đến email." };
+    }
+    return reply.code(authErrorStatus(error)).send(publicError(error));
+  }
+});
+
+app.post<{ Body: ResetBody }>("/v1/auth/reset-password", async (request, reply) => {
+  const runtime = runtimeConfig();
+  const email = normalizeEmail(request.body?.email);
+  const code = requiredString(request.body?.confirmationCode ?? request.body?.code);
+  const password = requiredString(request.body?.newPassword ?? request.body?.password);
+  if (!email || !code || !password) return reply.code(400).send({ error: "INVALID_INPUT", message: "Email, mã xác nhận và mật khẩu mới là bắt buộc." });
+  try {
+    await cognito.send(new ConfirmForgotPasswordCommand({ ClientId: runtime.clientId, Username: email, ConfirmationCode: code, Password: password }));
+    return { ok: true };
+  } catch (error) {
+    request.log.warn({ err: error }, "Cognito password reset failed");
     return reply.code(authErrorStatus(error)).send(publicError(error));
   }
 });
@@ -412,14 +511,87 @@ app.post<{ Body: ConfirmBody }>("/v1/auth/confirm", async (request, reply) => {
   }
 });
 
+app.post<{ Body: AuthBody }>("/v1/auth/resend-confirmation", async (request, reply) => {
+  const runtime = runtimeConfig();
+  const email = normalizeEmail(request.body?.email);
+  if (!email) return reply.code(400).send({ error: "INVALID_INPUT", message: "Email không hợp lệ." });
+  try {
+    await cognito.send(new ResendConfirmationCodeCommand({ ClientId: runtime.clientId, Username: email }));
+    return { ok: true };
+  } catch (error) {
+    request.log.warn({ err: error }, "Cognito confirmation resend failed");
+    return reply.code(authErrorStatus(error)).send(publicError(error));
+  }
+});
+
 app.get("/v1/auth/session", async (request, reply) => {
   const session = await requireSession(request, reply);
   if (!session) return;
   return { user: { email: session.email } };
 });
 
-app.post("/v1/auth/logout", async (_request, reply) => {
-  reply.clearCookie(SESSION_COOKIE, { httpOnly: true, secure: config.secureCookies, sameSite: "lax", path: "/" });
+app.post<{ Body: AuthBody }>("/v1/auth/change-password", async (request, reply) => {
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  const currentPassword = requiredString(request.body?.currentPassword);
+  const newPassword = requiredString(request.body?.newPassword);
+  if (!currentPassword || !newPassword) {
+    return reply.code(400).send({ error: "INVALID_INPUT", message: "Mật khẩu hiện tại và mật khẩu mới là bắt buộc." });
+  }
+  try {
+    await cognito.send(new ChangePasswordCommand({
+      AccessToken: session.accessToken,
+      PreviousPassword: currentPassword,
+      ProposedPassword: newPassword,
+    }));
+    return { ok: true };
+  } catch (error) {
+    request.log.warn({ err: error }, "Cognito password change failed");
+    return reply.code(authErrorStatus(error)).send(publicError(error));
+  }
+});
+
+app.post("/v1/auth/refresh", async (request, reply) => {
+  if (!requireCsrf(request, reply)) return;
+  const runtime = runtimeConfig();
+  let session: Session;
+  try { session = await sessionFromRequest(request, true); } catch { return reply.code(401).send({ error: "UNAUTHENTICATED", message: "Phiên đăng nhập đã hết hạn." }); }
+  const refreshToken = await loadRefreshToken(runtime, session.sessionId);
+  if (!refreshToken) return reply.code(401).send({ error: "UNAUTHENTICATED", message: "Phiên đăng nhập đã hết hạn." });
+  try {
+    const result = await cognito.send(new GetTokensFromRefreshTokenCommand({ ClientId: runtime.clientId, RefreshToken: refreshToken }));
+    const auth = result.AuthenticationResult;
+    if (!auth?.AccessToken) throw new Error("Cognito refresh did not return an access token");
+    await verifyAccessToken(runtime, auth.AccessToken);
+    const updated: Session = { ...session, accessToken: auth.AccessToken, expiresAt: Math.floor(Date.now() / 1000) + (auth.ExpiresIn ?? 3600) };
+    const rotatedToken = auth.RefreshToken;
+    if (rotatedToken) await saveRefreshToken(runtime, session.sessionId, rotatedToken);
+    await setSessionCookie(reply, runtime, updated);
+    return { user: { email: session.email }, expiresAt: updated.expiresAt };
+  } catch (error) {
+    request.log.warn({ err: error }, "Cognito refresh failed");
+    await deleteRefreshToken(runtime, session.sessionId).catch(() => undefined);
+    reply.clearCookie(SESSION_COOKIE, { httpOnly: true, secure: runtime.secureCookies, sameSite: "lax", path: "/" });
+    return reply.code(401).send({ error: "UNAUTHENTICATED", message: "Phiên đăng nhập đã hết hạn." });
+  }
+});
+
+app.post("/v1/auth/logout", async (request, reply) => {
+  if (!requireCsrf(request, reply)) return;
+  const runtime = runtimeConfig();
+  try {
+    const session = await sessionFromRequest(request, true);
+    const refreshToken = await loadRefreshToken(runtime, session.sessionId);
+    await deleteRefreshToken(runtime, session.sessionId);
+    if (refreshToken) {
+      await cognito.send(new RevokeTokenCommand({ ClientId: runtime.clientId, Token: refreshToken })).catch((error) => request.log.warn({ err: error }, "Cognito refresh-token revoke failed"));
+    }
+    await cognito.send(new GlobalSignOutCommand({ AccessToken: session.accessToken })).catch((error) => request.log.warn({ err: error }, "Cognito global sign-out failed"));
+  } catch (error) {
+    request.log.info({ err: error }, "Session logout/revoke completed locally");
+  }
+  reply.clearCookie(SESSION_COOKIE, { httpOnly: true, secure: runtime.secureCookies, sameSite: "lax", path: "/" });
+  reply.clearCookie(CSRF_COOKIE, { httpOnly: false, secure: runtime.secureCookies, sameSite: "lax", path: "/" });
   return { ok: true };
 });
 
@@ -431,8 +603,12 @@ app.get("/v1/sandboxes", async (request, reply) => {
     const user = await hubRequest<HubUser>(runtime, "GET", `/hub/api/users/${usernamePath(session.username)}`);
     const servers = Object.entries(user.servers ?? {}).map(([key, server]) => ({
       name: server.name || key || "default",
-      state: server.ready ? "running" : server.pending ? "pending" : "stopped",
-      url: server.url ?? null,
+      state: server.state === "failed" ? "failed" : server.ready ? "running" : server.pending ? "pending" : "stopped",
+      // Build the destination from trusted configuration and session identity;
+      // never turn a Hub-provided URL into a user-facing link.
+      url: server.ready && /^(default|[a-z0-9][a-z0-9-]{0,62})$/i.test(server.name || key)
+        ? sandboxUrl(runtime.hubPublicUrl, session.username, server.name || key)
+        : null,
       lastActivity: server.last_activity ?? null,
     }));
     return { user: { email: session.email }, sandboxes: servers };
@@ -466,20 +642,84 @@ app.get("/v1/usage", async (request, reply) => {
       throw error;
     }
     const servers = Object.entries(user.servers ?? {}).map(([key, server]) => usageServer(key, server));
-    return buildUsageResponse(servers, quotas);
+    const result = buildUsageResponse(servers, quotas);
+    if (usageStore) {
+      try {
+        usageSchemaReady ??= usageStore.ensureSchema();
+        await usageSchemaReady;
+        await usageStore.sample(session.username, { runningServers: result.footprint.runningServers, cpuCoresAllocated: result.footprint.cpuCoresAllocated, ramGbAllocated: result.footprint.ramGbAllocated });
+        result.history = await usageStore.history(session.username, 168);
+        result.historyAvailable = true;
+      } catch (error) {
+        usageSchemaReady = null;
+        request.log.warn({ err: error instanceof Error ? error.name : "database_error" }, "Usage history unavailable");
+        result.history = [];
+        result.historyAvailable = false;
+      }
+    } else {
+      result.history = [];
+      result.historyAvailable = false;
+    }
+    return result;
   } catch (error) {
     request.log.error({ err: error }, "JupyterHub usage query failed");
     return handleHubError(reply, error);
   }
 });
 
-app.post<{ Params: { name: string } }>("/v1/sandboxes/:name/start", async (request, reply) => {
+app.get("/v1/usage/history", async (request, reply) => {
   const session = await requireSession(request, reply);
   if (!session) return;
+  if (!usageStore) return { available: false, samples: [] };
+  try {
+    usageSchemaReady ??= usageStore.ensureSchema();
+    await usageSchemaReady;
+    return { available: true, samples: await usageStore.history(session.username, 168) };
+  } catch (error) {
+    usageSchemaReady = null;
+    request.log.warn({ err: error instanceof Error ? error.name : "database_error" }, "Usage history query unavailable");
+    return { available: false, samples: [] };
+  }
+});
+
+app.post<{ Params: { name: string } }>("/v1/sandboxes/:name/start", async (request, reply) => {
+  if (!requireCsrf(request, reply)) return;
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  let enforcement: "enforced" | "degraded" = "enforced";
   try {
     const runtime = runtimeConfig();
+    try {
+      let user: HubUser;
+      try {
+        user = await hubRequest<HubUser>(runtime, "GET", `/hub/api/users/${usernamePath(session.username)}`);
+      } catch (error) {
+        if (hubStatus(error) !== 404) throw error;
+        user = { servers: {} };
+      }
+      const currentServers = Object.entries(user.servers ?? {}).map(([key, server]) => usageServer(key, server));
+      const quota = checkRamQuota(currentServers, runtime.ramQuotaGb);
+      if (!quota.allowed) {
+        reply.code(429).send({
+          error: "QUOTA_EXCEEDED",
+          metric: "ram",
+          limit: quota.limitGb,
+          current: quota.currentGb,
+          requested: quota.requestedGb,
+          enforcement: quota.enforcement,
+        });
+        return;
+      }
+      enforcement = quota.enforcement;
+      if (enforcement === "degraded") {
+        request.log.warn({ username: session.username }, "RAM quota check degraded; allowing sandbox start");
+      }
+    } catch (error) {
+      enforcement = "degraded";
+      request.log.warn({ err: error instanceof Error ? error.name : "hub_error", username: session.username }, "RAM quota check unavailable; allowing sandbox start");
+    }
     await hubRequest(runtime, "POST", serverPath(session.username, request.params.name), {});
-    return { ok: true, name: request.params.name, state: "pending" };
+    return { ok: true, name: request.params.name, state: "pending", enforcement };
   } catch (error) {
     request.log.error({ err: error }, "JupyterHub sandbox start failed");
     if (hubStatus(error) === 404) {
@@ -491,6 +731,7 @@ app.post<{ Params: { name: string } }>("/v1/sandboxes/:name/start", async (reque
 });
 
 app.delete<{ Params: { name: string } }>("/v1/sandboxes/:name", async (request, reply) => {
+  if (!requireCsrf(request, reply)) return;
   const session = await requireSession(request, reply);
   if (!session) return;
   try {

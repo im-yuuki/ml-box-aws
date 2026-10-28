@@ -116,6 +116,12 @@ variable "deploy_dashboard" {
   default     = false
 }
 
+variable "enable_usage_history" {
+  description = "Enable usage history persistence in the dedicated dashboard PostgreSQL database (also enable it in 02-platform)."
+  type        = bool
+  default     = false
+}
+
 variable "dashboard_replicas" {
   type    = number
   default = 1

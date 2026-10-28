@@ -39,6 +39,7 @@
     "submit": "Đăng nhập",
     "newHere": "Mới dùng lần đầu?",
     "createAccountCta": "Tạo tài khoản",
+    "forgotPassword": "Quên mật khẩu?",
     "cognitoUnconfigured": "Chưa cấu hình Cognito (thiếu NEXT_PUBLIC_COGNITO_USER_POOL_ID / CLIENT_ID).",
     "missingFields": "Vui lòng nhập email và mật khẩu.",
     "requestFailed": "Không thể hoàn tất yêu cầu."
@@ -62,6 +63,33 @@
     "confirmationSent": "Mã xác nhận đã được gửi tới {email}.",
     "confirm": "Xác nhận email"
   },
+  "forgotPassword": {
+    "title": "Quên mật khẩu?",
+    "subtitle": "Nhập email tài khoản để nhận hướng dẫn đặt lại mật khẩu.",
+    "resetTitle": "Đặt lại mật khẩu",
+    "resetSubtitle": "Nhập email, mã xác nhận và mật khẩu mới.",
+    "emailLabel": "Email",
+    "codeLabel": "Mã xác nhận",
+    "newPasswordLabel": "Mật khẩu mới",
+    "send": "Gửi hướng dẫn",
+    "reset": "Đặt lại mật khẩu",
+    "sent": "Nếu tài khoản tồn tại, hướng dẫn đặt lại mật khẩu đã được gửi.",
+    "resetComplete": "Mật khẩu đã được đặt lại. Bạn có thể đăng nhập.",
+    "missingFields": "Vui lòng điền đầy đủ các trường bắt buộc.",
+    "requestFailed": "Không thể hoàn tất yêu cầu.",
+    "backToLogin": "Quay lại đăng nhập"
+  },
+  "verify": {
+    "title": "Xác nhận email",
+    "subtitle": "Nhập mã xác nhận đã được gửi tới email của bạn.",
+    "emailLabel": "Email",
+    "codeLabel": "Mã xác nhận",
+    "confirm": "Xác nhận email",
+    "missingFields": "Vui lòng nhập email và mã xác nhận.",
+    "resend": "Gửi lại mã",
+    "resendCooldown": "Gửi lại sau {seconds} giây",
+    "requestFailed": "Không thể hoàn tất yêu cầu."
+  },
   "sandboxes": {
     "title": "Sandbox",
     "subtitle": "Mỗi sandbox là một môi trường notebook theo profile. Bật khi cần — hub sẽ tự tắt khi bạn rảnh.",
@@ -77,6 +105,7 @@
     "profileCpuHint": "2 CPU cores, 4 GB RAM. Profile GPU chưa khả dụng.",
     "create": "Tạo sandbox",
     "createFailed": "Không thể tạo sandbox.",
+    "checkStatus": "Kiểm tra trạng thái sandbox",
     "cancel": "Huỷ",
     "stateRunning": "đang chạy",
     "statePending": "đang khởi động",
@@ -85,14 +114,31 @@
     "loading": "Đang tải sandbox…",
     "loadFailed": "Không thể tải danh sách sandbox.",
     "actionFailed": "Không thể thay đổi trạng thái sandbox.",
+    "stateFailed": "khởi động lỗi",
+    "restart": "Khởi động lại",
+    "errors": {
+      "hubTimeout": "JupyterHub không phản hồi kịp thời. Hãy kiểm tra trạng thái sandbox trước khi thử lại.",
+      "hubUnavailable": "JupyterHub hiện không khả dụng. Hãy kiểm tra trạng thái sandbox trước khi thử lại.",
+      "quotaExceeded": "Bạn đã đạt giới hạn sử dụng hiện tại.",
+      "forbidden": "Bạn không được phép thực hiện thao tác này.",
+      "badRequest": "JupyterHub không thể chấp nhận yêu cầu này.",
+      "conflict": "Không thể thay đổi sandbox ở trạng thái hiện tại.",
+      "notFound": "Không tìm thấy sandbox.",
+      "hubUserUnknown": "Tài khoản chưa được kích hoạt trên JupyterHub. Hãy đăng nhập notebook hub một lần rồi kiểm tra trạng thái sandbox.",
+      "createFailed": "Không thể tạo sandbox.",
+      "loadFailed": "Không thể tải danh sách sandbox.",
+      "actionFailed": "Không thể thay đổi trạng thái sandbox."
+    },
     "retry": "Thử lại",
-    "empty": "Chưa có sandbox nào."
+    "empty": "Chưa có sandbox nào.",
+    "enforcementDegraded": "Sandbox đã khởi động nhưng không thể kiểm tra mức RAM hiện tại. Kiểm tra hạn mức RAM tạm thời được bỏ qua."
   },
   "usage": {
     "title": "Mức dùng và quota",
     "subtitle": "Giới hạn theo plan và tài nguyên các sandbox đang chạy hiện chiếm dụng.",
     "quotaHeading": "Quota theo plan",
-    "quotaDescription": "Lịch sử CPU-hours và mức dùng storage hiện chưa được theo dõi.",
+    "quotaDescription": "RAM được kiểm tra theo mức phân bổ hiện tại. Chưa theo dõi CPU-hours và mức dùng storage.",
+    "quotaWarningRam": "Mức dùng RAM đã đạt ít nhất 80% hạn mức. Hãy dừng sandbox không sử dụng trước khi khởi động thêm.",
     "footprintHeading": "Footprint realtime",
     "footprintDescription": "Tài nguyên đang được cấp phát cho các server JupyterHub hiện tại.",
     "cpuHours": "Giờ CPU",
@@ -116,15 +162,32 @@
     "noRunningServers": "Hiện không có sandbox nào đang chạy.",
     "loading": "Đang tải dữ liệu mức dùng…",
     "loadFailed": "Không thể tải dữ liệu mức dùng.",
-    "retry": "Thử lại"
+    "retry": "Thử lại",
+    "historyHeading": "Lịch sử sử dụng",
+    "historyDescription": "Ảnh chụp theo giờ được ghi khi mở trang này; hiển thị tối đa 7 ngày.",
+    "historyUnavailable": "Lịch sử sử dụng chưa được cấu hình hoặc tạm thời không khả dụng.",
+    "historyEmpty": "Chưa có mẫu lịch sử. Hãy mở lại trang sau để ghi nhận.",
+    "historySample": "{servers} sandbox đang chạy · {cpu} lõi CPU · {ram} GB RAM"
   },
   "account": {
     "title": "Tài khoản",
     "subtitle": "Quản lý cách bạn đăng nhập vào ML Box.",
     "emailHeading": "Email",
-    "emailPlaceholder": "email-cua-ban@cong-ty.com (giá trị thật sẽ đến từ phiên Cognito khi BFF được nối).",
+    "loading": "Đang tải thông tin tài khoản…",
+    "loadFailed": "Không thể tải thông tin tài khoản.",
+    "retry": "Thử lại",
     "passwordHeading": "Mật khẩu",
-    "passwordBody": "Đổi mật khẩu dùng để đăng nhập dashboard và hub.",
-    "passwordHint": "Sẽ có khi BFF mở endpoint đổi mật khẩu."
+    "passwordBody": "Đổi mật khẩu bạn dùng để đăng nhập.",
+    "currentPasswordLabel": "Mật khẩu hiện tại",
+    "newPasswordLabel": "Mật khẩu mới",
+    "confirmPasswordLabel": "Xác nhận mật khẩu mới",
+    "passwordHint": "Ít nhất 12 ký tự.",
+    "changePassword": "Đổi mật khẩu",
+    "missingFields": "Vui lòng điền đầy đủ các trường mật khẩu.",
+    "passwordTooShort": "Mật khẩu mới phải có ít nhất 12 ký tự.",
+    "passwordMismatch": "Mật khẩu mới không khớp.",
+    "invalidPassword": "Mật khẩu hiện tại không đúng hoặc mật khẩu mới chưa đáp ứng yêu cầu.",
+    "requestFailed": "Không thể đổi mật khẩu. Vui lòng thử lại.",
+    "passwordChanged": "Mật khẩu đã được đổi."
   }
 }

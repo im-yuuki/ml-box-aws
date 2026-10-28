@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button, Card, ProgressBar, Surface } from "@heroui/react";
 import { useTranslations } from "next-intl";
+import { bffFetch } from "@/lib/bffFetch";
 
 type Tracking = "not-tracked" | "allocated-footprint" | "not-available" | "disabled";
 
@@ -17,6 +18,8 @@ type UsageServer = {
 
 type UsageResponse = {
   generatedAt: string;
+  history?: Array<{ sampledAt: string; runningServers: number; cpuCoresAllocated: number | null; ramGbAllocated: number | null }>;
+  historyAvailable?: boolean;
   quota: {
     cpuHours: { limit: number; unit: string; usage: number | null; tracking: Tracking };
     ramGb: { limit: number; unit: string; usage: number | null; tracking: Tracking };
@@ -68,7 +71,7 @@ export default function UsagePanel() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/bff/usage", { cache: "no-store" });
+      const response = await bffFetch("/api/bff/usage", { cache: "no-store" });
       if (!response.ok) throw new Error(await messageFrom(response, t("loadFailed")));
       setData((await response.json()) as UsageResponse);
     } catch (reason) {
@@ -131,6 +134,9 @@ export default function UsagePanel() {
             );
           })}
         </div>
+        {data.quota.ramGb.usage !== null && data.quota.ramGb.limit > 0 && data.quota.ramGb.usage / data.quota.ramGb.limit >= 0.8 ? (
+          <p className="text-sm" role="status" style={{ color: "var(--warning)" }}>{t("quotaWarningRam")}</p>
+        ) : null}
       </section>
 
       <section aria-labelledby="footprint-heading" className="flex flex-col gap-3">
@@ -156,6 +162,21 @@ export default function UsagePanel() {
             ))}
           </div>
         )}
+      </section>
+
+      <section aria-labelledby="history-heading" className="flex flex-col gap-3">
+        <div>
+          <h2 id="history-heading" className="text-lg font-medium">{t("historyHeading")}</h2>
+          <p className="text-sm" style={{ color: "var(--muted)" }}>{data.historyAvailable ? t("historyDescription") : t("historyUnavailable")}</p>
+        </div>
+        {data.historyAvailable && (data.history?.length ?? 0) > 0 ? (
+          <div className="flex flex-col gap-2">
+            {data.history?.map((sample) => <Card key={sample.sampledAt} className="flex flex-wrap items-center justify-between gap-3 p-4">
+              <span>{formatDate(sample.sampledAt)}</span>
+              <span className="text-sm" style={{ color: "var(--muted)" }}>{t("historySample", { servers: sample.runningServers, cpu: formatNumber(sample.cpuCoresAllocated), ram: formatNumber(sample.ramGbAllocated) })}</span>
+            </Card>)}
+          </div>
+        ) : data.historyAvailable ? <Card className="p-4 text-sm" style={{ color: "var(--muted)" }}>{t("historyEmpty")}</Card> : null}
       </section>
     </div>
   );
