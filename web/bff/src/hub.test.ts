@@ -1,6 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ensureHubUser, hubActivationState, hubActivationUrl, hubFailure, sandboxPath, sandboxUrl, startHubSandbox } from "./hub.js";
+import {
+  ensureHubUser,
+  hubActivationState,
+  hubActivationUrl,
+  hubFailure,
+  mapHubServerState,
+  mapHubStartResponse,
+  resolveHubLifecycle,
+  sandboxPath,
+  sandboxUrl,
+  startHubSandbox,
+  type HubRequestResponse,
+} from "./hub.js";
 
 test("sandbox endpoints are scoped to the authenticated session username", () => {
   const username = "user-a@example.com";
@@ -93,6 +105,81 @@ test("Hub sandbox start provisions a missing user and retries a 404 start once",
     },
   }), /server path missing/);
   assert.deepEqual(existingUserCalls, ["start"]);
+});
+
+test("Hub lifecycle maps start response statuses and server states canonically", () => {
+  const readyResponse: HubRequestResponse<{ state: string; ready: boolean; url: string }> = {
+    status: 201,
+    body: { state: "ready", ready: true, url: "/user/user-a/sandbox-a/" },
+  };
+  assert.equal(mapHubStartResponse(readyResponse), "ready");
+  assert.equal(mapHubStartResponse({ status: 202, body: null }), "starting");
+  assert.equal(mapHubServerState({ state: "pending", pending: true }), "starting");
+  assert.equal(mapHubServerState({ state: "spawning" }), "starting");
+  assert.equal(mapHubServerState({ state: "ready", ready: true, url: "/user/a/" }), "ready");
+  assert.equal(mapHubServerState(null), "stopped");
+  assert.equal(mapHubServerState({ state: "failed" }), "failed");
+  assert.equal(mapHubServerState({ state: "error" }), "failed");
+});
+
+test("Hub lifecycle resolver polls with capped backoff until ready", async () => {
+  const servers = [
+    { state: "pending", pending: true },
+    { state: "spawning", pending: true },
+    { state: "ready", ready: true, url: "/user/a/sandbox/" },
+  ];
+  const delays: number[] = [];
+  let now = 0;
+  const result = await resolveHubLifecycle({
+    read: async () => servers.shift() ?? null,
+    maxAttempts: 5,
+    timeoutMs: 1_000,
+    backoffMs: 100,
+    maxBackoffMs: 250,
+    now: () => now,
+    sleep: async (ms: number) => {
+      delays.push(ms);
+      now += ms;
+    },
+  });
+  assert.equal(result, "ready");
+  assert.deepEqual(delays, [100, 200]);
+});
+
+test("Hub lifecycle resolver bounds timeout and stops after failure", async () => {
+  let reads = 0;
+  let now = 0;
+  const timeout = await resolveHubLifecycle({
+    read: async () => {
+      reads += 1;
+      return { state: "pending", pending: true };
+    },
+    maxAttempts: 10,
+    timeoutMs: 250,
+    backoffMs: 100,
+    maxBackoffMs: 200,
+    now: () => now,
+    sleep: async (ms: number) => {
+      now += ms;
+    },
+  });
+  assert.equal(timeout, "starting");
+  assert.equal(reads, 3);
+
+  let failureReads = 0;
+  const failed = await resolveHubLifecycle({
+    read: async () => {
+      failureReads += 1;
+      return failureReads === 1 ? { state: "failed" } : { state: "ready", ready: true, url: "/user/a/" };
+    },
+    maxAttempts: 3,
+    timeoutMs: 1_000,
+    backoffMs: 1,
+    maxBackoffMs: 10,
+    sleep: async () => undefined,
+  });
+  assert.equal(failed, "failed");
+  assert.equal(failureReads, 1);
 });
 
 test("Hub failures distinguish client errors, Hub failures, and ambiguous transport failures", () => {

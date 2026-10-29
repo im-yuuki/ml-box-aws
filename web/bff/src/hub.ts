@@ -6,8 +6,69 @@ export function sandboxPath(username: string, name: string): string {
   return `/hub/api/users/${encodeURIComponent(username)}/servers/${serverName}`;
 }
 
+export type HubRequestResponse<T> = {
+  status: number;
+  body: T | null;
+};
+
 export type HubRequest = (method: string, path: string, body?: unknown) => Promise<{ status: number }>;
 
+export type HubLifecycleState = "starting" | "ready" | "stopped" | "failed";
+
+export type HubServerLike = {
+  state?: string | null;
+  ready?: boolean;
+  pending?: boolean;
+  url?: string | null;
+};
+
+export type HubLifecycleOptions = {
+  read: () => Promise<HubServerLike | null>;
+  maxAttempts: number;
+  timeoutMs: number;
+  backoffMs: number;
+  maxBackoffMs: number;
+  now?: () => number;
+  sleep?: (ms: number) => Promise<void>;
+};
+
+function normalizedState(server: HubServerLike): string {
+  return (server.state ?? "").toLowerCase();
+}
+
+export function mapHubServerState(server: HubServerLike | null): HubLifecycleState {
+  if (!server) return "stopped";
+  const state = normalizedState(server);
+  if (["failed", "error", "crashed"].includes(state)) return "failed";
+  if (server.ready === true && Boolean(server.url)) return "ready";
+  if (["ready", "running"].includes(state) && Boolean(server.url)) return "ready";
+  if (["pending", "spawning", "starting"].includes(state) || server.pending === true) return "starting";
+  if (["stopped", "inactive", ""].includes(state)) return "stopped";
+  return "starting";
+}
+
+export function mapHubStartResponse(response: HubRequestResponse<HubServerLike>): HubLifecycleState {
+  if (response.status === 202) return "starting";
+  return response.body ? mapHubServerState(response.body) : "starting";
+}
+
+export async function resolveHubLifecycle(options: HubLifecycleOptions): Promise<HubLifecycleState> {
+  const now = options.now ?? Date.now;
+  const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  const startedAt = now();
+  let attempts = 0;
+  let delay = Math.max(0, options.backoffMs);
+
+  while (attempts < Math.max(1, options.maxAttempts)) {
+    const state = mapHubServerState(await options.read());
+    attempts += 1;
+    if (state !== "starting") return state;
+    if (attempts >= Math.max(1, options.maxAttempts) || now() - startedAt >= Math.max(0, options.timeoutMs)) return "starting";
+    await sleep(Math.min(delay, Math.max(0, options.maxBackoffMs)));
+    delay = Math.min(Math.max(delay * 2, delay), Math.max(0, options.maxBackoffMs));
+  }
+  return "starting";
+}
 
 export type HubUserProvisioningResult = {
   created: boolean;
