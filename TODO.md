@@ -100,18 +100,22 @@ Ký hiệu:
 - ✅ Test existing/new user, race/idempotency, retry-once, provisioning failure và secret containment.
 - ☐ Apply stack `03-hub-app`, deploy BFF image và verify production E2E sau khi AWS credentials hợp lệ.
 
-### Phase 2 — Sandbox lifecycle (kế hoạch tiếp theo)
+### Phase 2 — Sandbox lifecycle (đã triển khai local, chờ deploy/production verification)
 
-- ☐ Phân biệt `starting`, `ready`, `stopped`, `failed`.
-- ☐ Xử lý start response 201/202 và polling progress với timeout/backoff giới hạn.
-- ☐ Retry có kiểm soát cho lỗi transient; audit provisioning/start/pending/ready/failed/retry.
-- ☐ Cập nhật dashboard theo lifecycle state và action tương ứng.
+- ✅ Phân biệt canonical states `starting`, `ready`, `stopped`, `failed` ở BFF và dashboard.
+- ✅ Giữ status/body Hub 201/202 trong BFF; polling progress có timeout và backoff giới hạn.
+- ✅ Retry transient có giới hạn, không duplicate spawn; lifecycle audit best-effort cho request/starting/retry/ready/failed/stopped.
+- ✅ Dashboard refresh có giới hạn khi sandbox đang `starting`; Hub activation fallback vẫn được giữ.
+- ☐ Apply/deploy thay đổi và verify production E2E sau khi có Terraform plan hợp lệ, backup và AWS credentials.
 
-### Phase 3 — Stable identity mapping (kế hoạch sau đó)
+### Phase 3 — Stable identity mapping (đã triển khai local, compatibility mode)
 
-- ☐ Thiết kế migration email mapping hiện tại sang Cognito `sub` làm Hub username ổn định.
-- ☐ Xử lý migration, collision, email rename và dùng email chỉ làm metadata/display.
-- ☐ Không bật mapping mới production trước khi có backup/rollback và integration test.
+- ✅ Resolve identity mới từ Cognito `sub` thành `cognito-${sub}`; stored legacy mapping và owner-scoped legacy sandbox mapping được ưu tiên.
+- ✅ Email rename giữ nguyên Hub username; email chỉ là metadata/display; collision không overwrite và không provision.
+- ✅ Có additive `mlbox_hub_identities`, dry-run planner, conflict handling và rollback helper; sandbox ownership/Hub users không bị rename hoặc xóa.
+- ✅ Giữ JupyterHub OAuth `username_claim: email`; rollout hiện là BFF compatibility mode, chưa migrate Hub records production.
+- ☐ Backup database, chạy migration dry-run/review collisions, chuẩn bị rollback, rồi mới plan/apply production migration.
+- ☐ Chạy integration/E2E verification sau migration; không bật mapping production trước khi các safeguard được hoàn tất.
 
 ### Phase 4 — Optional JupyterHub extension (chỉ khi cần)
 

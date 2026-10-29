@@ -3,8 +3,8 @@
 ## Status
 
 - Phase 1: implemented locally; Terraform/deployment pending
-- Phase 2: planned
-- Phase 3: planned
+- Phase 2: implemented locally; deployment/production verification pending
+- Phase 3: implemented locally in compatibility mode; migration dry-run, backup, deployment, and production verification pending
 - Phase 4: planned
 
 ## Architecture decisions
@@ -39,11 +39,13 @@
 
 ## Phase 3 — Stable identity mapping
 
-- Keep email mapping during Phase 1 to minimize risk.
-- Design a separate migration to Cognito `sub` as the stable Hub username.
-- Use email as metadata/display identity only after migration.
-- Handle migration, collisions, and email rename before enabling production mapping.
-- Do not combine identity migration with the provisioning patch.
+- Keep the existing email-based Hub records readable during the compatibility rollout.
+- Resolve new Hub identities deterministically from the authenticated Cognito `sub` as `cognito-${sub}`.
+- Prefer a stored subject mapping, then a verified legacy email/owner-scoped sandbox mapping; email remains mutable metadata/display identity.
+- Handle collisions as a manual-review conflict with no overwrite, Hub provisioning, delete, or rename.
+- Provide additive schema, dry-run planning, rollback data, and backup requirements before enabling a production migration.
+- Keep JupyterHub OAuth `username_claim: email` unchanged in this implementation; reconciliation of remaining Hub email records is a separate rollout step.
+- Do not combine identity migration with a destructive Hub-user rename or sandbox ownership reassignment.
 
 ## Phase 4 — Optional JupyterHub extension
 
