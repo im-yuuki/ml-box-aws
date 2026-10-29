@@ -18,7 +18,10 @@
   },
   "workspace": {
     "personalSpace": "Personal Space",
+    "personalSpaceLabel": "Không gian hiện tại: Personal Space",
     "spaceType": "Không gian cá nhân",
+    "workspaceNavigation": "Điều hướng workspace",
+    "homeLink": "Về trang chủ ML Box",
     "menu": "Mở menu workspace",
     "closeMenu": "Đóng menu workspace",
     "toggleTheme": "Đổi giao diện sáng tối",

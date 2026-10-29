@@ -18,7 +18,10 @@
   },
   "workspace": {
     "personalSpace": "Personal Space",
+    "personalSpaceLabel": "Current space: Personal Space",
     "spaceType": "Personal workspace",
+    "workspaceNavigation": "Workspace navigation",
+    "homeLink": "Go to ML Box home",
     "menu": "Open workspace menu",
     "closeMenu": "Close workspace menu",
     "toggleTheme": "Toggle theme",
