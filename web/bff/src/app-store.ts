@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { resolveProjectPermission, type ProjectPermission } from "./access.js";
+import type { HubIdentity } from "./hub-identity.js";
 import {
   entitlementsForPlan,
   getMockPlan,
@@ -94,6 +95,20 @@ export type MockCheckoutResult = {
   entitlements: EntitlementRecord[];
 };
 
+function hubIdentityFromRow(row: Record<string, unknown>): HubIdentity {
+  const userId = row.user_id ?? row.userId;
+  const hubUsername = row.hub_username ?? row.hubUsername;
+  const legacyEmail = row.legacy_email ?? row.legacyEmail;
+  const previousHubUsername = row.previous_hub_username ?? row.previousHubUsername;
+  return {
+    userId: String(userId),
+    hubUsername: String(hubUsername),
+    legacyEmail: legacyEmail == null ? null : String(legacyEmail),
+    previousHubUsername: previousHubUsername == null ? null : String(previousHubUsername),
+    status: String(row.status) as HubIdentity["status"],
+  };
+}
+
 export class AppStore {
   private readonly pool: AppDatabase;
 
@@ -122,6 +137,48 @@ export class AppStore {
       `INSERT INTO mlbox_audit_events (id, space_id, actor_user_id, action, target, metadata) VALUES ($1, $2, $3, $4, $5, $6::jsonb)`,
       [randomUUID(), spaceId, userId, action, target, JSON.stringify(metadata)],
     );
+  }
+
+  async getHubIdentity(userId: string): Promise<HubIdentity | null> {
+    const result = await this.pool.query(
+      `SELECT user_id, hub_username, legacy_email, previous_hub_username, status
+       FROM mlbox_hub_identities WHERE user_id = $1`,
+      [userId],
+    );
+    const row = result.rows[0];
+    return row ? hubIdentityFromRow(row) : null;
+  }
+
+  async upsertHubIdentity(mapping: HubIdentity): Promise<void> {
+    if (mapping.status === "conflict") throw new Error("Cannot persist conflicting Hub identity");
+    await this.pool.query(
+      `INSERT INTO mlbox_hub_identities
+         (user_id, hub_username, legacy_email, status, previous_hub_username)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (user_id) DO UPDATE SET
+         hub_username = EXCLUDED.hub_username,
+         legacy_email = EXCLUDED.legacy_email,
+         status = EXCLUDED.status,
+         previous_hub_username = EXCLUDED.previous_hub_username,
+         updated_at = now()`,
+      [mapping.userId, mapping.hubUsername, mapping.legacyEmail, mapping.status, mapping.previousHubUsername],
+    );
+  }
+
+  async listHubIdentityMappings(): Promise<HubIdentity[]> {
+    const result = await this.pool.query(
+      `SELECT user_id, hub_username, legacy_email, previous_hub_username, status
+       FROM mlbox_hub_identities ORDER BY user_id`,
+    );
+    return result.rows.map(hubIdentityFromRow);
+  }
+
+  async recordHubIdentityMigrationConflict(userId: string, reason: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE mlbox_hub_identities SET status = 'conflict', updated_at = now() WHERE user_id = $1`,
+      [userId],
+    );
+    await this.recordAuditEvent(userId, `personal:${userId}`, "hub.identity_migration_conflict", userId, { reason });
   }
 
   async ensureSchema(): Promise<void> {
@@ -185,6 +242,19 @@ export class AppStore {
         state text NOT NULL DEFAULT 'unknown',
         created_at timestamptz NOT NULL DEFAULT now()
       );
+      CREATE TABLE IF NOT EXISTS mlbox_hub_identities (
+        user_id text PRIMARY KEY REFERENCES mlbox_users(id) ON DELETE CASCADE,
+        hub_username text NOT NULL,
+        legacy_email text,
+        status text NOT NULL CHECK (status IN ('legacy', 'mapped', 'migrated', 'conflict')),
+        previous_hub_username text,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        UNIQUE (hub_username)
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS mlbox_hub_identities_hub_username_idx ON mlbox_hub_identities(hub_username);
+      ALTER TABLE mlbox_hub_identities ADD COLUMN IF NOT EXISTS previous_hub_username text;
+
       CREATE TABLE IF NOT EXISTS mlbox_space_subscriptions (
         space_id text PRIMARY KEY REFERENCES mlbox_spaces(id) ON DELETE CASCADE,
         plan text NOT NULL,
