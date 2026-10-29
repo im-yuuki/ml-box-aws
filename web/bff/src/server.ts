@@ -29,6 +29,13 @@ import { UsageStore } from "./usage-store.js";
 import { AppStore } from "./app-store.js";
 import { verifyTurnstile } from "./turnstile.js";
 import {
+  HubIdentityConflictError,
+  persistResolvedHubIdentity,
+  resolveAuthenticatedHubIdentity,
+  type HubIdentityStore,
+} from "./hub-identity-routing.js";
+import type { HubIdentity } from "./hub-identity.js";
+import {
   getMockPlan,
   isMockPaymentMethod,
   isMockPaymentOutcome,
@@ -377,6 +384,31 @@ function usernamePath(username: string): string {
   return encodeURIComponent(username);
 }
 
+const emptyHubIdentityStore: HubIdentityStore = {
+  getHubIdentity: async () => null,
+  findHubIdentityByLegacyEmail: async () => null,
+  listHubIdentityMappings: async () => [],
+};
+
+function hubIdentityStore(): HubIdentityStore {
+  if (!appStore) return emptyHubIdentityStore;
+  return {
+    getHubIdentity: (userId) => appStore.getHubIdentity(userId),
+    findHubIdentityByLegacyEmail: (email) => appStore.findHubIdentityByLegacyEmail(email),
+    findLegacyHubIdentityByUser: (userId, email) => appStore.findLegacyHubIdentityByUser(userId, email),
+    listHubIdentityMappings: () => appStore.listHubIdentityMappings(),
+    upsertHubIdentity: (mapping) => appStore.upsertHubIdentity(mapping),
+  };
+}
+
+async function resolveSessionHubIdentity(session: Session): Promise<HubIdentity> {
+  return resolveAuthenticatedHubIdentity({ userId: session.subject, email: session.email, store: hubIdentityStore() });
+}
+
+async function persistSessionHubIdentity(identity: HubIdentity): Promise<void> {
+  if (appStore) await persistResolvedHubIdentity(identity, { upsertHubIdentity: (mapping) => appStore.upsertHubIdentity(mapping) });
+}
+
 function serverPath(username: string, name: string): string {
   return sandboxPath(username, name);
 }
@@ -429,6 +461,15 @@ function hubStatus(error: unknown): number | null {
   if (typeof error !== "object" || error === null || !("status" in error)) return null;
   const value = Number((error as { status?: unknown }).status);
   return Number.isFinite(value) ? value : null;
+}
+
+function handleHubIdentityError(reply: FastifyReply, error: unknown): boolean {
+  if (!(error instanceof HubIdentityConflictError)) return false;
+  reply.code(409).send({
+    error: "HUB_IDENTITY_CONFLICT",
+    message: "Hub identity mapping requires manual review.",
+  });
+  return true;
 }
 
 function handleHubError(reply: FastifyReply, error: unknown): void {
@@ -838,15 +879,18 @@ app.get("/v1/sandboxes", async (request, reply) => {
   if (!session) return;
   const runtime = runtimeConfig();
   try {
+    const identity = await resolveSessionHubIdentity(session);
+    await persistSessionHubIdentity(identity);
+    const hubUsername = identity.hubUsername;
     let hubUserExists = true;
     try {
-      await ensureRuntimeHubUser(runtime, session.username);
+      await ensureRuntimeHubUser(runtime, hubUsername);
     } catch (error) {
       if (hubStatus(error) === 404) hubUserExists = false;
       else throw error;
     }
     if (appStore) {
-      const user = await hubRequest<HubUser>(runtime, "GET", `/hub/api/users/${usernamePath(session.username)}`).catch((error) => {
+      const user = await hubRequest<HubUser>(runtime, "GET", `/hub/api/users/${usernamePath(hubUsername)}`).catch((error) => {
         if (hubStatus(error) === 404) {
           hubUserExists = false;
           return { servers: {} };
@@ -855,32 +899,33 @@ app.get("/v1/sandboxes", async (request, reply) => {
       });
       const sandboxes = [];
       const names = (Object.entries(user.servers ?? {}) as Array<[string, HubServer]>).map(([key, server]) => server.name || key || "default");
-      await appStore.importSandboxMappings(session.subject, session.email, names);
+      await appStore.importSandboxMappings(session.subject, session.email, names, hubUsername);
       for (const [key, server] of Object.entries(user.servers ?? {}) as Array<[string, HubServer]>) {
         const name = server.name || key || "default";
         if (!(await appStore.authorizeSandbox(session.subject, session.email, name, "read"))) continue;
         sandboxes.push({
           name,
           state: mapHubServerState(server),
-          url: server.ready && /^(default|[a-z0-9][a-z0-9-]{0,62})$/i.test(name) ? sandboxUrl(runtime.hubPublicUrl, session.username, name) : null,
+          url: server.ready && /^(default|[a-z0-9][a-z0-9-]{0,62})$/i.test(name) ? sandboxUrl(runtime.hubPublicUrl, hubUsername, name) : null,
           lastActivity: server.last_activity ?? null,
         });
       }
       return { user: { email: session.email }, hub: hubActivationState(runtime.hubPublicUrl, hubUserExists), sandboxes };
     }
-    const user = await hubRequest<HubUser>(runtime, "GET", `/hub/api/users/${usernamePath(session.username)}`);
+    const user = await hubRequest<HubUser>(runtime, "GET", `/hub/api/users/${usernamePath(hubUsername)}`);
     const servers = Object.entries(user.servers ?? {}).map(([key, server]) => ({
       name: server.name || key || "default",
       state: mapHubServerState(server),
       // Build the destination from trusted configuration and session identity;
       // never turn a Hub-provided URL into a user-facing link.
       url: server.ready && /^(default|[a-z0-9][a-z0-9-]{0,62})$/i.test(server.name || key)
-        ? sandboxUrl(runtime.hubPublicUrl, session.username, server.name || key)
+        ? sandboxUrl(runtime.hubPublicUrl, hubUsername, server.name || key)
         : null,
       lastActivity: server.last_activity ?? null,
     }));
     return { user: { email: session.email }, hub: hubActivationState(runtime.hubPublicUrl, true), sandboxes: servers };
   } catch (error) {
+    if (handleHubIdentityError(reply, error)) return;
     // A user unknown to the Hub (never spawned a server) has an empty list, not an error.
     if (hubStatus(error) === 404) {
       return { user: { email: session.email }, hub: hubActivationState(runtime.hubPublicUrl, false), sandboxes: [] };
@@ -894,6 +939,9 @@ app.get("/v1/usage", async (request, reply) => {
   const session = await requireSession(request, reply);
   if (!session) return;
   try {
+    const identity = await resolveSessionHubIdentity(session);
+    await persistSessionHubIdentity(identity);
+    const hubUsername = identity.hubUsername;
     const runtime = runtimeConfig();
     const quotas = {
       cpuHours: runtime.cpuQuotaHours,
@@ -903,7 +951,7 @@ app.get("/v1/usage", async (request, reply) => {
     };
     let user: HubUser;
     try {
-      user = await hubRequest<HubUser>(runtime, "GET", `/hub/api/users/${usernamePath(session.username)}`);
+      user = await hubRequest<HubUser>(runtime, "GET", `/hub/api/users/${usernamePath(hubUsername)}`);
     } catch (error) {
       // A user unknown to the Hub (never spawned a server) has an empty footprint, not an error.
       if (hubStatus(error) === 404) return buildUsageResponse([], quotas);
@@ -915,8 +963,8 @@ app.get("/v1/usage", async (request, reply) => {
       try {
         usageSchemaReady ??= usageStore.ensureSchema();
         await usageSchemaReady;
-        await usageStore.sample(session.username, { runningServers: result.footprint.runningServers, cpuCoresAllocated: result.footprint.cpuCoresAllocated, ramGbAllocated: result.footprint.ramGbAllocated });
-        result.history = await usageStore.history(session.username, 168);
+        await usageStore.sample(hubUsername, { runningServers: result.footprint.runningServers, cpuCoresAllocated: result.footprint.cpuCoresAllocated, ramGbAllocated: result.footprint.ramGbAllocated });
+        result.history = await usageStore.history(hubUsername, 168);
         result.historyAvailable = true;
       } catch (error) {
         usageSchemaReady = null;
@@ -930,6 +978,7 @@ app.get("/v1/usage", async (request, reply) => {
     }
     return result;
   } catch (error) {
+    if (handleHubIdentityError(reply, error)) return;
     request.log.error({ err: error }, "JupyterHub usage query failed");
     return handleHubError(reply, error);
   }
@@ -940,10 +989,13 @@ app.get("/v1/usage/history", async (request, reply) => {
   if (!session) return;
   if (!usageStore) return { available: false, samples: [] };
   try {
+    const identity = await resolveSessionHubIdentity(session);
+    await persistSessionHubIdentity(identity);
     usageSchemaReady ??= usageStore.ensureSchema();
     await usageSchemaReady;
-    return { available: true, samples: await usageStore.history(session.username, 168) };
+    return { available: true, samples: await usageStore.history(identity.hubUsername, 168) };
   } catch (error) {
+    if (handleHubIdentityError(reply, error)) return;
     usageSchemaReady = null;
     request.log.warn({ err: error instanceof Error ? error.name : "database_error" }, "Usage history query unavailable");
     return { available: false, samples: [] };
@@ -958,9 +1010,11 @@ app.post<{ Params: { name: string } }>("/v1/sandboxes/:name/start", async (reque
   const runtime = runtimeConfig();
   let hubUserExists = true;
   try {
+    const identity = await resolveSessionHubIdentity(session);
+    const hubUsername = identity.hubUsername;
     let user: HubUser;
     try {
-      user = await hubRequest<HubUser>(runtime, "GET", `/hub/api/users/${usernamePath(session.username)}`);
+      user = await hubRequest<HubUser>(runtime, "GET", `/hub/api/users/${usernamePath(hubUsername)}`);
     } catch (error) {
       if (hubStatus(error) !== 404) throw error;
       hubUserExists = false;
@@ -972,7 +1026,7 @@ app.post<{ Params: { name: string } }>("/v1/sandboxes/:name/start", async (reque
       if (alreadyExists) {
         return reply.code(403).send({ error: "FORBIDDEN", message: "Bạn không có quyền vận hành Sandbox này." });
       }
-      await appStore.ensureSandboxProject(session.subject, session.email, request.params.name);
+      await appStore.ensureSandboxProject(session.subject, session.email, request.params.name, hubUsername);
     }
     const currentServers = currentEntries.map(([key, server]) => usageServer(key, server));
     try {
@@ -990,12 +1044,13 @@ app.post<{ Params: { name: string } }>("/v1/sandboxes/:name/start", async (reque
       }
       enforcement = quota.enforcement;
       if (enforcement === "degraded") {
-        request.log.warn({ username: session.username }, "RAM quota check degraded; allowing sandbox start");
+        request.log.warn({ username: hubUsername }, "RAM quota check degraded; allowing sandbox start");
       }
     } catch (error) {
       enforcement = "degraded";
-      request.log.warn({ err: error instanceof Error ? error.name : "hub_error", username: session.username }, "RAM quota check unavailable; allowing sandbox start");
+      request.log.warn({ err: error instanceof Error ? error.name : "hub_error", username: hubUsername }, "RAM quota check unavailable; allowing sandbox start");
     }
+    await persistSessionHubIdentity(identity);
     const existingServer = currentEntries.find(([key, server]) => (server.name || key || "default") === request.params.name)?.[1] ?? null;
     if (!shouldStartHubSandbox(existingServer)) {
       return { ok: true, name: request.params.name, state: mapHubServerState(existingServer), enforcement };
@@ -1004,18 +1059,19 @@ app.post<{ Params: { name: string } }>("/v1/sandboxes/:name/start", async (reque
       start: () => startHubSandbox({
         userExists: hubUserExists,
         ensureUser: async () => {
-          await ensureRuntimeHubUser(runtime, session.username);
+          await ensureRuntimeHubUser(runtime, hubUsername);
           hubUserExists = true;
         },
         onRetry: () => auditLifecycle(session, "sandbox.start_retry", request.params.name, { status: 404 }),
-        start: () => hubRequestResponse<HubServerLike>(runtime, "POST", serverPath(session.username, request.params.name), {}),
+        start: () => hubRequestResponse<HubServerLike>(runtime, "POST", serverPath(hubUsername, request.params.name), {}),
       }),
-      read: async () => hubRequest<HubServerLike>(runtime, "GET", serverPath(session.username, request.params.name)),
+      read: async () => hubRequest<HubServerLike>(runtime, "GET", serverPath(hubUsername, request.params.name)),
       audit: (action, metadata) => auditLifecycle(session, action, request.params.name, metadata),
     });
     return { ok: true, name: request.params.name, state: lifecycle.state, enforcement };
   } catch (error) {
     request.log.error({ err: error }, "JupyterHub sandbox start failed");
+    if (handleHubIdentityError(reply, error)) return;
     if (shouldUseHubActivationFallback(hubUserExists, error)) {
       reply.code(409).send({ error: "HUB_USER_UNKNOWN", activationUrl: hubActivationUrl(runtime.hubPublicUrl), message: "Tài khoản chưa được kích hoạt trên Hub. Đăng nhập vào notebook hub một lần để kích hoạt." });
       return;
@@ -1030,13 +1086,17 @@ app.delete<{ Params: { name: string } }>("/v1/sandboxes/:name", async (request, 
   if (!session) return;
   try {
     const runtime = runtimeConfig();
+    const identity = await resolveSessionHubIdentity(session);
+    const hubUsername = identity.hubUsername;
     if (appStore && !(await appStore.authorizeSandbox(session.subject, session.email, request.params.name, "operate"))) {
       return reply.code(403).send({ error: "FORBIDDEN", message: "Bạn không có quyền vận hành Sandbox này." });
     }
-    const stopped = await hubRequestResponse<HubServerLike>(runtime, "DELETE", serverPath(session.username, request.params.name));
+    await persistSessionHubIdentity(identity);
+    const stopped = await hubRequestResponse<HubServerLike>(runtime, "DELETE", serverPath(hubUsername, request.params.name));
     await auditLifecycle(session, "sandbox.stopped", request.params.name, { status: stopped.status });
     return { ok: true, name: request.params.name, state: "stopped" };
   } catch (error) {
+    if (handleHubIdentityError(reply, error)) return;
     request.log.error({ err: error }, "JupyterHub sandbox stop failed");
     return handleHubError(reply, error);
   }

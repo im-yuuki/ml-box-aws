@@ -173,6 +173,28 @@ export class AppStore {
     return result.rows.map(hubIdentityFromRow);
   }
 
+  async findHubIdentityByLegacyEmail(email: string): Promise<HubIdentity | null> {
+    const result = await this.pool.query(
+      `SELECT user_id, hub_username, legacy_email, previous_hub_username, status
+       FROM mlbox_hub_identities WHERE legacy_email = $1 ORDER BY updated_at DESC LIMIT 1`,
+      [email],
+    );
+    const row = result.rows[0];
+    return row ? hubIdentityFromRow(row) : null;
+  }
+
+  async findLegacyHubIdentityByUser(userId: string, email: string): Promise<HubIdentity | null> {
+    const result = await this.pool.query(
+      `SELECT owner_user_id AS user_id, hub_username, hub_username AS legacy_email, NULL AS previous_hub_username, 'legacy' AS status
+       FROM mlbox_sandboxes
+       WHERE owner_user_id = $1 AND hub_username = $2
+       ORDER BY created_at ASC LIMIT 1`,
+      [userId, email],
+    );
+    const row = result.rows[0];
+    return row ? hubIdentityFromRow(row) : null;
+  }
+
   async recordHubIdentityMigrationConflict(userId: string, reason: string): Promise<void> {
     await this.pool.query(
       `UPDATE mlbox_hub_identities SET status = 'conflict', updated_at = now() WHERE user_id = $1`,
@@ -371,7 +393,7 @@ export class AppStore {
     }));
   }
 
-  async ensureSandboxProject(userId: string, email: string, sandboxName: string): Promise<ProjectRecord> {
+  async ensureSandboxProject(userId: string, email: string, sandboxName: string, hubUsername = email): Promise<ProjectRecord> {
     const result = await this.pool.query(
       `WITH personal_space AS (
          SELECT s.id AS space_id, t.id AS team_id
@@ -394,7 +416,7 @@ export class AppStore {
       `INSERT INTO mlbox_sandboxes (id, project_id, owner_user_id, hub_username, server_name)
        SELECT $1, $2, $3, $4, $5
        WHERE NOT EXISTS (SELECT 1 FROM mlbox_sandboxes WHERE project_id = $2)`,
-      [randomUUID(), row.id, userId, email, sandboxName],
+      [randomUUID(), row.id, userId, hubUsername, sandboxName],
     );
     return { id: String(row.id), spaceId: String(row.space_id), teamId: String(row.team_id), name: String(row.name), createdBy: String(row.created_by) };
   }
@@ -419,9 +441,9 @@ export class AppStore {
     });
   }
 
-  async importSandboxMappings(userId: string, email: string, sandboxNames: string[]): Promise<void> {
+  async importSandboxMappings(userId: string, email: string, sandboxNames: string[], hubUsername = email): Promise<void> {
     for (const sandboxName of sandboxNames) {
-      await this.ensureSandboxProject(userId, email, sandboxName);
+      await this.ensureSandboxProject(userId, email, sandboxName, hubUsername);
     }
   }
 

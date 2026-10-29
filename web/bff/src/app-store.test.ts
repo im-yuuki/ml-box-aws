@@ -70,6 +70,67 @@ test("identity conflict is rejected before store writes", async () => {
   }), /conflict/i);
 });
 
+test("legacy Hub identity can be looked up by owner without reading unrelated sandboxes", async () => {
+  const queries: string[] = [];
+  const store = new AppStore({
+    query: async (sql: string) => {
+      queries.push(sql);
+      if (sql.includes("mlbox_sandboxes")) {
+        return { rows: [{ user_id: "cognito-sub", hub_username: "old@example.com", legacy_email: "old@example.com", status: "legacy" }] };
+      }
+      return { rows: [] };
+    },
+    connect: async () => { throw new Error("connect is not expected for this test"); },
+    end: async () => undefined,
+  });
+
+  const identity = await store.findLegacyHubIdentityByUser("cognito-sub", "new@example.com");
+
+  assert.equal(identity?.hubUsername, "old@example.com");
+  assert.ok(queries[0]?.includes("FROM mlbox_sandboxes"));
+});
+
+test("legacy Hub identities can be looked up by email without reading sandboxes", async () => {
+  const queries: string[] = [];
+  const store = new AppStore({
+    query: async (sql: string) => {
+      queries.push(sql);
+      if (sql.includes("legacy_email")) {
+        return { rows: [{ user_id: "cognito-sub", hub_username: "old@example.com", legacy_email: "old@example.com", previous_hub_username: null, status: "legacy" }] };
+      }
+      return { rows: [] };
+    },
+    connect: async () => { throw new Error("connect is not expected for this test"); },
+    end: async () => undefined,
+  });
+
+  const identity = await store.findHubIdentityByLegacyEmail("old@example.com");
+
+  assert.equal(identity?.hubUsername, "old@example.com");
+  assert.ok(queries[0]?.includes("WHERE legacy_email = $1"));
+  assert.equal(queries.some((sql) => sql.includes("mlbox_sandboxes")), false);
+});
+
+test("resolved Hub username is stored without changing existing sandbox ownership", async () => {
+  const queries: Array<{ sql: string; values?: unknown[] }> = [];
+  const store = new AppStore({
+    query: async (sql: string, values?: unknown[]) => {
+      queries.push({ sql, values });
+      if (sql.includes("INSERT INTO mlbox_projects")) {
+        return { rows: [{ id: "project-1", team_id: "personal-team:cognito-sub", name: "sandbox-a", created_by: "cognito-sub" }] };
+      }
+      return { rows: [] };
+    },
+    connect: async () => { throw new Error("connect is not expected for this test"); },
+    end: async () => undefined,
+  });
+
+  await store.ensureSandboxProject("cognito-sub", "new@example.com", "sandbox-a", "cognito-sub");
+
+  assert.ok(queries.some(({ sql, values }) => sql.includes("mlbox_sandboxes") && values?.includes("cognito-sub")));
+  assert.equal(queries.some(({ sql }) => sql.includes("UPDATE mlbox_sandboxes")), false);
+});
+
 test("identity migration candidates are read without changing sandbox mappings", async () => {
   const queries: string[] = [];
   const store = new AppStore({
