@@ -146,6 +146,29 @@ Ràng buộc quan trọng: một Project có đúng một Team; Team và Project
 - Không tích hợp Stripe, AWS Marketplace hay cổng thanh toán thật trong scope này. Giao diện phải nói rõ đây là mock/dev flow.
 - Usage ledger quy usage về Space/Project/Sandbox/User; không dùng số liệu Hub realtime thay cho lịch sử/billing ledger. Chỉ enforce quota khi nguồn usage đáng tin cậy và policy được chốt.
 
+### Đề xuất gói và giá MVP (chưa kiểm chứng)
+
+Đây là giả thuyết để thử nghiệm mức sẵn lòng chi trả, không phải giá đã chốt hay tính năng đang có. Giá tính bằng USD/tháng; cần rà soát AWS cost và hành vi sử dụng trước khi bán thật.
+
+| Space | Gói | Giá đề xuất | Giá trị chính |
+|---|---|---:|---|
+| Personal | Free | $0 | 1 Project, 5 GB lưu trữ, sandbox CPU và một hạn mức compute nhỏ hàng tháng |
+| Personal | Plus | $8 | Tối đa 5 Project, 25 GB lưu trữ, nhiều giờ CPU hơn Free và quyền dùng GPU cơ bản khi có capacity |
+| Personal | Pro | $19 | Hạn mức Project/lưu trữ/compute cao hơn Plus và ưu tiên trên shared GPU |
+| Personal | Power | $39 | Hạn mức tự phục vụ cao nhất và ưu tiên shared GPU cao nhất; dedicated GPU tính riêng |
+| Organization | Team | $19, tối đa 3 thành viên | Project dùng chung, role cơ bản và compute pool chung |
+| Organization | Growth | $8/thành viên | Mở rộng thành viên, Team, lưu trữ dùng chung và theo dõi usage |
+| Organization | Scale | $15/thành viên | Hạn mức cao hơn, quản trị bổ sung, audit history và hỗ trợ ưu tiên |
+| Organization | Enterprise | Báo giá | Hạn mức theo hợp đồng, tùy chọn capacity riêng và SLA |
+
+Nguyên tắc đóng gói:
+
+- Free chỉ dành cho Personal Space; Organization Space luôn cần plan trả phí.
+- Subscription mua quyền truy cập và hạn mức; không quảng cáo compute/GPU không giới hạn. Công khai compute allowance và hiển thị chi phí trước khi chạy vượt allowance.
+- GPU chỉ được đưa vào cam kết của plan khi capacity vận hành ổn định. Dedicated GPU và phần compute vượt hạn mức phải được định giá riêng sau khi xác nhận cost/usage; không suy ra giá bán từ các con số giả thuyết trên.
+- Để giảm phạm vi MVP, giai đoạn đầu chỉ cần thử Personal Free/Plus/Pro và Organization Team/Growth. Power, Scale và Enterprise có thể để “coming soon” đến khi có dữ liệu usage và cost.
+- Trong MVP, các gói chỉ là mock subscription; không thu tiền thật. Không hiển thị các quota mô tả trên như entitlement đã triển khai cho đến khi quota nguồn đáng tin cậy được đo và enforce.
+
 ### Turnstile tùy chọn theo môi trường/luồng
 
 - Mặc định tắt ở local/dev để signup và test flow không bị chặn. Có thể bật riêng cho đăng ký và mock checkout bằng config, ví dụ `TURNSTILE_REGISTER_ENABLED` và `TURNSTILE_CHECKOUT_ENABLED`.
