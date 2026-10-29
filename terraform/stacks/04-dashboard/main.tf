@@ -187,9 +187,10 @@ resource "kubectl_manifest" "bff_secret" {
     }
     type = "Opaque"
     stringData = {
-      BFF_SESSION_SECRET = random_password.bff_session_secret.result
-      HUB_API_TOKEN      = data.terraform_remote_state.hub_app.outputs.bff_api_token
-      USAGE_DATABASE_URL = local.dashboard_usage_db_url
+      BFF_SESSION_SECRET   = random_password.bff_session_secret.result
+      HUB_API_TOKEN        = data.terraform_remote_state.hub_app.outputs.bff_api_token
+      USAGE_DATABASE_URL   = local.dashboard_usage_db_url
+      TURNSTILE_SECRET_KEY = var.turnstile_secret_key
     }
   })
 
@@ -254,6 +255,8 @@ resource "kubectl_manifest" "bff_deployment" {
               { name = "RAM_QUOTA_GB", value = tostring(var.ram_quota_gb) },
               { name = "STORAGE_QUOTA_GB", value = tostring(var.storage_quota_gb) },
               { name = "GPU_QUOTA_HOURS", value = tostring(var.gpu_quota_hours) },
+              { name = "TURNSTILE_REGISTER_ENABLED", value = tostring(var.turnstile_register_enabled) },
+              { name = "TURNSTILE_CHECKOUT_ENABLED", value = tostring(var.turnstile_checkout_enabled) },
             ]
             envFrom = [{
               secretRef = { name = "bff-config" }

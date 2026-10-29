@@ -25,6 +25,8 @@ import {
   type UsageServer,
 } from "./usage.js";
 import { UsageStore } from "./usage-store.js";
+import { AppStore } from "./app-store.js";
+import { verifyTurnstile } from "./turnstile.js";
 import {
   CompactEncrypt,
   compactDecrypt,
@@ -57,6 +59,10 @@ const config = {
   ramQuotaGb: quotaEnv("RAM_QUOTA_GB"),
   storageQuotaGb: quotaEnv("STORAGE_QUOTA_GB"),
   gpuQuotaHours: quotaEnv("GPU_QUOTA_HOURS"),
+  appDatabaseUrl: process.env.USAGE_DATABASE_URL,
+  turnstileRegisterEnabled: process.env.TURNSTILE_REGISTER_ENABLED === "true",
+  turnstileCheckoutEnabled: process.env.TURNSTILE_CHECKOUT_ENABLED === "true",
+  turnstileSecret: process.env.TURNSTILE_SECRET_KEY,
 };
 
 type RuntimeConfig = typeof config & {
@@ -67,6 +73,10 @@ type RuntimeConfig = typeof config & {
   hubUrl: string;
   hubPublicUrl: string;
   hubApiToken: string;
+  appDatabaseUrl?: string;
+  turnstileRegisterEnabled: boolean;
+  turnstileCheckoutEnabled: boolean;
+  turnstileSecret?: string;
   cpuQuotaHours: number;
   ramQuotaGb: number;
   storageQuotaGb: number;
@@ -79,17 +89,21 @@ type Session = {
   email: string;
   username: string;
   expiresAt: number;
+  subject: string;
 };
 
 type AuthBody = {
   email?: string;
   password?: string;
+  turnstileToken?: string;
   currentPassword?: string;
   newPassword?: string;
 };
 
 type ConfirmBody = AuthBody & { code?: string };
 type ResetBody = AuthBody & { code?: string; confirmationCode?: string; newPassword?: string };
+type ProjectBody = { spaceId?: string; teamId?: string; name?: string };
+type SubscriptionBody = { spaceId?: string; plan?: string; turnstileToken?: string };
 
 type HubServer = {
   name?: string;
@@ -118,7 +132,9 @@ const cognito = new CognitoIdentityProviderClient({ region: config.region });
 const dynamodb = new DynamoDBClient({ region: config.region });
 const app = Fastify({ logger: true, bodyLimit: 64 * 1024 });
 const usageStore = process.env.USAGE_DATABASE_URL ? new UsageStore(process.env.USAGE_DATABASE_URL) : null;
+const appStore = process.env.USAGE_DATABASE_URL ? new AppStore(process.env.USAGE_DATABASE_URL) : null;
 let usageSchemaReady: Promise<void> | null = null;
+let appSchemaReady: Promise<void> | null = null;
 let jwks: JWTVerifyGetKey | undefined;
 
 function missingConfig(): string[] {
@@ -231,7 +247,8 @@ async function decryptSession(runtime: RuntimeConfig, value: string): Promise<Se
     typeof parsed.sessionId !== "string" ||
     typeof parsed.email !== "string" ||
     typeof parsed.username !== "string" ||
-    typeof parsed.expiresAt !== "number"
+    typeof parsed.expiresAt !== "number" ||
+    typeof parsed.subject !== "string"
   ) {
     throw new Error("Invalid session payload");
   }
@@ -302,6 +319,18 @@ async function verifyIdToken(runtime: RuntimeConfig, token: string): Promise<JWT
   return payload;
 }
 
+async function ensureAppBootstrap(session: Session): Promise<void> {
+  if (!appStore) return;
+  appSchemaReady ??= appStore.ensureSchema();
+  try {
+    await appSchemaReady;
+    await appStore.ensureUserBootstrap(session.subject, session.email);
+  } catch (error) {
+    appSchemaReady = null;
+    throw new Error("Application database unavailable", { cause: error });
+  }
+}
+
 async function sessionFromRequest(request: FastifyRequest, allowExpired = false): Promise<Session> {
   const runtime = runtimeConfig();
   const cookieValue = request.cookies[SESSION_COOKIE];
@@ -315,10 +344,19 @@ async function sessionFromRequest(request: FastifyRequest, allowExpired = false)
 }
 
 async function requireSession(request: FastifyRequest, reply: FastifyReply): Promise<Session | null> {
+  let session: Session;
   try {
-    return await sessionFromRequest(request);
+    session = await sessionFromRequest(request);
   } catch {
     reply.code(401).send({ error: "UNAUTHENTICATED", message: "Phiên đăng nhập đã hết hạn." });
+    return null;
+  }
+  try {
+    await ensureAppBootstrap(session);
+    return session;
+  } catch (error) {
+    request.log.error({ err: error }, "Application database bootstrap failed");
+    reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Dịch vụ ứng dụng tạm thời không khả dụng." });
     return null;
   }
 }
@@ -425,6 +463,8 @@ app.post<{ Body: AuthBody }>("/v1/auth/login", async (request, reply) => {
       return reply.code(409).send({ error: "AUTH_CHALLENGE_REQUIRED", message: "Tài khoản cần hoàn tất bước xác thực bổ sung." });
     }
     const idClaims = await verifyIdToken(runtime, result.AuthenticationResult.IdToken);
+    const subject = typeof idClaims.sub === "string" ? idClaims.sub : null;
+    if (!subject) throw new Error("Cognito ID token is missing sub");
     const sessionEmail = normalizeEmail(idClaims.email) ?? email;
     const session: Session = {
       sessionId: randomUUID(),
@@ -434,6 +474,7 @@ app.post<{ Body: AuthBody }>("/v1/auth/login", async (request, reply) => {
       accessToken: result.AuthenticationResult.AccessToken,
       email: sessionEmail,
       username: sessionEmail,
+      subject,
       expiresAt: Math.floor(Date.now() / 1000) + (result.AuthenticationResult.ExpiresIn ?? 3600),
     };
     const refreshToken = result.AuthenticationResult.RefreshToken;
@@ -483,6 +524,13 @@ app.post<{ Body: AuthBody }>("/v1/auth/register", async (request, reply) => {
   const email = normalizeEmail(request.body?.email);
   const password = requiredString(request.body?.password);
   if (!email || !password) return reply.code(400).send({ error: "INVALID_INPUT", message: "Email và mật khẩu là bắt buộc." });
+  const turnstile = await verifyTurnstile({
+    enabled: runtime.turnstileRegisterEnabled,
+    token: request.body?.turnstileToken,
+    secret: runtime.turnstileSecret,
+    remoteIp: request.ip,
+  });
+  if (!turnstile.ok) return reply.code(403).send({ error: "TURNSTILE_REQUIRED", message: "Vui lòng hoàn tất xác minh bảo mật rồi thử lại." });
   try {
     const result = await cognito.send(new SignUpCommand({
       ClientId: runtime.clientId,
@@ -595,11 +643,90 @@ app.post("/v1/auth/logout", async (request, reply) => {
   return { ok: true };
 });
 
+app.get<{ Querystring: { spaceId?: string } }>("/v1/projects", async (request, reply) => {
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Project storage is not configured." });
+  const spaceId = requiredString(request.query.spaceId) ?? `personal:${session.subject}`;
+  try {
+    return { spaceId, projects: await appStore.listProjects(session.subject, spaceId) };
+  } catch (error) {
+    request.log.error({ err: error }, "Project list failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Project storage is temporarily unavailable." });
+  }
+});
+
+app.post<{ Body: SubscriptionBody }>("/v1/subscriptions/mock", async (request, reply) => {
+  if (!requireCsrf(request, reply)) return;
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Subscription storage is not configured." });
+  const spaceId = requiredString(request.body?.spaceId) ?? `personal:${session.subject}`;
+  const plan = requiredString(request.body?.plan);
+  if (!plan) return reply.code(400).send({ error: "INVALID_INPUT", message: "Subscription plan is required." });
+  const turnstile = await verifyTurnstile({
+    enabled: runtimeConfig().turnstileCheckoutEnabled,
+    token: request.body?.turnstileToken,
+    secret: runtimeConfig().turnstileSecret,
+    remoteIp: request.ip,
+  });
+  if (!turnstile.ok) return reply.code(403).send({ error: "TURNSTILE_REQUIRED", message: "Vui lòng hoàn tất xác minh bảo mật rồi thử lại." });
+  try {
+    return { subscription: await appStore.activateMockSubscription(session.subject, spaceId, plan) };
+  } catch (error) {
+    if (error instanceof Error && error.message === "Subscription access denied") {
+      return reply.code(403).send({ error: "FORBIDDEN", message: "Bạn không có quyền cập nhật subscription của Space này." });
+    }
+    request.log.error({ err: error }, "Mock subscription activation failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Subscription storage is temporarily unavailable." });
+  }
+});
+
+app.post<{ Body: ProjectBody }>("/v1/projects", async (request, reply) => {
+  if (!requireCsrf(request, reply)) return;
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Project storage is not configured." });
+  const spaceId = requiredString(request.body?.spaceId) ?? `personal:${session.subject}`;
+  const teamId = requiredString(request.body?.teamId) ?? `personal-team:${session.subject}`;
+  const name = requiredString(request.body?.name);
+  if (!name) return reply.code(400).send({ error: "INVALID_INPUT", message: "Project name is required." });
+  try {
+    return reply.code(201).send({ project: await appStore.createProject(session.subject, spaceId, teamId, name) });
+  } catch (error) {
+    if (error instanceof Error && error.message === "Project team access denied") {
+      return reply.code(403).send({ error: "FORBIDDEN", message: "Bạn không có quyền tạo Project trong Space này." });
+    }
+    request.log.error({ err: error }, "Project creation failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Project storage is temporarily unavailable." });
+  }
+});
+
 app.get("/v1/sandboxes", async (request, reply) => {
   const session = await requireSession(request, reply);
   if (!session) return;
   try {
     const runtime = runtimeConfig();
+    if (appStore) {
+      const user = await hubRequest<HubUser>(runtime, "GET", `/hub/api/users/${usernamePath(session.username)}`).catch((error) => {
+        if (hubStatus(error) === 404) return { servers: {} };
+        throw error;
+      });
+      const sandboxes = [];
+      const names = (Object.entries(user.servers ?? {}) as Array<[string, HubServer]>).map(([key, server]) => server.name || key || "default");
+      await appStore.importSandboxMappings(session.subject, session.email, names);
+      for (const [key, server] of Object.entries(user.servers ?? {}) as Array<[string, HubServer]>) {
+        const name = server.name || key || "default";
+        if (!(await appStore.authorizeSandbox(session.subject, session.email, name, "read"))) continue;
+        sandboxes.push({
+          name,
+          state: server.state === "failed" ? "failed" : server.ready ? "running" : server.pending ? "pending" : "stopped",
+          url: server.ready && /^(default|[a-z0-9][a-z0-9-]{0,62})$/i.test(name) ? sandboxUrl(runtime.hubPublicUrl, session.username, name) : null,
+          lastActivity: server.last_activity ?? null,
+        });
+      }
+      return { user: { email: session.email }, sandboxes };
+    }
     const user = await hubRequest<HubUser>(runtime, "GET", `/hub/api/users/${usernamePath(session.username)}`);
     const servers = Object.entries(user.servers ?? {}).map(([key, server]) => ({
       name: server.name || key || "default",
@@ -689,15 +816,23 @@ app.post<{ Params: { name: string } }>("/v1/sandboxes/:name/start", async (reque
   let enforcement: "enforced" | "degraded" = "enforced";
   try {
     const runtime = runtimeConfig();
+    let user: HubUser;
     try {
-      let user: HubUser;
-      try {
-        user = await hubRequest<HubUser>(runtime, "GET", `/hub/api/users/${usernamePath(session.username)}`);
-      } catch (error) {
-        if (hubStatus(error) !== 404) throw error;
-        user = { servers: {} };
+      user = await hubRequest<HubUser>(runtime, "GET", `/hub/api/users/${usernamePath(session.username)}`);
+    } catch (error) {
+      if (hubStatus(error) !== 404) throw error;
+      user = { servers: {} };
+    }
+    const currentEntries = Object.entries(user.servers ?? {}) as Array<[string, HubServer]>;
+    if (appStore && !(await appStore.authorizeSandbox(session.subject, session.email, request.params.name, "operate"))) {
+      const alreadyExists = currentEntries.some(([key, server]) => (server.name || key || "default") === request.params.name);
+      if (alreadyExists) {
+        return reply.code(403).send({ error: "FORBIDDEN", message: "Bạn không có quyền vận hành Sandbox này." });
       }
-      const currentServers = Object.entries(user.servers ?? {}).map(([key, server]) => usageServer(key, server));
+      await appStore.ensureSandboxProject(session.subject, session.email, request.params.name);
+    }
+    const currentServers = currentEntries.map(([key, server]) => usageServer(key, server));
+    try {
       const quota = checkRamQuota(currentServers, runtime.ramQuotaGb);
       if (!quota.allowed) {
         reply.code(429).send({
@@ -736,6 +871,9 @@ app.delete<{ Params: { name: string } }>("/v1/sandboxes/:name", async (request, 
   if (!session) return;
   try {
     const runtime = runtimeConfig();
+    if (appStore && !(await appStore.authorizeSandbox(session.subject, session.email, request.params.name, "operate"))) {
+      return reply.code(403).send({ error: "FORBIDDEN", message: "Bạn không có quyền vận hành Sandbox này." });
+    }
     await hubRequest(runtime, "DELETE", serverPath(session.username, request.params.name));
     return { ok: true, name: request.params.name, state: "stopped" };
   } catch (error) {
