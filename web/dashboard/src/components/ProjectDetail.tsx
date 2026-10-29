@@ -50,7 +50,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
       <div className="workspace-detail-back"><Link href="/projects">← {t("backToProjects")}</Link></div>
       <header className="workspace-page-heading">
         <div>
-          <span className="workspace-section-index">PROJECT / {project.id}</span>
+          <span className="workspace-section-index">{t("projectSection")} / {project.id}</span>
           <h1>{project.name}</h1>
           <p>{t("projectOverviewBody")}</p>
         </div>
@@ -59,7 +59,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
 
       <section className="workspace-detail-grid" aria-label={t("projectOverview")}>
         <Card className="workspace-detail-overview">
-          <span className="workspace-section-index">01 / OVERVIEW</span>
+          <span className="workspace-section-index">{t("overviewSection")}</span>
           <h2>{t("projectOverview")}</h2>
           <p>{t("projectOverviewBody")}</p>
           <dl className="workspace-detail-facts">
@@ -70,14 +70,14 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
         </Card>
         <div className="flex flex-col gap-4">
           <Card className="workspace-detail-section">
-            <span className="workspace-section-index">02 / RUNTIME</span>
+            <span className="workspace-section-index">{t("runtimeSection")}</span>
             <h2>{t("runtimeTitle")}</h2>
             <p>{t("runtimeBody")}</p>
             <p className="workspace-status workspace-status-muted"><span className="workspace-status-dot" aria-hidden="true" />{t("runtimeUnavailable")}</p>
             <Link href="/sandboxes"><Button variant="primary" size="sm">{t("openRuntimes")}</Button></Link>
           </Card>
           <Card className="workspace-detail-section">
-            <span className="workspace-section-index">03 / ARTIFACTS</span>
+            <span className="workspace-section-index">{t("artifactsSection")}</span>
             <h2>{t("artifactsTitle")}</h2>
             <p>{t("artifactsBody")}</p>
             <span className="workspace-coming-soon">{t("artifactsComingSoon")}</span>
@@ -89,9 +89,11 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
 }
 
 function DetailState({ title, body, action, href, onAction }: { title: string; body: string; action: string; href?: string; onAction?: () => void }) {
+  const t = useTranslations("workspace");
+
   return (
     <section className="workspace-state-panel" aria-live="polite">
-      <span className="workspace-section-index">PROJECT / STATUS</span>
+      <span className="workspace-section-index">{t("projectSection")} / {t("statusSection")}</span>
       <h1>{title}</h1>
       <p>{body}</p>
       {href ? <Link href={href}><Button variant="secondary">{action}</Button></Link> : <Button variant="secondary" onPress={onAction}>{action}</Button>}

@@ -23,6 +23,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const tNav = useTranslations("nav");
   const tWorkspace = useTranslations("workspace");
+  const tCommon = useTranslations("common");
   const [menuOpen, setMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const items = getWorkspaceNavigation(pathname);
@@ -67,7 +68,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <span className="workspace-brand-mark" aria-hidden="true">M</span>
           <span className="workspace-brand-copy">
             <strong>ML Box</strong>
-            <span>WORKSPACE</span>
+            <span>{tWorkspace("workspaceLabel")}</span>
           </span>
         </Link>
         <SpaceContext />
@@ -94,7 +95,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <div className="workspace-mobile-bar">
             <Link href="/" className="workspace-brand workspace-brand-mobile" aria-label={tWorkspace("homeLink")}>
               <span className="workspace-brand-mark" aria-hidden="true">M</span>
-              <span className="workspace-brand-copy"><strong>ML Box</strong><span>WORKSPACE</span></span>
+              <span className="workspace-brand-copy"><strong>{tCommon("appName")}</strong><span>{tWorkspace("workspaceLabel")}</span></span>
             </Link>
             <Button
               type="button"

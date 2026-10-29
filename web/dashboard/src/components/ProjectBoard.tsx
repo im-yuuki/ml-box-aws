@@ -91,7 +91,7 @@ export default function ProjectBoard() {
   if (loadState === "unauthenticated") {
     return (
       <section className="workspace-state-panel" aria-labelledby="projects-auth-title">
-        <span className="workspace-section-index">01 / AUTH</span>
+        <span className="workspace-section-index">{t("authSection")}</span>
         <h2 id="projects-auth-title">{t("unauthenticatedTitle")}</h2>
         <p>{t("unauthenticatedBody")}</p>
         <Link href="/login"><Button variant="primary">{t("signIn")}</Button></Link>
@@ -111,7 +111,7 @@ export default function ProjectBoard() {
     <div className="flex flex-col gap-8">
       <header className="workspace-page-heading">
         <div>
-          <span className="workspace-section-index">01 / PROJECTS</span>
+          <span className="workspace-section-index">{t("projectsSection")}</span>
           <h1>{t("projectsTitle")}</h1>
           <p>{t("projectsSubtitle")}</p>
         </div>
@@ -134,7 +134,7 @@ export default function ProjectBoard() {
 
       {projects.length === 0 ? (
         <section className="workspace-state-panel" aria-labelledby="projects-empty-title">
-          <span className="workspace-section-index">02 / WORKSPACE</span>
+          <span className="workspace-section-index">{t("workspaceSection")}</span>
           <h2 id="projects-empty-title">{t("projectsEmptyTitle")}</h2>
           <p>{t("projectsEmptyBody")}</p>
         </section>
@@ -153,9 +153,11 @@ export default function ProjectBoard() {
 }
 
 function StatePanel({ title, body, action, onAction }: { title: string; body: string; action: string; onAction: () => void }) {
+  const t = useTranslations("workspace");
+
   return (
     <section className="workspace-state-panel" aria-live="polite">
-      <span className="workspace-section-index">01 / STATUS</span>
+      <span className="workspace-section-index">{t("statusSection")}</span>
       <h2>{title}</h2>
       <p>{body}</p>
       <Button variant="secondary" onPress={onAction}>{action}</Button>
