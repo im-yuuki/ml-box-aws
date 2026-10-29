@@ -4,7 +4,7 @@
 
 - Phase 1: implemented locally; Terraform/deployment pending
 - Phase 2: implemented locally; deployment/production verification pending
-- Phase 3: implemented locally in compatibility mode; migration dry-run, backup, deployment, and production verification pending
+- Phase 3: implemented locally in compatibility mode; read-only migration dry-run command available; backup, deployment, and production verification pending
 - Phase 4: planned
 
 ## Architecture decisions

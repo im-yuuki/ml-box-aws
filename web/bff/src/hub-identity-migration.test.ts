@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  buildHubIdentityMigrationReport,
   planHubIdentityMigration,
   rollbackHubIdentity,
 } from "./hub-identity-migration.js";
@@ -79,4 +80,17 @@ test("Hub identity rollback restores the previous username and legacy status wit
 test("Hub identity rollback leaves an unmigrated mapping unchanged", () => {
   const mapped = identity({ hubUsername: "cognito-sub-a", status: "mapped" });
   assert.deepEqual(rollbackHubIdentity(mapped), mapped);
+});
+
+test("Hub identity migration report summarizes dry-run outcomes without writes", () => {
+  const report = buildHubIdentityMigrationReport([
+    identity(),
+    identity({ userId: "sub-b", hubUsername: "cognito-sub-b", legacyEmail: "bob@example.com", status: "mapped" }),
+    identity({ userId: "sub-c", hubUsername: "shared-name", legacyEmail: "carol@example.com" }),
+    identity({ userId: "sub-d", hubUsername: "shared-name", legacyEmail: "dan@example.com" }),
+  ]);
+
+  assert.deepEqual(report.summary, { total: 4, ready: 1, unchanged: 1, conflict: 2 });
+  assert.equal(report.canApply, false);
+  assert.deepEqual(report.conflicts, ["sub-c", "sub-d"]);
 });

@@ -9,6 +9,18 @@ export type HubIdentityMigrationEntry = {
   reason?: string;
 };
 
+export type HubIdentityMigrationReport = {
+  entries: HubIdentityMigrationEntry[];
+  summary: {
+    total: number;
+    ready: number;
+    unchanged: number;
+    conflict: number;
+  };
+  conflicts: string[];
+  canApply: boolean;
+};
+
 export function planHubIdentityMigration(entries: HubIdentity[]): HubIdentityMigrationEntry[] {
   const ordered = [...entries].sort((left, right) => left.userId.localeCompare(right.userId));
   const ownersByUsername = new Map<string, Set<string>>();
@@ -54,6 +66,16 @@ export function planHubIdentityMigration(entries: HubIdentity[]): HubIdentityMig
       reason: "legacy username can be migrated",
     };
   });
+}
+
+export function buildHubIdentityMigrationReport(entries: HubIdentity[]): HubIdentityMigrationReport {
+  const planned = planHubIdentityMigration(entries);
+  const summary = planned.reduce(
+    (counts, entry) => ({ ...counts, [entry.status]: counts[entry.status] + 1 }),
+    { total: planned.length, ready: 0, unchanged: 0, conflict: 0 },
+  );
+  const conflicts = planned.filter((entry) => entry.status === "conflict").map((entry) => entry.userId);
+  return { entries: planned, summary, conflicts, canApply: summary.conflict === 0 };
 }
 
 export function rollbackHubIdentity(mapping: HubIdentity): HubIdentity {

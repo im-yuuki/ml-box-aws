@@ -150,6 +150,32 @@ test("identity migration candidates are read without changing sandbox mappings",
   assert.equal(queries.some((sql) => sql.includes("mlbox_sandboxes")), false);
 });
 
+test("identity migration dry-run reads mappings and performs no writes", async () => {
+  const queries: string[] = [];
+  const store = new AppStore({
+    query: async (sql: string) => {
+      queries.push(sql);
+      if (sql.includes("FROM mlbox_hub_identities")) {
+        return { rows: [
+          { user_id: "sub-a", hub_username: "alice@example.com", legacy_email: "alice@example.com", previous_hub_username: null, status: "legacy" },
+          { user_id: "sub-b", hub_username: "cognito-sub-b", legacy_email: "bob@example.com", previous_hub_username: null, status: "mapped" },
+        ] };
+      }
+      return { rows: [] };
+    },
+    connect: async () => { throw new Error("connect is not expected for this test"); },
+    end: async () => undefined,
+  });
+
+  const report = await store.planHubIdentityMigration();
+
+  assert.equal(report.summary.total, 2);
+  assert.equal(report.summary.ready, 1);
+  assert.equal(report.summary.unchanged, 1);
+  assert.equal(report.canApply, true);
+  assert.equal(queries.every((sql) => !/^\\s*(INSERT|UPDATE|DELETE)/i.test(sql)), true);
+});
+
 test("bootstrap creates stable personal space and default team for a Cognito subject", async () => {
   const queries: string[] = [];
   const client = {

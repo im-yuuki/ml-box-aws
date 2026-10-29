@@ -114,7 +114,8 @@ Ký hiệu:
 - ✅ Email rename giữ nguyên Hub username; email chỉ là metadata/display; collision không overwrite và không provision.
 - ✅ Có additive `mlbox_hub_identities`, dry-run planner, conflict handling và rollback helper; sandbox ownership/Hub users không bị rename hoặc xóa.
 - ✅ Giữ JupyterHub OAuth `username_claim: email`; rollout hiện là BFF compatibility mode, chưa migrate Hub records production.
-- ☐ Backup database, chạy migration dry-run/review collisions, chuẩn bị rollback, rồi mới plan/apply production migration.
+- ✅ Có read-only migration dry-run command (`cd web/bff && npm run identity:dry-run`) trả report và chặn apply khi có collision.
+- ☐ Backup database, review report/collisions, chuẩn bị rollback, rồi mới plan/apply production migration.
 - ☐ Chạy integration/E2E verification sau migration; không bật mapping production trước khi các safeguard được hoàn tất.
 
 ### Phase 4 — Optional JupyterHub extension (chỉ khi cần)

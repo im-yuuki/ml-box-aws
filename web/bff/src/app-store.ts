@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { resolveProjectPermission, type ProjectPermission } from "./access.js";
 import type { HubIdentity } from "./hub-identity.js";
+import { buildHubIdentityMigrationReport, type HubIdentityMigrationReport } from "./hub-identity-migration.js";
 import {
   entitlementsForPlan,
   getMockPlan,
@@ -171,6 +172,10 @@ export class AppStore {
        FROM mlbox_hub_identities ORDER BY user_id`,
     );
     return result.rows.map(hubIdentityFromRow);
+  }
+
+  async planHubIdentityMigration(): Promise<HubIdentityMigrationReport> {
+    return buildHubIdentityMigrationReport(await this.listHubIdentityMappings());
   }
 
   async findHubIdentityByLegacyEmail(email: string): Promise<HubIdentity | null> {
