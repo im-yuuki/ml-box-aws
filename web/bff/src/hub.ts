@@ -6,6 +6,61 @@ export function sandboxPath(username: string, name: string): string {
   return `/hub/api/users/${encodeURIComponent(username)}/servers/${serverName}`;
 }
 
+export type HubRequest = (method: string, path: string, body?: unknown) => Promise<{ status: number }>;
+
+
+export type HubUserProvisioningResult = {
+  created: boolean;
+};
+
+export async function ensureHubUser(username: string, request: HubRequest): Promise<HubUserProvisioningResult> {
+  const userPath = `/hub/api/users/${encodeURIComponent(username)}`;
+  try {
+    await request("GET", userPath, undefined);
+    return { created: false };
+  } catch (error) {
+    const status = typeof error === "object" && error !== null && "status" in error
+      ? Number((error as { status?: unknown }).status)
+      : null;
+    if (status !== 404) throw error;
+  }
+
+  try {
+    await request("POST", userPath, {});
+    return { created: true };
+  } catch (error) {
+    const status = typeof error === "object" && error !== null && "status" in error
+      ? Number((error as { status?: unknown }).status)
+      : null;
+    if (status === 409) return { created: false };
+    throw error;
+  }
+}
+
+export type HubStartResult = { status: number };
+export type HubStartFlow = {
+  userExists: boolean;
+  ensureUser: () => Promise<void>;
+  start: () => Promise<HubStartResult>;
+};
+
+function errorStatus(error: unknown): number | null {
+  if (typeof error !== "object" || error === null || !("status" in error)) return null;
+  const status = Number((error as { status?: unknown }).status);
+  return Number.isFinite(status) ? status : null;
+}
+
+export async function startHubSandbox(flow: HubStartFlow): Promise<HubStartResult> {
+  const userWasMissing = !flow.userExists;
+  if (userWasMissing) await flow.ensureUser();
+  try {
+    return await flow.start();
+  } catch (error) {
+    if (errorStatus(error) !== 404 || !userWasMissing) throw error;
+    return flow.start();
+  }
+}
+
 function publicHubOrigin(publicBase: string): string {
   const base = new URL(publicBase);
   if (!["https:", "http:"].includes(base.protocol) || base.username || base.password) {

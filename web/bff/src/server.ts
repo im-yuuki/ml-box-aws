@@ -16,7 +16,7 @@ import cookie from "@fastify/cookie";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { createHash, createSecretKey, randomBytes, randomUUID } from "node:crypto";
 import { validCsrfPair } from "./csrf.js";
-import { hubActivationState, hubActivationUrl, hubFailure, sandboxPath, sandboxUrl, type HubError } from "./hub.js";
+import { ensureHubUser, hubActivationState, hubActivationUrl, hubFailure, sandboxPath, sandboxUrl, startHubSandbox, type HubError } from "./hub.js";
 import {
   buildUsageResponse,
   checkRamQuota,
@@ -416,6 +416,14 @@ async function hubRequest<T>(runtime: RuntimeConfig, method: string, path: strin
     throw error;
   }
   return parsed as T;
+}
+
+async function ensureRuntimeHubUser(runtime: RuntimeConfig, username: string): Promise<boolean> {
+  const result = await ensureHubUser(username, async (method, path, body) => {
+    await hubRequest(runtime, method, path, body);
+    return { status: 200 };
+  });
+  return result.created;
 }
 
 function hubStatus(error: unknown): number | null {
@@ -831,8 +839,14 @@ app.get("/v1/sandboxes", async (request, reply) => {
   if (!session) return;
   const runtime = runtimeConfig();
   try {
+    let hubUserExists = true;
+    try {
+      await ensureRuntimeHubUser(runtime, session.username);
+    } catch (error) {
+      if (hubStatus(error) === 404) hubUserExists = false;
+      else throw error;
+    }
     if (appStore) {
-      let hubUserExists = true;
       const user = await hubRequest<HubUser>(runtime, "GET", `/hub/api/users/${usernamePath(session.username)}`).catch((error) => {
         if (hubStatus(error) === 404) {
           hubUserExists = false;
@@ -945,10 +959,12 @@ app.post<{ Params: { name: string } }>("/v1/sandboxes/:name/start", async (reque
   const runtime = runtimeConfig();
   try {
     let user: HubUser;
+    let hubUserExists = true;
     try {
       user = await hubRequest<HubUser>(runtime, "GET", `/hub/api/users/${usernamePath(session.username)}`);
     } catch (error) {
       if (hubStatus(error) !== 404) throw error;
+      hubUserExists = false;
       user = { servers: {} };
     }
     const currentEntries = Object.entries(user.servers ?? {}) as Array<[string, HubServer]>;
@@ -981,7 +997,14 @@ app.post<{ Params: { name: string } }>("/v1/sandboxes/:name/start", async (reque
       enforcement = "degraded";
       request.log.warn({ err: error instanceof Error ? error.name : "hub_error", username: session.username }, "RAM quota check unavailable; allowing sandbox start");
     }
-    await hubRequest(runtime, "POST", serverPath(session.username, request.params.name), {});
+    await startHubSandbox({
+      userExists: hubUserExists,
+      ensureUser: async () => {
+        await ensureRuntimeHubUser(runtime, session.username);
+        hubUserExists = true;
+      },
+      start: () => hubRequest(runtime, "POST", serverPath(session.username, request.params.name), {}).then(() => ({ status: 202 })),
+    });
     return { ok: true, name: request.params.name, state: "pending", enforcement };
   } catch (error) {
     request.log.error({ err: error }, "JupyterHub sandbox start failed");

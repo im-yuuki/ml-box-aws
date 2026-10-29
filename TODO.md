@@ -88,6 +88,37 @@ Ký hiệu:
 - ☐ Bật GPU profile trong `03-hub-app` rồi kiểm tra scheduling/device visibility.
 - ☐ Test dedicated/shared GPU sandbox và giới hạn GPU-hours.
 
+## Hub Provisioning Adapter
+
+### Phase 1 — Provisioning trong BFF (đã triển khai local, chờ deploy)
+
+- ✅ Thêm `ensureHubUser` idempotent qua JupyterHub REST API, username chỉ lấy từ authenticated session.
+- ✅ Eager provision khi load `/sandboxes`; lazy provision + retry start tối đa một lần.
+- ✅ Giữ authorization app-owned trước khi provision; không tạo Hub user cho request trái quyền.
+- ✅ Bổ sung service role scopes tối thiểu `admin:users`, `servers`, `admin:servers`.
+- ✅ Giữ Hub activation card làm fallback cho lỗi quyền/token/mapping/Hub.
+- ✅ Test existing/new user, race/idempotency, retry-once, provisioning failure và secret containment.
+- ☐ Apply stack `03-hub-app`, deploy BFF image và verify production E2E sau khi AWS credentials hợp lệ.
+
+### Phase 2 — Sandbox lifecycle (kế hoạch tiếp theo)
+
+- ☐ Phân biệt `starting`, `ready`, `stopped`, `failed`.
+- ☐ Xử lý start response 201/202 và polling progress với timeout/backoff giới hạn.
+- ☐ Retry có kiểm soát cho lỗi transient; audit provisioning/start/pending/ready/failed/retry.
+- ☐ Cập nhật dashboard theo lifecycle state và action tương ứng.
+
+### Phase 3 — Stable identity mapping (kế hoạch sau đó)
+
+- ☐ Thiết kế migration email mapping hiện tại sang Cognito `sub` làm Hub username ổn định.
+- ☐ Xử lý migration, collision, email rename và dùng email chỉ làm metadata/display.
+- ☐ Không bật mapping mới production trước khi có backup/rollback và integration test.
+
+### Phase 4 — Optional JupyterHub extension (chỉ khi cần)
+
+- ☐ Đánh giá REST/service role sau Phase 1–2 cho profile, entitlement/quota, metadata và lifecycle events.
+- ☐ Chỉ xây extension/service hook nếu REST không đáp ứng; không fork JupyterHub core.
+- ☐ Chỉ đánh giá orchestrator thay thế khi chứng minh JupyterHub là giới hạn thực tế.
+
 ## Security, reliability và vận hành
 
 - ✅ Có deployment runbook tại `docs/DEPLOYMENT.md`.
