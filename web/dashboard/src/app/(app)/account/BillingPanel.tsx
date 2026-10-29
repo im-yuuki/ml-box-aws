@@ -160,6 +160,17 @@ export default function BillingPanel() {
   const statusLabel = (status: string) => t(`billingStatus${status.charAt(0).toUpperCase()}${status.slice(1)}` as "billingStatusActive");
   const methodLabel = (method: PaymentMethod) => t(`billingMethod${method === "mock_card" ? "Card" : method === "mock_bank_transfer" ? "BankTransfer" : "Invoice"}` as "billingMethodCard");
   const outcomeLabel = (value: PaymentOutcome) => t(`billingOutcome${value.charAt(0).toUpperCase()}${value.slice(1)}` as "billingOutcomeSucceeded");
+  const quotaLabel = (resource: string) => {
+    const labels: Record<string, "billingQuotaProjects" | "billingQuotaStorageGb" | "billingQuotaCpuHours" | "billingQuotaGpuHours" | "billingQuotaMembers"> = {
+      projects: "billingQuotaProjects",
+      storage_gb: "billingQuotaStorageGb",
+      cpu_hours: "billingQuotaCpuHours",
+      gpu_hours: "billingQuotaGpuHours",
+      members: "billingQuotaMembers",
+    };
+    const key = labels[resource];
+    return key ? t(key) : resource;
+  };
 
   if (loading) {
     return <Card className="p-5"><p className="text-sm" style={{ color: "var(--muted)" }}>{t("billingLoading")}</p></Card>;
@@ -187,7 +198,7 @@ export default function BillingPanel() {
           {details?.subscription ? <span className="rounded-full border px-3 py-1 text-xs" style={{ borderColor: "var(--border)" }}>{statusLabel(details.subscription.status)}</span> : null}
         </div>
         {details?.subscription && ["active", "pending", "past_due"].includes(details.subscription.status) ? <Button size="sm" variant="secondary" onPress={() => void cancelSubscription()} isPending={pending} isDisabled={pending}>{t("cancelSubscription")}</Button> : null}
-        {details?.entitlements.length ? <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{details.entitlements.map((entitlement) => <div className="rounded-md border p-3" style={{ borderColor: "var(--border)" }} key={entitlement.resource}><p className="text-xs uppercase tracking-wide" style={{ color: "var(--muted)" }}>{t(`billingQuota${entitlement.resource}` as "billingQuotaProjects")}</p><p className="text-sm font-medium">{formatQuota(entitlement.limitValue, entitlement.resource === "storage_gb" ? t("billingGb") : entitlement.resource === "members" ? t("billingMembers") : t("billingHours"))}</p></div>)}</div> : null}
+        {details?.entitlements.length ? <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{details.entitlements.map((entitlement) => <div className="rounded-md border p-3" style={{ borderColor: "var(--border)" }} key={entitlement.resource}><p className="text-xs uppercase tracking-wide" style={{ color: "var(--muted)" }}>{quotaLabel(entitlement.resource)}</p><p className="text-sm font-medium">{formatQuota(entitlement.limitValue, entitlement.resource === "storage_gb" ? t("billingGb") : entitlement.resource === "members" ? t("billingMembers") : t("billingHours"))}</p></div>)}</div> : null}
       </Card>
 
       <Card className="flex flex-col gap-4 p-5">
