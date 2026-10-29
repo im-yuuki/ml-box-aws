@@ -136,25 +136,17 @@ test("sandbox authorization does not invent a mapping when no project exists", a
   assert.equal(queries.some((sql) => sql.includes("INSERT INTO mlbox_projects")), false);
 });
 
-test("activating a mock subscription uses the authenticated personal Space", async () => {
-  const queries: Array<{ sql: string; values?: unknown[] }> = [];
+test("compatibility mock activation rejects plans outside the demo catalog", async () => {
   const store = new AppStore({
-    query: async (sql: string, values?: unknown[]) => {
-      queries.push({ sql, values });
-      if (sql.includes("INSERT INTO mlbox_space_subscriptions")) {
-        return { rows: [{ space_id: "personal:cognito-sub", plan: "pro", status: "active", provider: "mock" }] };
-      }
-      return { rows: [] };
-    },
+    query: async () => ({ rows: [] }),
     connect: async () => { throw new Error("connect is not expected for this test"); },
     end: async () => undefined,
   });
 
-  const subscription = await store.activateMockSubscription("cognito-sub", "personal:cognito-sub", "pro");
-
-  assert.deepEqual(subscription, { spaceId: "personal:cognito-sub", plan: "pro", status: "active", provider: "mock" });
-  assert.deepEqual(queries[0]?.values, ["cognito-sub", "personal:cognito-sub", "pro"]);
-  assert.equal(queries.some(({ sql }) => sql.includes("mlbox_audit_events")), true);
+  await assert.rejects(
+    store.activateMockSubscription("cognito-sub", "personal:cognito-sub", "pro"),
+    /Invalid subscription plan/,
+  );
 });
 
 test("creating a project uses the authenticated user and selected team scope", async () => {

@@ -2,6 +2,15 @@ import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { resolveProjectPermission, type ProjectPermission } from "./access.js";
+import {
+  entitlementsForPlan,
+  getMockPlan,
+  type MockPaymentMethod,
+  type MockPaymentOutcome,
+  type MockPlan,
+  type SpaceType,
+  type SubscriptionStatus,
+} from "./mock-billing.js";
 
 type AppQueryResult = { rows: Array<Record<string, unknown>> };
 
@@ -33,8 +42,56 @@ export type ProjectRecord = {
 export type SubscriptionRecord = {
   spaceId: string;
   plan: string;
-  status: string;
+  status: SubscriptionStatus | string;
   provider: string;
+  paymentId?: string | null;
+  startedAt?: string | null;
+  currentPeriodEnd?: string | null;
+};
+
+export type EntitlementRecord = {
+  resource: string;
+  limitValue: number | null;
+  sourcePlan: string;
+};
+
+export type PaymentRecord = {
+  id: string;
+  spaceId: string;
+  planId: string;
+  subscriptionId: string | null;
+  amountCents: number;
+  currency: string;
+  paymentMethod: MockPaymentMethod;
+  status: MockPaymentOutcome;
+  provider: string;
+  failureCode: string | null;
+  idempotencyKey: string;
+  createdBy: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type SubscriptionDetails = {
+  spaceId: string;
+  spaceType: SpaceType;
+  subscription: SubscriptionRecord | null;
+  entitlements: EntitlementRecord[];
+};
+
+export type MockCheckoutInput = {
+  spaceId: string;
+  planId: string;
+  amountCents: number;
+  paymentMethod: MockPaymentMethod;
+  outcome: MockPaymentOutcome;
+  idempotencyKey: string;
+};
+
+export type MockCheckoutResult = {
+  payment: PaymentRecord | null;
+  subscription: SubscriptionRecord;
+  entitlements: EntitlementRecord[];
 };
 
 export class AppStore {
@@ -118,10 +175,41 @@ export class AppStore {
       CREATE TABLE IF NOT EXISTS mlbox_space_subscriptions (
         space_id text PRIMARY KEY REFERENCES mlbox_spaces(id) ON DELETE CASCADE,
         plan text NOT NULL,
-        status text NOT NULL CHECK (status IN ('active', 'inactive')),
+        status text NOT NULL CHECK (status IN ('inactive', 'pending', 'active', 'past_due', 'cancelled')),
         provider text NOT NULL,
+        payment_id text,
         started_at timestamptz NOT NULL DEFAULT now(),
+        current_period_end timestamptz,
         updated_at timestamptz NOT NULL DEFAULT now()
+      );
+      ALTER TABLE mlbox_space_subscriptions ADD COLUMN IF NOT EXISTS payment_id text;
+      ALTER TABLE mlbox_space_subscriptions ADD COLUMN IF NOT EXISTS current_period_end timestamptz;
+      ALTER TABLE mlbox_space_subscriptions DROP CONSTRAINT IF EXISTS mlbox_space_subscriptions_status_check;
+      ALTER TABLE mlbox_space_subscriptions ADD CONSTRAINT mlbox_space_subscriptions_status_check CHECK (status IN ('inactive', 'pending', 'active', 'past_due', 'cancelled'));
+      CREATE TABLE IF NOT EXISTS mlbox_payment_transactions (
+        id text PRIMARY KEY,
+        space_id text NOT NULL REFERENCES mlbox_spaces(id) ON DELETE CASCADE,
+        plan_id text NOT NULL,
+        subscription_id text,
+        amount_cents integer NOT NULL CHECK (amount_cents >= 0),
+        currency text NOT NULL DEFAULT 'USD',
+        payment_method text NOT NULL CHECK (payment_method IN ('mock_card', 'mock_bank_transfer', 'mock_invoice')),
+        status text NOT NULL CHECK (status IN ('pending', 'succeeded', 'failed', 'cancelled')),
+        provider text NOT NULL DEFAULT 'mock',
+        failure_code text,
+        idempotency_key text NOT NULL,
+        created_by text NOT NULL REFERENCES mlbox_users(id) ON DELETE RESTRICT,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        UNIQUE (space_id, idempotency_key)
+      );
+      CREATE TABLE IF NOT EXISTS mlbox_space_entitlements (
+        space_id text NOT NULL REFERENCES mlbox_spaces(id) ON DELETE CASCADE,
+        resource text NOT NULL,
+        limit_value numeric,
+        source_plan text NOT NULL,
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        PRIMARY KEY (space_id, resource)
       );
       CREATE TABLE IF NOT EXISTS mlbox_audit_events (
         id text PRIMARY KEY,
@@ -135,6 +223,7 @@ export class AppStore {
       CREATE INDEX IF NOT EXISTS mlbox_space_memberships_user_idx ON mlbox_space_memberships(user_id, status);
       CREATE INDEX IF NOT EXISTS mlbox_projects_team_idx ON mlbox_projects(team_id);
       CREATE INDEX IF NOT EXISTS mlbox_project_access_user_idx ON mlbox_project_access(user_id);
+      CREATE INDEX IF NOT EXISTS mlbox_payment_transactions_space_idx ON mlbox_payment_transactions(space_id, created_at DESC);
     `);
   }
 
@@ -289,25 +378,223 @@ export class AppStore {
     return action === "read" ? permission.canRead : permission.canOperate;
   }
 
-  async activateMockSubscription(userId: string, spaceId: string, plan: string): Promise<SubscriptionRecord> {
+  async getSpaceType(userId: string, spaceId: string): Promise<SpaceType | null> {
     const result = await this.pool.query(
-      `INSERT INTO mlbox_space_subscriptions (space_id, plan, status, provider)
-       SELECT sm.space_id, $3, 'active', 'mock'
+      `SELECT s.type
+       FROM mlbox_spaces s
+       JOIN mlbox_space_memberships sm ON sm.space_id = s.id
+       WHERE s.id = $2 AND sm.user_id = $1 AND sm.status = 'active'`,
+      [userId, spaceId],
+    );
+    const type = result.rows[0]?.type;
+    return type === "personal" || type === "organization" ? type : null;
+  }
+
+  async getSubscriptionDetails(userId: string, spaceId: string): Promise<SubscriptionDetails | null> {
+    const space = await this.pool.query(
+      `SELECT s.id, s.type
+       FROM mlbox_spaces s
+       JOIN mlbox_space_memberships sm ON sm.space_id = s.id AND sm.user_id = $1 AND sm.status = 'active'
+       WHERE s.id = $2`,
+      [userId, spaceId],
+    );
+    const spaceRow = space.rows[0];
+    if (!spaceRow || !["personal", "organization"].includes(String(spaceRow.type))) return null;
+    const subscriptionResult = await this.pool.query(
+      `SELECT space_id, plan, status, provider, payment_id, started_at, current_period_end
+       FROM mlbox_space_subscriptions WHERE space_id = $1`,
+      [spaceId],
+    );
+    const entitlementResult = await this.pool.query(
+      `SELECT resource, limit_value, source_plan FROM mlbox_space_entitlements WHERE space_id = $1 ORDER BY resource`,
+      [spaceId],
+    );
+    const row = subscriptionResult.rows[0];
+    return {
+      spaceId,
+      spaceType: String(spaceRow.type) as SpaceType,
+      subscription: row ? this.subscriptionRecord(row) : null,
+      entitlements: entitlementResult.rows.map((entitlement) => ({ resource: String(entitlement.resource), limitValue: entitlement.limit_value == null ? null : Number(entitlement.limit_value), sourcePlan: String(entitlement.source_plan) })),
+    };
+  }
+
+  async listPayments(userId: string, spaceId: string): Promise<PaymentRecord[]> {
+    const result = await this.pool.query(
+      `SELECT p.id, p.space_id, p.plan_id, p.subscription_id, p.amount_cents, p.currency, p.payment_method, p.status, p.provider, p.failure_code, p.idempotency_key, p.created_by, p.created_at, p.updated_at
+       FROM mlbox_payment_transactions p
+       JOIN mlbox_space_memberships sm ON sm.space_id = p.space_id AND sm.user_id = $1 AND sm.status = 'active'
+       WHERE p.space_id = $2 ORDER BY p.created_at DESC`,
+      [userId, spaceId],
+    );
+    return result.rows.map((row) => this.paymentRecord(row));
+  }
+
+  async activateFreeSubscription(userId: string, spaceId: string, plan: MockPlan): Promise<MockCheckoutResult> {
+    const details = await this.getSubscriptionDetails(userId, spaceId);
+    if (!details || details.spaceType !== plan.spaceType) throw new Error("Subscription access denied");
+    const result = await this.pool.query(
+      `INSERT INTO mlbox_space_subscriptions (space_id, plan, status, provider, payment_id, started_at, current_period_end)
+       SELECT sm.space_id, $3, 'active', 'mock', NULL, now(), now() + interval '1 month'
        FROM mlbox_space_memberships sm
-       WHERE sm.user_id = $1 AND sm.space_id = $2 AND sm.status = 'active'
-         AND sm.role IN ('owner', 'admin')
-       ON CONFLICT (space_id) DO UPDATE SET plan = EXCLUDED.plan, status = 'active', provider = 'mock', updated_at = now()
-       RETURNING space_id, plan, status, provider`,
-      [userId, spaceId, plan],
+       WHERE sm.user_id = $1 AND sm.space_id = $2 AND sm.status = 'active' AND sm.role IN ('owner', 'admin')
+       ON CONFLICT (space_id) DO UPDATE SET plan = EXCLUDED.plan, status = 'active', provider = 'mock', payment_id = NULL, current_period_end = EXCLUDED.current_period_end, updated_at = now()
+       RETURNING space_id, plan, status, provider, payment_id, started_at, current_period_end`,
+      [userId, spaceId, plan.id],
+    );
+    const row = result.rows[0];
+    if (!row) throw new Error("Subscription access denied");
+    for (const [resource, limit] of Object.entries(entitlementsForPlan(plan))) {
+      await this.pool.query(
+        `INSERT INTO mlbox_space_entitlements (space_id, resource, limit_value, source_plan) VALUES ($1, $2, $3, $4)
+         ON CONFLICT (space_id, resource) DO UPDATE SET limit_value = EXCLUDED.limit_value, source_plan = EXCLUDED.source_plan, updated_at = now()`,
+        [spaceId, resource, limit, plan.id],
+      );
+    }
+    await this.pool.query(
+      `INSERT INTO mlbox_audit_events (id, space_id, actor_user_id, action, target, metadata) VALUES ($1, $2, $3, 'subscription.mock_activated', $4, $5::jsonb)`,
+      [randomUUID(), spaceId, userId, plan.id, JSON.stringify({ provider: "mock", free: true })],
+    );
+    return { payment: null, subscription: this.subscriptionRecord(row), entitlements: Object.entries(entitlementsForPlan(plan)).map(([resource, limitValue]) => ({ resource, limitValue, sourcePlan: plan.id })) };
+  }
+
+  async retryMockPayment(userId: string, paymentId: string, input: Omit<MockCheckoutInput, "spaceId" | "planId" | "amountCents">): Promise<MockCheckoutResult> {
+    const current = await this.pool.query(
+      `SELECT p.id, p.space_id, p.plan_id, p.amount_cents, p.status
+       FROM mlbox_payment_transactions p JOIN mlbox_space_memberships sm ON sm.space_id = p.space_id AND sm.user_id = $1 AND sm.status = 'active'
+       WHERE p.id = $2 AND sm.role IN ('owner', 'admin')`,
+      [userId, paymentId],
+    );
+    const row = current.rows[0];
+    if (!row) throw new Error("Subscription access denied");
+    if (!["failed", "past_due"].includes(String(row.status))) throw new Error("Payment cannot be retried");
+    await this.pool.query(
+      `INSERT INTO mlbox_audit_events (id, space_id, actor_user_id, action, target, metadata) VALUES ($1, $2, $3, 'payment.mock_retried', $4, $5::jsonb)`,
+      [randomUUID(), String(row.space_id), userId, paymentId, JSON.stringify({ provider: "mock" })],
+    );
+    return this.createMockCheckout(userId, { spaceId: String(row.space_id), planId: String(row.plan_id), amountCents: Number(row.amount_cents), ...input });
+  }
+
+  async cancelMockSubscription(userId: string, spaceId: string): Promise<SubscriptionRecord> {
+    const result = await this.pool.query(
+      `UPDATE mlbox_space_subscriptions s SET status = 'cancelled', updated_at = now()
+       FROM mlbox_space_memberships sm WHERE s.space_id = $2 AND sm.space_id = s.space_id AND sm.user_id = $1 AND sm.status = 'active' AND sm.role IN ('owner', 'admin')
+       RETURNING s.space_id, s.plan, s.status, s.provider, s.payment_id, s.started_at, s.current_period_end`,
+      [userId, spaceId],
     );
     const row = result.rows[0];
     if (!row) throw new Error("Subscription access denied");
     await this.pool.query(
-      `INSERT INTO mlbox_audit_events (id, space_id, actor_user_id, action, target, metadata)
-       VALUES ($1, $2, $3, 'subscription.mock_activated', $4, $5::jsonb)`,
-      [randomUUID(), String(row.space_id), userId, String(row.plan), JSON.stringify({ provider: "mock" })],
+      `INSERT INTO mlbox_audit_events (id, space_id, actor_user_id, action, target, metadata) VALUES ($1, $2, $3, 'subscription.mock_cancelled', $4, $5::jsonb)`,
+      [randomUUID(), spaceId, userId, String(row.plan), JSON.stringify({ provider: "mock" })],
     );
-    return { spaceId: String(row.space_id), plan: String(row.plan), status: String(row.status), provider: String(row.provider) };
+    return this.subscriptionRecord(row);
+  }
+
+  async createMockCheckout(userId: string, input: MockCheckoutInput): Promise<MockCheckoutResult> {
+    const plan = getMockPlan(input.planId);
+    if (!plan || plan.status !== "active") throw new Error("Invalid subscription plan");
+    if (input.amountCents !== plan.amountCents) throw new Error("Invalid subscription amount");
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const access = await client.query(
+        `SELECT s.id, s.type, sm.role
+         FROM mlbox_spaces s JOIN mlbox_space_memberships sm ON sm.space_id = s.id
+         WHERE s.id = $2 AND sm.user_id = $1 AND sm.status = 'active'`,
+        [userId, input.spaceId],
+      );
+      const accessRow = access.rows[0];
+      if (!accessRow || !["owner", "admin"].includes(String(accessRow.role))) throw new Error("Subscription access denied");
+      if (String(accessRow.type) !== plan.spaceType) throw new Error("Space type mismatch");
+      const existing = await client.query(
+        `SELECT id, space_id, plan_id, subscription_id, amount_cents, currency, payment_method, status, provider, failure_code, idempotency_key, created_by, created_at, updated_at
+         FROM mlbox_payment_transactions WHERE space_id = $1 AND idempotency_key = $2`,
+        [input.spaceId, input.idempotencyKey],
+      );
+      if (existing.rows[0]) {
+        const payment = this.paymentRecord(existing.rows[0]);
+        await client.query("COMMIT");
+        const details = await this.getSubscriptionDetails(userId, input.spaceId);
+        if (!details?.subscription) throw new Error("Subscription state unavailable");
+        return { payment, subscription: details.subscription, entitlements: details.entitlements };
+      }
+      const paymentId = randomUUID();
+      await client.query(
+        `INSERT INTO mlbox_audit_events (id, space_id, actor_user_id, action, target, metadata) VALUES ($1, $2, $3, 'subscription.mock_checkout_started', $4, $5::jsonb)`,
+        [randomUUID(), input.spaceId, userId, input.planId, JSON.stringify({ provider: "mock", paymentMethod: input.paymentMethod })],
+      );
+      const paymentResult = await client.query(
+        `INSERT INTO mlbox_payment_transactions (id, space_id, plan_id, subscription_id, amount_cents, currency, payment_method, status, provider, failure_code, idempotency_key, created_by)
+         VALUES ($1, $2, $3, $2, $4, 'USD', $5, $6, 'mock', $7, $8, $9)
+         RETURNING id, space_id, plan_id, subscription_id, amount_cents, currency, payment_method, status, provider, failure_code, idempotency_key, created_by, created_at, updated_at`,
+        [paymentId, input.spaceId, input.planId, plan.amountCents, input.paymentMethod, input.outcome, input.outcome === "failed" ? "mock_failure" : null, input.idempotencyKey, userId],
+      );
+      const payment = this.paymentRecord(paymentResult.rows[0]);
+      await client.query(
+        `INSERT INTO mlbox_space_subscriptions (space_id, plan, status, provider, payment_id, started_at, current_period_end)
+         VALUES ($1, $2, $3, 'mock', $4, now(), now() + interval '1 month')
+         ON CONFLICT (space_id) DO UPDATE SET plan = EXCLUDED.plan, status = EXCLUDED.status, provider = 'mock', payment_id = EXCLUDED.payment_id, current_period_end = EXCLUDED.current_period_end, updated_at = now()`,
+        [input.spaceId, input.planId, input.outcome === "succeeded" ? "active" : input.outcome === "pending" ? "pending" : input.outcome === "failed" ? "past_due" : "cancelled", paymentId],
+      );
+      const planEntitlements = entitlementsForPlan(plan);
+      if (input.outcome === "succeeded") {
+        for (const [resource, limit] of Object.entries(planEntitlements)) {
+          await client.query(
+            `INSERT INTO mlbox_space_entitlements (space_id, resource, limit_value, source_plan) VALUES ($1, $2, $3, $4)
+             ON CONFLICT (space_id, resource) DO UPDATE SET limit_value = EXCLUDED.limit_value, source_plan = EXCLUDED.source_plan, updated_at = now()`,
+            [input.spaceId, resource, limit, input.planId],
+          );
+        }
+      }
+      const action = input.outcome === "succeeded" ? "payment.mock_succeeded" : input.outcome === "pending" ? "payment.mock_pending" : input.outcome === "failed" ? "payment.mock_failed" : "payment.mock_cancelled";
+      await client.query(
+        `INSERT INTO mlbox_audit_events (id, space_id, actor_user_id, action, target, metadata) VALUES ($1, $2, $3, $4, $5, $6::jsonb)`,
+        [randomUUID(), input.spaceId, userId, action, paymentId, JSON.stringify({ planId: input.planId, provider: "mock" })],
+      );
+      if (input.outcome === "succeeded") {
+        await client.query(
+          `INSERT INTO mlbox_audit_events (id, space_id, actor_user_id, action, target, metadata) VALUES ($1, $2, $3, 'subscription.mock_activated', $4, $5::jsonb)`,
+          [randomUUID(), input.spaceId, userId, input.planId, JSON.stringify({ provider: "mock" })],
+        );
+      }
+      await client.query("COMMIT");
+      const details = await this.getSubscriptionDetails(userId, input.spaceId);
+      if (!details?.subscription) throw new Error("Subscription state unavailable");
+      return { payment, subscription: details.subscription, entitlements: details.entitlements };
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  private subscriptionRecord(row: Record<string, unknown>): SubscriptionRecord {
+    return {
+      spaceId: String(row.space_id), plan: String(row.plan), status: String(row.status), provider: String(row.provider),
+      paymentId: row.payment_id == null ? null : String(row.payment_id),
+      startedAt: row.started_at == null ? null : String(row.started_at),
+      currentPeriodEnd: row.current_period_end == null ? null : String(row.current_period_end),
+    };
+  }
+
+  private paymentRecord(row: Record<string, unknown>): PaymentRecord {
+    return {
+      id: String(row.id), spaceId: String(row.space_id), planId: String(row.plan_id), subscriptionId: row.subscription_id == null ? null : String(row.subscription_id),
+      amountCents: Number(row.amount_cents), currency: String(row.currency), paymentMethod: String(row.payment_method) as MockPaymentMethod,
+      status: String(row.status) as MockPaymentOutcome, provider: String(row.provider), failureCode: row.failure_code == null ? null : String(row.failure_code),
+      idempotencyKey: String(row.idempotency_key), createdBy: String(row.created_by), createdAt: row.created_at == null ? undefined : String(row.created_at), updatedAt: row.updated_at == null ? undefined : String(row.updated_at),
+    };
+  }
+
+  async activateMockSubscription(userId: string, spaceId: string, plan: string): Promise<SubscriptionRecord> {
+    const catalogPlan = getMockPlan(plan);
+    if (!catalogPlan || catalogPlan.status !== "active") throw new Error("Invalid subscription plan");
+    if (catalogPlan.id === "personal_free") {
+      const result = await this.activateFreeSubscription(userId, spaceId, catalogPlan);
+      return result.subscription;
+    }
+    throw new Error("Mock checkout required");
   }
 
   async createProject(userId: string, spaceId: string, teamId: string, name: string): Promise<ProjectRecord> {

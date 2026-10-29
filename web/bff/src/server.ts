@@ -28,6 +28,15 @@ import { UsageStore } from "./usage-store.js";
 import { AppStore } from "./app-store.js";
 import { verifyTurnstile } from "./turnstile.js";
 import {
+  getMockPlan,
+  isMockPaymentMethod,
+  isMockPaymentOutcome,
+  listMockPlans,
+  type MockPaymentMethod,
+  type MockPaymentOutcome,
+  type SpaceType,
+} from "./mock-billing.js";
+import {
   CompactEncrypt,
   compactDecrypt,
   createRemoteJWKSet,
@@ -104,6 +113,8 @@ type ConfirmBody = AuthBody & { code?: string };
 type ResetBody = AuthBody & { code?: string; confirmationCode?: string; newPassword?: string };
 type ProjectBody = { spaceId?: string; teamId?: string; name?: string };
 type SubscriptionBody = { spaceId?: string; plan?: string; turnstileToken?: string };
+type CheckoutBody = { spaceId?: string; planId?: string; paymentMethod?: MockPaymentMethod; mockOutcome?: MockPaymentOutcome; idempotencyKey?: string; turnstileToken?: string };
+type RetryBody = { paymentMethod?: MockPaymentMethod; mockOutcome?: MockPaymentOutcome; idempotencyKey?: string; turnstileToken?: string };
 
 type HubServer = {
   name?: string;
@@ -653,6 +664,119 @@ app.get<{ Querystring: { spaceId?: string } }>("/v1/projects", async (request, r
   } catch (error) {
     request.log.error({ err: error }, "Project list failed");
     return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Project storage is temporarily unavailable." });
+  }
+});
+
+app.get<{ Querystring: { spaceType?: string } }>("/v1/subscriptions/plans", async (request, reply) => {
+  const requestedType = request.query.spaceType;
+  if (requestedType !== undefined && requestedType !== "personal" && requestedType !== "organization") {
+    return reply.code(400).send({ error: "INVALID_INPUT", message: "Space type is invalid." });
+  }
+  return { plans: listMockPlans(requestedType as SpaceType | undefined) };
+});
+
+app.get<{ Querystring: { spaceId?: string } }>("/v1/subscription", async (request, reply) => {
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Subscription storage is not configured." });
+  const spaceId = requiredString(request.query.spaceId) ?? `personal:${session.subject}`;
+  try {
+    const details = await appStore.getSubscriptionDetails(session.subject, spaceId);
+    if (!details) return reply.code(403).send({ error: "FORBIDDEN", message: "You do not have access to this Space." });
+    return details;
+  } catch (error) {
+    request.log.error({ err: error }, "Subscription lookup failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Subscription storage is temporarily unavailable." });
+  }
+});
+
+app.get<{ Querystring: { spaceId?: string } }>("/v1/payments", async (request, reply) => {
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Payment storage is not configured." });
+  const spaceId = requiredString(request.query.spaceId) ?? `personal:${session.subject}`;
+  try {
+    return { spaceId, payments: await appStore.listPayments(session.subject, spaceId) };
+  } catch (error) {
+    request.log.error({ err: error }, "Payment history lookup failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Payment storage is temporarily unavailable." });
+  }
+});
+
+app.post<{ Body: CheckoutBody }>("/v1/subscriptions/mock/checkout", async (request, reply) => {
+  if (!requireCsrf(request, reply)) return;
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Subscription storage is not configured." });
+  const spaceId = requiredString(request.body?.spaceId) ?? `personal:${session.subject}`;
+  const planId = requiredString(request.body?.planId);
+  const paymentMethod = request.body?.paymentMethod;
+  const mockOutcome = request.body?.mockOutcome;
+  const idempotencyKey = requiredString(request.body?.idempotencyKey);
+  if (!planId || !paymentMethod || !mockOutcome || !idempotencyKey) return reply.code(400).send({ error: "INVALID_INPUT", message: "Plan, payment method, outcome, and idempotency key are required." });
+  if (!isMockPaymentMethod(paymentMethod)) return reply.code(400).send({ error: "INVALID_PAYMENT_METHOD", message: "The mock payment method is invalid." });
+  if (!isMockPaymentOutcome(mockOutcome)) return reply.code(400).send({ error: "INVALID_PAYMENT_OUTCOME", message: "The mock payment outcome is invalid." });
+  const plan = getMockPlan(planId);
+  if (!plan) return reply.code(400).send({ error: "INVALID_PLAN", message: "The selected demo plan is invalid." });
+  if (plan.status !== "active") return reply.code(409).send({ error: "PLAN_UNAVAILABLE", message: "This demo plan is coming soon." });
+  const spaceType = await appStore.getSpaceType(session.subject, spaceId);
+  if (!spaceType || spaceType !== plan.spaceType) return reply.code(400).send({ error: "SPACE_PLAN_MISMATCH", message: "This plan is not available for the selected Space." });
+  const runtime = runtimeConfig();
+  const turnstile = await verifyTurnstile({ enabled: runtime.turnstileCheckoutEnabled, token: request.body?.turnstileToken, secret: runtime.turnstileSecret, remoteIp: request.ip });
+  if (!turnstile.ok) return reply.code(403).send({ error: "TURNSTILE_REQUIRED", message: "Vui lòng hoàn tất xác minh bảo mật rồi thử lại." });
+  try {
+    if (plan.amountCents === 0) {
+      if (plan.id !== "personal_free") return reply.code(400).send({ error: "INVALID_PLAN", message: "The selected free plan is invalid." });
+      const result = await appStore.activateFreeSubscription(session.subject, spaceId, plan);
+      const details = await appStore.getSubscriptionDetails(session.subject, spaceId);
+      return { payment: null, subscription: result.subscription, entitlements: details?.entitlements ?? result.entitlements };
+    }
+    return await appStore.createMockCheckout(session.subject, { spaceId, planId, amountCents: plan.amountCents, paymentMethod, outcome: mockOutcome, idempotencyKey });
+  } catch (error) {
+    if (error instanceof Error && error.message === "Subscription access denied") return reply.code(403).send({ error: "FORBIDDEN", message: "You do not have permission to manage this Space subscription." });
+    if (error instanceof Error && error.message === "Space type mismatch") return reply.code(400).send({ error: "SPACE_PLAN_MISMATCH", message: "This plan is not available for the selected Space." });
+    request.log.error({ err: error }, "Mock checkout failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Subscription storage is temporarily unavailable." });
+  }
+});
+
+app.post<{ Params: { paymentId: string }; Body: RetryBody }>("/v1/payments/mock/:paymentId/retry", async (request, reply) => {
+  if (!requireCsrf(request, reply)) return;
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Payment storage is not configured." });
+  const paymentMethod = request.body?.paymentMethod;
+  const mockOutcome = request.body?.mockOutcome;
+  const idempotencyKey = requiredString(request.body?.idempotencyKey);
+  if (!paymentMethod || !mockOutcome || !idempotencyKey) return reply.code(400).send({ error: "INVALID_INPUT", message: "Payment method, outcome, and idempotency key are required." });
+  if (!isMockPaymentMethod(paymentMethod)) return reply.code(400).send({ error: "INVALID_PAYMENT_METHOD", message: "The mock payment method is invalid." });
+  if (!isMockPaymentOutcome(mockOutcome)) return reply.code(400).send({ error: "INVALID_PAYMENT_OUTCOME", message: "The mock payment outcome is invalid." });
+  const runtime = runtimeConfig();
+  const turnstile = await verifyTurnstile({ enabled: runtime.turnstileCheckoutEnabled, token: request.body?.turnstileToken, secret: runtime.turnstileSecret, remoteIp: request.ip });
+  if (!turnstile.ok) return reply.code(403).send({ error: "TURNSTILE_REQUIRED", message: "Vui lòng hoàn tất xác minh bảo mật rồi thử lại." });
+  try {
+    const result = await appStore.retryMockPayment(session.subject, request.params.paymentId, { paymentMethod, outcome: mockOutcome, idempotencyKey });
+    return result;
+  } catch (error) {
+    if (error instanceof Error && error.message === "Subscription access denied") return reply.code(403).send({ error: "FORBIDDEN", message: "You do not have permission to manage this payment." });
+    if (error instanceof Error && error.message === "Payment cannot be retried") return reply.code(409).send({ error: "PAYMENT_NOT_RETRYABLE", message: "This payment cannot be retried." });
+    request.log.error({ err: error }, "Mock payment retry failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Payment storage is temporarily unavailable." });
+  }
+});
+
+app.post<{ Body: { spaceId?: string } }>("/v1/subscription/cancel", async (request, reply) => {
+  if (!requireCsrf(request, reply)) return;
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Subscription storage is not configured." });
+  const spaceId = requiredString(request.body?.spaceId) ?? `personal:${session.subject}`;
+  try {
+    return { subscription: await appStore.cancelMockSubscription(session.subject, spaceId) };
+  } catch (error) {
+    if (error instanceof Error && error.message === "Subscription access denied") return reply.code(403).send({ error: "FORBIDDEN", message: "You do not have permission to cancel this subscription." });
+    request.log.error({ err: error }, "Mock subscription cancellation failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Subscription storage is temporarily unavailable." });
   }
 });
 
