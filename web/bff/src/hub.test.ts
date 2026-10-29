@@ -83,15 +83,18 @@ test("Hub sandbox start provisions a missing user and retries a 404 start once",
     ensureUser: async () => {
       calls.push("ensure");
     },
+    onRetry: async () => {
+      calls.push("retry");
+    },
     start: async () => {
       starts += 1;
       calls.push(`start-${starts}`);
       if (starts === 1) throw Object.assign(new Error("user propagation race"), { status: 404 });
-      return { status: 202 };
+      return { status: 202, body: null };
     },
   });
-  assert.deepEqual(result, { status: 202 });
-  assert.deepEqual(calls, ["ensure", "start-1", "start-2"]);
+  assert.deepEqual(result, { status: 202, body: null });
+  assert.deepEqual(calls, ["ensure", "start-1", "retry", "start-2"]);
 
   const existingUserCalls: string[] = [];
   await assert.rejects(() => startHubSandbox({

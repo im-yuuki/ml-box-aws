@@ -111,6 +111,19 @@ export class AppStore {
       : connectionStringOrDatabase;
   }
 
+  async recordAuditEvent(
+    userId: string,
+    spaceId: string,
+    action: string,
+    target: string,
+    metadata: Record<string, unknown> = {},
+  ): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO mlbox_audit_events (id, space_id, actor_user_id, action, target, metadata) VALUES ($1, $2, $3, $4, $5, $6::jsonb)`,
+      [randomUUID(), spaceId, userId, action, target, JSON.stringify(metadata)],
+    );
+  }
+
   async ensureSchema(): Promise<void> {
     await this.pool.query(`
       CREATE TABLE IF NOT EXISTS mlbox_users (

@@ -98,10 +98,11 @@ export async function ensureHubUser(username: string, request: HubRequest): Prom
   }
 }
 
-export type HubStartResult = { status: number };
+export type HubStartResult = HubRequestResponse<HubServerLike>;
 export type HubStartFlow = {
   userExists: boolean;
   ensureUser: () => Promise<void>;
+  onRetry?: () => Promise<void>;
   start: () => Promise<HubStartResult>;
 };
 
@@ -118,6 +119,7 @@ export async function startHubSandbox(flow: HubStartFlow): Promise<HubStartResul
     return await flow.start();
   } catch (error) {
     if (errorStatus(error) !== 404 || !userWasMissing) throw error;
+    await flow.onRetry?.();
     return flow.start();
   }
 }
