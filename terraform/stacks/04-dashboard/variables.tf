@@ -122,6 +122,25 @@ variable "enable_usage_history" {
   default     = false
 }
 
+variable "turnstile_register_enabled" {
+  description = "Require Turnstile verification before Cognito registration. Keep disabled for local/dev until configured."
+  type        = bool
+  default     = false
+}
+
+variable "turnstile_checkout_enabled" {
+  description = "Require Turnstile verification before mock subscription activation. Keep disabled for local/dev."
+  type        = bool
+  default     = false
+}
+
+variable "turnstile_secret_key" {
+  description = "Cloudflare Turnstile secret for BFF server-side verification; leave empty while both protections are disabled."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 variable "dashboard_replicas" {
   type    = number
   default = 1

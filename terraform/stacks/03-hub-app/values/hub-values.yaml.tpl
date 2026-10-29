@@ -31,6 +31,8 @@ hub:
         - list:users
         - read:users:name
         - read:servers
+        - servers
+        - admin:users
         - admin:servers
   config:
     JupyterHub:

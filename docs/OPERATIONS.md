@@ -136,6 +136,33 @@ terraform -chdir=terraform/stacks/04-dashboard apply
 Không dùng `kubectl edit` làm thay đổi lâu dài; nếu cần emergency patch, ghi lại thay đổi và đồng bộ
 lại Terraform ngay sau đó.
 
+## Phase 3 Hub identity migration dry-run
+
+The BFF identity rollout is compatibility-only until the production safeguards below are complete. The dry-run is read-only: it reads `mlbox_hub_identities`, reports canonical username candidates and collisions, and never renames or deletes Hub users or changes sandbox ownership.
+
+Before running against production:
+
+1. Take and verify an app database backup.
+2. Confirm the backup restore procedure and record the change/rollback owner.
+3. Review every reported conflict manually; a conflict must block migration.
+4. Prepare the rollback record and obtain an approved Terraform/deployment plan.
+
+Run from `web/bff` with a redacted database URL supplied through the environment:
+
+```bash
+export APP_DATABASE_URL='postgres://<REDACTED>'
+npm run build
+npm run identity:dry-run
+```
+
+Exit codes:
+
+- `0`: report completed and no identity conflicts were found.
+- `1`: required database URL is missing or the report could not be produced.
+- `2`: report completed but one or more conflicts require manual review.
+
+A zero exit code does not authorize a production migration. Do not add a multi-row apply step until backup, collision review, transactional migration/rollback, valid Terraform plan, rollout, and post-migration E2E verification are complete.
+
 ## JupyterHub operations
 
 ```bash

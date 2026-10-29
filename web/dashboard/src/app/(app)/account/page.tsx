@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import AccountPanel from "./AccountPanel";
+import BillingPanel from "./BillingPanel";
 
 export async function generateMetadata() {
   const t = await getTranslations("account");
@@ -18,6 +19,7 @@ export default async function AccountPage() {
         </p>
       </header>
       <AccountPanel />
+      <BillingPanel />
     </div>
   );
 }
