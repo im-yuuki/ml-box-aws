@@ -56,6 +56,13 @@ test("project records do not invent a sandbox compatibility target", () => {
   assert.equal(projects[0].sandboxName, undefined);
 });
 
+test("project detail resolution cannot bypass the authorized list", () => {
+  assert.deepEqual(resolveProject(projects, "project-a"), projects[0]);
+  assert.equal(resolveProject(projects, "private-project"), null);
+  assert.equal(resolveProject([], "project-a"), null);
+  assert.equal(resolveProject(projects, undefined), null);
+});
+
 test("board state maps the relevant API responses", () => {
   assert.equal(classifyProjectResponse(401), "unauthenticated");
   assert.equal(classifyProjectResponse(403), "unauthorized");

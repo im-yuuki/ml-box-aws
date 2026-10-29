@@ -423,7 +423,92 @@ body {
   font-size: 0.82rem;
 }
 
+.workspace-detail-back a {
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-decoration: none;
+}
+
+.workspace-detail-back a:hover {
+  color: var(--foreground);
+}
+
+.workspace-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(16rem, 0.85fr);
+  gap: 1rem;
+}
+
+.workspace-detail-overview,
+.workspace-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.25rem;
+  background: color-mix(in oklab, var(--surface) 88%, transparent);
+  box-shadow: none;
+  padding: clamp(1.25rem, 3vw, 2rem);
+}
+
+.workspace-detail-overview h2,
+.workspace-detail-section h2 {
+  font-size: 1.25rem;
+  letter-spacing: -0.04em;
+}
+
+.workspace-detail-overview p,
+.workspace-detail-section p {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.workspace-detail-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  border-top: 1px solid var(--border);
+  margin-top: auto;
+  padding-top: 1rem;
+}
+
+.workspace-detail-facts div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.workspace-detail-facts dt {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.workspace-detail-facts dd {
+  max-width: 70%;
+  overflow-wrap: anywhere;
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  text-align: right;
+}
+
+.workspace-coming-soon {
+  align-self: flex-start;
+  border: 1px solid var(--warning);
+  color: var(--warning);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  padding: 0.35rem 0.5rem;
+  text-transform: uppercase;
+}
+
 @media (max-width: 760px) {
+  .workspace-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
   .workspace-page-heading,
   .workspace-project-toolbar {
     align-items: stretch;
