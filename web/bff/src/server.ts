@@ -16,7 +16,7 @@ import cookie from "@fastify/cookie";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { createHash, createSecretKey, randomBytes, randomUUID } from "node:crypto";
 import { validCsrfPair } from "./csrf.js";
-import { hubFailure, sandboxPath, sandboxUrl, type HubError } from "./hub.js";
+import { hubActivationState, hubActivationUrl, hubFailure, sandboxPath, sandboxUrl, type HubError } from "./hub.js";
 import {
   buildUsageResponse,
   checkRamQuota,
@@ -829,11 +829,15 @@ app.post<{ Body: ProjectBody }>("/v1/projects", async (request, reply) => {
 app.get("/v1/sandboxes", async (request, reply) => {
   const session = await requireSession(request, reply);
   if (!session) return;
+  const runtime = runtimeConfig();
   try {
-    const runtime = runtimeConfig();
     if (appStore) {
+      let hubUserExists = true;
       const user = await hubRequest<HubUser>(runtime, "GET", `/hub/api/users/${usernamePath(session.username)}`).catch((error) => {
-        if (hubStatus(error) === 404) return { servers: {} };
+        if (hubStatus(error) === 404) {
+          hubUserExists = false;
+          return { servers: {} };
+        }
         throw error;
       });
       const sandboxes = [];
@@ -849,7 +853,7 @@ app.get("/v1/sandboxes", async (request, reply) => {
           lastActivity: server.last_activity ?? null,
         });
       }
-      return { user: { email: session.email }, sandboxes };
+      return { user: { email: session.email }, hub: hubActivationState(runtime.hubPublicUrl, hubUserExists), sandboxes };
     }
     const user = await hubRequest<HubUser>(runtime, "GET", `/hub/api/users/${usernamePath(session.username)}`);
     const servers = Object.entries(user.servers ?? {}).map(([key, server]) => ({
@@ -862,11 +866,11 @@ app.get("/v1/sandboxes", async (request, reply) => {
         : null,
       lastActivity: server.last_activity ?? null,
     }));
-    return { user: { email: session.email }, sandboxes: servers };
+    return { user: { email: session.email }, hub: hubActivationState(runtime.hubPublicUrl, true), sandboxes: servers };
   } catch (error) {
     // A user unknown to the Hub (never spawned a server) has an empty list, not an error.
     if (hubStatus(error) === 404) {
-      return { user: { email: session.email }, sandboxes: [] };
+      return { user: { email: session.email }, hub: hubActivationState(runtime.hubPublicUrl, false), sandboxes: [] };
     }
     request.log.error({ err: error }, "JupyterHub sandbox list failed");
     return handleHubError(reply, error);
@@ -938,8 +942,8 @@ app.post<{ Params: { name: string } }>("/v1/sandboxes/:name/start", async (reque
   const session = await requireSession(request, reply);
   if (!session) return;
   let enforcement: "enforced" | "degraded" = "enforced";
+  const runtime = runtimeConfig();
   try {
-    const runtime = runtimeConfig();
     let user: HubUser;
     try {
       user = await hubRequest<HubUser>(runtime, "GET", `/hub/api/users/${usernamePath(session.username)}`);
@@ -982,7 +986,7 @@ app.post<{ Params: { name: string } }>("/v1/sandboxes/:name/start", async (reque
   } catch (error) {
     request.log.error({ err: error }, "JupyterHub sandbox start failed");
     if (hubStatus(error) === 404) {
-      reply.code(409).send({ error: "HUB_USER_UNKNOWN", message: "Tài khoản chưa được kích hoạt trên Hub. Đăng nhập vào notebook hub một lần để kích hoạt." });
+      reply.code(409).send({ error: "HUB_USER_UNKNOWN", activationUrl: hubActivationUrl(runtime.hubPublicUrl), message: "Tài khoản chưa được kích hoạt trên Hub. Đăng nhập vào notebook hub một lần để kích hoạt." });
       return;
     }
     return handleHubError(reply, error);

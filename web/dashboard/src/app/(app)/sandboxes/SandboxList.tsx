@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { Button, Card, Surface } from "@heroui/react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
+import HubActivationCard from "./HubActivationCard";
 
 type Sandbox = {
   name: string;
@@ -14,9 +15,20 @@ type Sandbox = {
   url: string | null;
 };
 
-async function errorKey(response: Response): Promise<string> {
-  const body = await response.json().catch(() => ({})) as { error?: string };
-  return ({ HUB_TIMEOUT: "hubTimeout", HUB_UNAVAILABLE: "hubUnavailable", QUOTA_EXCEEDED: "quotaExceeded", FORBIDDEN: "forbidden", BAD_REQUEST: "badRequest", SANDBOX_CONFLICT: "conflict", SANDBOX_NOT_FOUND: "notFound" } as Record<string, string>)[body.error ?? ""] ?? "actionFailed";
+type HubStatus = {
+  userExists: boolean;
+  activationRequired: boolean;
+  activationUrl: string;
+};
+
+type ErrorResult = { key: string; hub?: HubStatus };
+
+async function errorKey(response: Response): Promise<ErrorResult> {
+  const body = await response.json().catch(() => ({})) as { error?: string; activationUrl?: string };
+  if (body.error === "HUB_USER_UNKNOWN" && body.activationUrl) {
+    return { key: "hubUserUnknown", hub: { userExists: false, activationRequired: true, activationUrl: body.activationUrl } };
+  }
+  return { key: ({ HUB_TIMEOUT: "hubTimeout", HUB_UNAVAILABLE: "hubUnavailable", QUOTA_EXCEEDED: "quotaExceeded", FORBIDDEN: "forbidden", BAD_REQUEST: "badRequest", SANDBOX_CONFLICT: "conflict", SANDBOX_NOT_FOUND: "notFound" } as Record<string, string>)[body.error ?? ""] ?? "actionFailed" };
 }
 
 export default function SandboxList() {
@@ -25,6 +37,7 @@ export default function SandboxList() {
   const searchParams = useSearchParams();
   const enforcementDegraded = searchParams.get("enforcement") === "degraded";
   const [sandboxes, setSandboxes] = useState<Sandbox[]>([]);
+  const [hub, setHub] = useState<HubStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [pendingName, setPendingName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -32,10 +45,16 @@ export default function SandboxList() {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setHub(null);
     try {
       const response = await bffFetch("/api/bff/sandboxes", { cache: "no-store" });
-      if (!response.ok) throw new Error(await errorKey(response));
-      const body = (await response.json()) as { sandboxes?: Sandbox[] };
+      if (!response.ok) {
+        const failure = await errorKey(response);
+        if (failure.hub) setHub(failure.hub);
+        throw new Error(failure.key);
+      }
+      const body = (await response.json()) as { sandboxes?: Sandbox[]; hub?: HubStatus };
+      setHub(body.hub ?? null);
       setSandboxes(body.sandboxes ?? []);
     } catch (reason) {
       setError(reason instanceof Error ? t(`errors.${reason.message}`) : t("errors.loadFailed"));
@@ -57,7 +76,11 @@ export default function SandboxList() {
         sandbox.state === "running" ? `/api/bff/sandboxes/${encodeURIComponent(sandbox.name)}` : `/api/bff/sandboxes/${encodeURIComponent(sandbox.name)}/start`,
         { method: sandbox.state === "running" ? "DELETE" : "POST", headers: { "content-type": "application/json" }, body: sandbox.state === "running" ? undefined : "{}" },
       );
-      if (!response.ok) throw new Error(await errorKey(response));
+      if (!response.ok) {
+        const failure = await errorKey(response);
+        if (failure.hub) setHub(failure.hub);
+        throw new Error(failure.key);
+      }
       await load();
     } catch (reason) {
       setError(reason instanceof Error ? t(`errors.${reason.message}`) : t("errors.actionFailed"));
@@ -67,6 +90,7 @@ export default function SandboxList() {
   };
 
   if (loading) return <p className="text-sm" style={{ color: "var(--muted)" }}>{t("loading")}</p>;
+  if (hub?.activationRequired) return <div className="flex flex-col gap-3"><HubActivationCard activationUrl={hub.activationUrl} onCheck={() => void load()} />{error ? <p className="text-sm" style={{ color: "var(--danger)" }} role="alert">{error}</p> : null}</div>;
   if (error && sandboxes.length === 0) return <div className="flex flex-col gap-3"><p className="text-sm" style={{ color: "var(--danger)" }} role="alert">{error}</p><Button variant="secondary" onPress={() => void load()}>{t("retry")}</Button></div>;
   if (sandboxes.length === 0) return <div className="flex flex-col gap-3">{enforcementDegraded ? <p className="text-sm" role="status" style={{ color: "var(--warning)" }}>{t("enforcementDegraded")}</p> : null}<p className="text-sm" style={{ color: "var(--muted)" }}>{t("empty")}</p></div>;
 

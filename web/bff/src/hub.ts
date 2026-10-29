@@ -6,16 +6,38 @@ export function sandboxPath(username: string, name: string): string {
   return `/hub/api/users/${encodeURIComponent(username)}/servers/${serverName}`;
 }
 
-export function sandboxUrl(publicBase: string, username: string, name: string): string {
-  if (name !== "default" && !/^[a-z0-9][a-z0-9-]{0,62}$/i.test(name)) {
-    throw new Error("Invalid sandbox name");
-  }
+function publicHubOrigin(publicBase: string): string {
   const base = new URL(publicBase);
   if (!["https:", "http:"].includes(base.protocol) || base.username || base.password) {
     throw new Error("Invalid Hub public URL");
   }
+  return base.origin;
+}
+
+export function sandboxUrl(publicBase: string, username: string, name: string): string {
+  if (name !== "default" && !/^[a-z0-9][a-z0-9-]{0,62}$/i.test(name)) {
+    throw new Error("Invalid sandbox name");
+  }
   const server = name === "default" ? "" : `${encodeURIComponent(name)}/`;
-  return `${base.origin}/user/${encodeURIComponent(username)}/${server}`;
+  return `${publicHubOrigin(publicBase)}/user/${encodeURIComponent(username)}/${server}`;
+}
+
+export function hubActivationUrl(publicBase: string): string {
+  return `${publicHubOrigin(publicBase)}/hub/login`;
+}
+
+export type HubActivationState = {
+  userExists: boolean;
+  activationRequired: boolean;
+  activationUrl: string;
+};
+
+export function hubActivationState(publicBase: string, userExists: boolean): HubActivationState {
+  return {
+    userExists,
+    activationRequired: !userExists,
+    activationUrl: hubActivationUrl(publicBase),
+  };
 }
 
 export function hubFailure(error: unknown): { status: number; code: string; message: string } {

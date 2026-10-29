@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { hubFailure, sandboxPath, sandboxUrl } from "./hub.js";
+import { hubActivationState, hubActivationUrl, hubFailure, sandboxPath, sandboxUrl } from "./hub.js";
 
 test("sandbox endpoints are scoped to the authenticated session username", () => {
   const username = "user-a@example.com";
@@ -16,6 +16,20 @@ test("lab URLs use the authenticated username and reject unsafe sandbox names", 
   assert.equal(sandboxUrl("https://notebook.example", "user-a@example.com", "default"), "https://notebook.example/user/user-a%40example.com/");
   assert.throws(() => sandboxUrl("https://notebook.example", "user-a@example.com", "user-b/server"), /Invalid sandbox name/);
   assert.throws(() => sandboxUrl("javascript:alert(1)", "user-a@example.com", "sandbox-a"), /Invalid Hub public URL/);
+});
+
+test("Hub activation state exposes a retryable trusted link", () => {
+  assert.deepEqual(hubActivationState("https://notebook.example", false), {
+    userExists: false,
+    activationRequired: true,
+    activationUrl: "https://notebook.example/hub/login",
+  });
+  assert.deepEqual(hubActivationState("https://notebook.example/", true), {
+    userExists: true,
+    activationRequired: false,
+    activationUrl: "https://notebook.example/hub/login",
+  });
+  assert.throws(() => hubActivationUrl("javascript:alert(1)"), /Invalid Hub public URL/);
 });
 
 test("Hub failures distinguish client errors, Hub failures, and ambiguous transport failures", () => {

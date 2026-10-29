@@ -5,10 +5,16 @@ import { useRouter } from "next/navigation";
 import { Button, Card, Input, Label, TextField } from "@heroui/react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
+import HubActivationCard from "../HubActivationCard";
 
-async function errorKey(response: Response): Promise<string> {
-  const body = await response.json().catch(() => ({})) as { error?: string };
-  return ({ HUB_TIMEOUT: "hubTimeout", HUB_UNAVAILABLE: "hubUnavailable", QUOTA_EXCEEDED: "quotaExceeded", FORBIDDEN: "forbidden", BAD_REQUEST: "badRequest", SANDBOX_CONFLICT: "conflict", HUB_USER_UNKNOWN: "hubUserUnknown", INVALID_SANDBOX_NAME: "badRequest" } as Record<string, string>)[body.error ?? ""] ?? "createFailed";
+type ErrorResult = { key: string; activationUrl?: string };
+
+async function errorKey(response: Response): Promise<ErrorResult> {
+  const body = await response.json().catch(() => ({})) as { error?: string; activationUrl?: string };
+  return {
+    key: ({ HUB_TIMEOUT: "hubTimeout", HUB_UNAVAILABLE: "hubUnavailable", QUOTA_EXCEEDED: "quotaExceeded", FORBIDDEN: "forbidden", BAD_REQUEST: "badRequest", SANDBOX_CONFLICT: "conflict", HUB_USER_UNKNOWN: "hubUserUnknown", INVALID_SANDBOX_NAME: "badRequest" } as Record<string, string>)[body.error ?? ""] ?? "createFailed",
+    activationUrl: body.activationUrl,
+  };
 }
 
 export default function NewSandboxForm() {
@@ -17,6 +23,7 @@ export default function NewSandboxForm() {
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activationUrl, setActivationUrl] = useState<string | null>(null);
 
   const valid = /^[a-z0-9][a-z0-9-]{0,62}$/i.test(name);
 
@@ -24,13 +31,18 @@ export default function NewSandboxForm() {
     if (!valid) return;
     setSubmitting(true);
     setError(null);
+    setActivationUrl(null);
     try {
       const response = await bffFetch(`/api/bff/sandboxes/${encodeURIComponent(name)}/start`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: "{}",
       });
-      if (!response.ok) throw new Error(await errorKey(response));
+      if (!response.ok) {
+        const failure = await errorKey(response);
+        setActivationUrl(failure.activationUrl ?? null);
+        throw new Error(failure.key);
+      }
       const result = await response.json().catch(() => ({})) as { enforcement?: string };
       router.push(result.enforcement === "degraded" ? "/sandboxes?enforcement=degraded" : "/sandboxes");
       router.refresh();
@@ -61,7 +73,8 @@ export default function NewSandboxForm() {
         <span className="text-xs" style={{ color: "var(--muted)" }}>{t("profileCpuHint")}</span>
       </div>
 
-      {error ? <div className="flex flex-col gap-2" role="alert"><p className="text-sm" style={{ color: "var(--danger)" }}>{error}</p><Button variant="secondary" onPress={() => router.push("/sandboxes")}>{t("checkStatus")}</Button></div> : null}
+      {activationUrl ? <HubActivationCard activationUrl={activationUrl} compact onCheck={() => router.push("/sandboxes")} /> : null}
+      {error ? <div className="flex flex-col gap-2" role="alert"><p className="text-sm" style={{ color: "var(--danger)" }}>{error}</p>{!activationUrl ? <Button variant="secondary" onPress={() => router.push("/sandboxes")}>{t("checkStatus")}</Button> : null}</div> : null}
 
       <div className="flex gap-3">
         <Button variant="primary" onPress={() => void submit()} isPending={submitting} isDisabled={!valid || submitting}>
