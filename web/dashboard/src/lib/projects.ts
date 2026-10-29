@@ -5,6 +5,7 @@ export type ProjectRecord = {
   spaceId?: string;
   teamId?: string;
   runtimeStatus?: string;
+  sandboxName?: string;
 };
 
 export type ProjectListResponse = {
@@ -38,4 +39,9 @@ export function resolveProject(projects: ProjectRecord[], projectId: string | un
 export function validateProjectName(name: string): { ok: true; value: string } | { ok: false } {
   const value = name.trim();
   return value ? { ok: true, value } : { ok: false };
+}
+
+export function getCreateProjectNavigation(body: { project?: { id?: string; name?: string } }): string | null {
+  const id = body.project?.id;
+  return id ? `/projects/${encodeURIComponent(id)}` : null;
 }

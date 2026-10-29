@@ -263,6 +263,179 @@ body {
   outline-offset: 3px;
 }
 
+.workspace-page-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.workspace-page-heading h1 {
+  margin-top: 0.55rem;
+  font-size: clamp(2rem, 5vw, 3.6rem);
+  font-weight: 650;
+  letter-spacing: -0.07em;
+  line-height: 0.95;
+}
+
+.workspace-page-heading p,
+.workspace-state-panel p {
+  max-width: 38rem;
+  margin-top: 0.85rem;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.workspace-section-index,
+.workspace-card-kicker,
+.workspace-count-label,
+.workspace-mono-label {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.workspace-count-label {
+  white-space: nowrap;
+}
+
+.workspace-project-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 0.8rem 0;
+}
+
+.workspace-search-field,
+.workspace-create-form {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.workspace-search-field {
+  min-width: min(100%, 24rem);
+  color: var(--muted);
+}
+
+.workspace-search-field input,
+.workspace-create-form input {
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--foreground);
+  font: inherit;
+  outline: none;
+}
+
+.workspace-search-field input {
+  width: 100%;
+}
+
+.workspace-create-form input {
+  width: min(15rem, 30vw);
+  border-bottom: 1px solid var(--border);
+  padding: 0.55rem 0.2rem;
+}
+
+.workspace-search-field input::placeholder,
+.workspace-create-form input::placeholder {
+  color: var(--muted);
+}
+
+.workspace-project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 1rem;
+}
+
+.workspace-project-card {
+  display: flex;
+  min-height: 14rem;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 2rem;
+  border: 1px solid var(--border);
+  border-radius: 0.25rem;
+  background: color-mix(in oklab, var(--surface) 88%, transparent);
+  padding: 1.25rem;
+  box-shadow: none;
+}
+
+.workspace-project-card-topline,
+.workspace-project-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.workspace-project-card-actions {
+  justify-content: flex-start;
+}
+
+.workspace-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.68rem;
+}
+
+.workspace-status-muted {
+  color: var(--muted);
+}
+
+.workspace-status-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.workspace-state-panel {
+  border-left: 2px solid var(--accent);
+  background: color-mix(in oklab, var(--surface) 80%, transparent);
+  padding: clamp(1.25rem, 4vw, 2.5rem);
+}
+
+.workspace-state-panel h2 {
+  margin-top: 0.75rem;
+  font-size: clamp(1.4rem, 4vw, 2rem);
+  letter-spacing: -0.05em;
+}
+
+.workspace-state-panel .button,
+.workspace-state-panel a {
+  margin-top: 1.4rem;
+}
+
+.workspace-muted-copy {
+  color: var(--muted);
+}
+
+.workspace-form-error {
+  color: var(--danger);
+  font-size: 0.82rem;
+}
+
+@media (max-width: 760px) {
+  .workspace-page-heading,
+  .workspace-project-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .workspace-create-form input {
+    width: 100%;
+    flex: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   classifyProjectResponse,
   filterProjects,
+  getCreateProjectNavigation,
   resolveProject,
   validateProjectName,
   type ProjectRecord,
@@ -44,4 +45,19 @@ test("classifyProjectResponse distinguishes authentication and availability stat
   assert.equal(classifyProjectResponse(403), "unauthorized");
   assert.equal(classifyProjectResponse(500), "unavailable");
   assert.equal(classifyProjectResponse(503), "unavailable");
+});
+
+test("project creation navigation uses only the returned project id", () => {
+  assert.equal(getCreateProjectNavigation({ project: { id: "created-project", name: "Vision" } }), "/projects/created-project");
+  assert.equal(getCreateProjectNavigation({ project: { name: "Missing id" } }), null);
+});
+
+test("project records do not invent a sandbox compatibility target", () => {
+  assert.equal(projects[0].sandboxName, undefined);
+});
+
+test("board state maps the relevant API responses", () => {
+  assert.equal(classifyProjectResponse(401), "unauthenticated");
+  assert.equal(classifyProjectResponse(403), "unauthorized");
+  assert.equal(classifyProjectResponse(500), "unavailable");
 });
