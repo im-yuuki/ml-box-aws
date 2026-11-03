@@ -50,7 +50,7 @@ resource "helm_release" "dcgm_exporter" {
   version          = var.dcgm_exporter_chart_version != "" ? var.dcgm_exporter_chart_version : null
 
   values = [yamlencode({
-    serviceMonitor = { enabled = true } # Prometheus PodMonitor/operator in the observability stack
+    serviceMonitor = { enabled = false } # no Prometheus operator CRDs in this cluster yet; set true once installed
     nodeSelector   = { "tier" = "shared" }
     tolerations = [
       { key = "tier", operator = "Equal", value = "shared", effect = "NoSchedule" }
