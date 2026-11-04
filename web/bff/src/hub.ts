@@ -177,3 +177,10 @@ export function hubFailure(error: unknown): { status: number; code: string; mess
   }
   return { status: 504, code: "HUB_TIMEOUT", message: "JupyterHub không phản hồi kịp thời." };
 }
+
+export function hubServerFromUserRecord(record: unknown, name: string): HubServerLike | null {
+  const servers = (record as { servers?: Record<string, HubServerLike> } | null)?.servers;
+  if (!servers || typeof servers !== "object") return null;
+  const key = name === "default" ? "" : name;
+  return Object.prototype.hasOwnProperty.call(servers, key) ? servers[key] : null;
+}

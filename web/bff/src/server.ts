@@ -18,7 +18,7 @@ import { createHash, createSecretKey, randomBytes, randomUUID } from "node:crypt
 import { validCsrfPair } from "./csrf.js";
 import { bearerMatches } from "./hub-bridge.js";
 import { HANDOFF_TTL_SECONDS, buildHandoffUrl, generateHandoffCode, hashHandoffCode, sanitizeNextPath } from "./hub-handoff.js";
-import { ensureHubUser, hubActivationState, hubActivationUrl, hubFailure, mapHubServerState, sandboxPath, sandboxUrl, startHubSandbox, type HubError, type HubRequestResponse, type HubLifecycleState, type HubServerLike } from "./hub.js";
+import { ensureHubUser, hubActivationState, hubActivationUrl, hubFailure, hubServerFromUserRecord, mapHubServerState, sandboxPath, sandboxUrl, startHubSandbox, type HubError, type HubRequestResponse, type HubLifecycleState, type HubServerLike } from "./hub.js";
 import { requestHubResponse, resolveStartLifecycle, shouldStartHubSandbox, shouldUseHubActivationFallback } from "./lifecycle.js";
 import {
   buildUsageResponse,
@@ -412,6 +412,11 @@ async function resolveSessionHubIdentity(session: Session): Promise<HubIdentity>
 
 async function persistSessionHubIdentity(identity: HubIdentity): Promise<void> {
   if (appStore) await persistResolvedHubIdentity(identity, { upsertHubIdentity: (mapping) => appStore.upsertHubIdentity(mapping) });
+}
+
+async function readHubServer(runtime: RuntimeConfig, username: string, name: string): Promise<HubServerLike | null> {
+  const record = await hubRequest<unknown>(runtime, "GET", `/hub/api/users/${encodeURIComponent(username)}`);
+  return hubServerFromUserRecord(record, name);
 }
 
 function serverPath(username: string, name: string): string {
@@ -1161,7 +1166,7 @@ app.get<{ Params: { projectId: string } }>("/v1/projects/:projectId/sandbox", as
     const runtime = await appStore.getProjectSandboxRuntime(projectId);
     if (!runtime) return { projectId, canOperate: permission?.canOperate ?? false, sandbox: null };
     const hub = runtimeConfig();
-    const server = await hubRequest<HubServerLike | null>(hub, "GET", serverPath(runtime.hubUsername, runtime.serverName)).catch((error) => {
+    const server = await readHubServer(hub, runtime.hubUsername, runtime.serverName).catch((error) => {
       if (hubStatus(error) === 404) return null;
       throw error;
     });
@@ -1202,7 +1207,7 @@ app.post<{ Params: { projectId: string } }>("/v1/projects/:projectId/sandbox/sta
     }
     const hub = runtimeConfig();
     const username = runtime.hubUsername;
-    const existing = await hubRequest<HubServerLike | null>(hub, "GET", serverPath(username, runtime.serverName)).catch((error) => {
+    const existing = await readHubServer(hub, username, runtime.serverName).catch((error) => {
       if (hubStatus(error) === 404) return null;
       throw error;
     });
@@ -1218,7 +1223,7 @@ app.post<{ Params: { projectId: string } }>("/v1/projects/:projectId/sandbox/sta
         onRetry: () => auditLifecycle(session, "project.sandbox_start_retry", projectId, { status: 404 }),
         start: () => hubRequestResponse<HubServerLike>(hub, "POST", serverPath(username, runtime.serverName), {}),
       }),
-      read: async () => hubRequest<HubServerLike>(hub, "GET", serverPath(username, runtime.serverName)),
+      read: async () => readHubServer(hub, username, runtime.serverName),
       audit: (action, metadata) => auditLifecycle(session, action, projectId, metadata),
     });
     if (lifecycle.state === "ready" || lifecycle.state === "starting") await appStore.openUsageSession(projectId, session.subject);
@@ -1535,7 +1540,7 @@ app.post<{ Params: { name: string } }>("/v1/sandboxes/:name/start", async (reque
         onRetry: () => auditLifecycle(session, "sandbox.start_retry", request.params.name, { status: 404 }),
         start: () => hubRequestResponse<HubServerLike>(runtime, "POST", serverPath(hubUsername, request.params.name), {}),
       }),
-      read: async () => hubRequest<HubServerLike>(runtime, "GET", serverPath(hubUsername, request.params.name)),
+      read: async () => readHubServer(runtime, hubUsername, request.params.name),
       audit: (action, metadata) => auditLifecycle(session, action, request.params.name, metadata),
     });
     return { ok: true, name: request.params.name, state: lifecycle.state, enforcement };

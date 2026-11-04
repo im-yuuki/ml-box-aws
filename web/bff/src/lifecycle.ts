@@ -64,7 +64,7 @@ export type LifecycleAudit = (action: string, metadata?: Record<string, unknown>
 
 export type StartLifecycleOptions = {
   start: () => Promise<HubRequestResponse<HubServerLike>>;
-  read?: () => Promise<HubServerLike>;
+  read?: () => Promise<HubServerLike | null>;
   audit?: LifecycleAudit;
   maxAttempts?: number;
   timeoutMs?: number;
