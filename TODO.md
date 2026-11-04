@@ -57,8 +57,8 @@ Target sản phẩm và thứ tự phase: [`docs/multi-tenant-product-plan.md`](
 - ☐ Xóa artifact; phân trang danh sách.
 - ☐ Enforce quota CPU/RAM/storage/GPU. Chỉ làm khi nguồn usage đủ tin cậy.
 - ☐ Thanh toán thật: không trong phạm vi hiện tại.
-- ☐ Xoay secret đã lộ trong output plan (`BFF_SESSION_SECRET`, `HUB_AUTH_BRIDGE_TOKEN`, client secret Cognito cũ của Hub).
-- ☐ Redesign giao diện: token, shell, các màn chính (xem kế hoạch redesign trong phiên làm việc); chụp ảnh trước/sau ở mobile, tablet, desktop, sáng/tối, en/vi.
+- ✅ Đã xoay secret lộ trong output plan: client Cognito `jupyterhub` (thay mới), `HUB_AUTH_BRIDGE_TOKEN`, `BFF_SESSION_SECRET` (mọi phiên cũ mất hiệu lực).
+- ⚠️ Redesign giao diện: đã đổi token sáng sang tông kem ấm (accent đất nung) và copy trang chủ. Còn lại: shell (rail, header), các màn Projects/Project/Teams/Usage/Account, auth, Hub; chụp trước/sau ở mobile, tablet, desktop, sáng/tối, en/vi.
 - ☐ Turnstile: test đầy đủ disabled/enabled/token sai/hết hạn/replay/Siteverify lỗi.
 - ☐ Form `/verify` và các màn hình còn mock; kiểm tra a11y, responsive, en/vi cho các màn mới.
 
