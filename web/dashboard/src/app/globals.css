@@ -43,8 +43,7 @@ body {
   display: flex;
   min-height: 100vh;
   background-color: var(--background);
-  background-image: linear-gradient(to right, color-mix(in oklab, var(--border) 34%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in oklab, var(--border) 22%, transparent) 1px, transparent 1px);
-  background-size: 4rem 4rem;
+  background-image: radial-gradient(120% 80% at 100% 0%, color-mix(in oklab, var(--accent) 7%, transparent), transparent 60%);
 }
 
 .workspace-rail {
@@ -55,8 +54,8 @@ body {
   width: var(--workspace-rail-width);
   flex-direction: column;
   gap: 1.5rem;
-  border-right: 1px solid var(--border);
-  background: color-mix(in oklab, var(--background) 92%, transparent);
+  border-right: 1px solid var(--separator);
+  background: color-mix(in oklab, var(--surface) 94%, transparent);
   padding: 1.5rem 1rem;
   backdrop-filter: blur(16px);
 }
@@ -83,12 +82,12 @@ body {
   height: 2.25rem;
   place-items: center;
   border: 1px solid var(--accent);
+  border-radius: 0.75rem;
   background: var(--accent);
   color: var(--accent-foreground);
   font-family: var(--font-mono);
   font-size: 0.9rem;
   font-weight: 800;
-  transform: skew(-8deg);
 }
 
 .workspace-brand-copy {
@@ -151,8 +150,8 @@ body {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  border-left: 2px solid transparent;
-  padding: 0.7rem 0.7rem;
+  border-radius: 0.75rem;
+  padding: 0.7rem 0.8rem;
   color: var(--muted);
   font-size: 0.88rem;
   text-decoration: none;
@@ -161,9 +160,12 @@ body {
 
 .workspace-nav-link:hover,
 .workspace-nav-link.is-current {
-  border-left-color: var(--accent);
-  background: color-mix(in oklab, var(--accent) 10%, transparent);
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
   color: var(--foreground);
+}
+
+.workspace-nav-link.is-current {
+  font-weight: 600;
 }
 
 .workspace-nav-icon {
