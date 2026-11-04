@@ -16,6 +16,8 @@ import cookie from "@fastify/cookie";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { createHash, createSecretKey, randomBytes, randomUUID } from "node:crypto";
 import { validCsrfPair } from "./csrf.js";
+import { bearerMatches } from "./hub-bridge.js";
+import { HANDOFF_TTL_SECONDS, buildHandoffUrl, generateHandoffCode, hashHandoffCode, sanitizeNextPath } from "./hub-handoff.js";
 import { ensureHubUser, hubActivationState, hubActivationUrl, hubFailure, mapHubServerState, sandboxPath, sandboxUrl, startHubSandbox, type HubError, type HubRequestResponse, type HubLifecycleState, type HubServerLike } from "./hub.js";
 import { requestHubResponse, resolveStartLifecycle, shouldStartHubSandbox, shouldUseHubActivationFallback } from "./lifecycle.js";
 import {
@@ -73,6 +75,7 @@ const config = {
   hubUrl: process.env.HUB_URL?.replace(/\/$/, ""),
   hubPublicUrl: process.env.HUB_PUBLIC_URL?.replace(/\/$/, ""),
   hubApiToken: process.env.HUB_API_TOKEN,
+  hubAuthBridgeToken: process.env.HUB_AUTH_BRIDGE_TOKEN,
   secureCookies: process.env.SECURE_COOKIES !== "false",
   cpuQuotaHours: quotaEnv("CPU_QUOTA_HOURS"),
   ramQuotaGb: quotaEnv("RAM_QUOTA_GB"),
@@ -485,6 +488,8 @@ app.register(cookie);
 // The dashboard proxy obtains the double-submit token from /v1/auth/csrf.
 app.addHook("onRequest", async (request, reply) => {
   if (["GET", "HEAD", "OPTIONS"].includes(request.method)) return;
+  // Internal server-to-server routes authenticate with the bridge token instead of a browser CSRF pair.
+  if (request.url.startsWith("/internal/")) return;
   requireCsrf(request, reply);
 });
 
@@ -506,6 +511,46 @@ app.get("/v1/health", async (_request, reply) => {
 app.get("/v1/auth/csrf", async (_request, reply) => {
   reply.header("cache-control", "no-store");
   return { csrfToken: setCsrfCookie(reply, config.secureCookies) };
+});
+
+// Dashboard -> Hub: mint a one-time code for the signed-in user. The browser then opens the
+// Hub login handler with the code; the Hub redeems it server-to-server (see /internal below).
+app.post<{ Body: { path?: unknown } }>("/v1/hub/handoff", async (request, reply) => {
+  reply.header("cache-control", "no-store");
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Dịch vụ ứng dụng tạm thời không khả dụng." });
+  const runtime = runtimeConfig();
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  const identity = await resolveSessionHubIdentity(session);
+  if (identity.status === "conflict") return reply.code(409).send({ error: "HUB_IDENTITY_CONFLICT", message: "Tài khoản notebook đang cần kiểm tra." });
+  await persistSessionHubIdentity(identity);
+  const nextPath = sanitizeNextPath(request.body?.path);
+  const code = generateHandoffCode();
+  await appStore.createHubHandoffCode(hashHandoffCode(code), identity.hubUsername, nextPath, HANDOFF_TTL_SECONDS);
+  return { url: buildHandoffUrl(runtime.hubPublicUrl, code, nextPath), expiresIn: HANDOFF_TTL_SECONDS };
+});
+
+// Internal only: the Hub redeems a handoff code from inside the cluster. The ALB never routes
+// /internal, and the request is authenticated by the bridge token, not by a browser session.
+app.post<{ Body: { code?: unknown } }>("/internal/v1/hub/handoff/redeem", async (request, reply) => {
+  reply.header("cache-control", "no-store");
+  if (!config.hubAuthBridgeToken) return reply.code(404).send({ error: "NOT_FOUND" });
+  if (!bearerMatches(request.headers.authorization, config.hubAuthBridgeToken)) {
+    return reply.code(401).send({ error: "UNAUTHORIZED" });
+  }
+  const code = typeof request.body?.code === "string" ? request.body.code : "";
+  if (!code || code.length > 128 || !appStore) return reply.code(400).send({ error: "INVALID_CODE" });
+  try {
+    appSchemaReady ??= appStore.ensureSchema();
+    await appSchemaReady;
+    const redeemed = await appStore.redeemHubHandoffCode(hashHandoffCode(code));
+    if (!redeemed) return reply.code(401).send({ error: "INVALID_OR_EXPIRED_CODE" });
+    return redeemed;
+  } catch (error) {
+    appSchemaReady = null;
+    request.log.error({ err: error }, "Hub handoff redeem failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE" });
+  }
 });
 
 app.post<{ Body: AuthBody }>("/v1/auth/login", async (request, reply) => {

@@ -362,6 +362,7 @@
     "open": "Open notebook",
     "readOnly": "You can view this Project's sandbox but cannot start or stop it.",
     "forbidden": "You do not have permission to operate this sandbox.",
+    "openFailed": "Could not open the notebook. Try again.",
     "startFailed": "Could not start the sandbox. Try again.",
     "stopFailed": "Could not stop the sandbox. Try again.",
     "ownerNotReady": "The Project owner needs to sign in to the dashboard once before the sandbox can start.",

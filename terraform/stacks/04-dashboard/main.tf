@@ -187,10 +187,11 @@ resource "kubectl_manifest" "bff_secret" {
     }
     type = "Opaque"
     stringData = {
-      BFF_SESSION_SECRET   = random_password.bff_session_secret.result
-      HUB_API_TOKEN        = data.terraform_remote_state.hub_app.outputs.bff_api_token
-      USAGE_DATABASE_URL   = local.dashboard_usage_db_url
-      TURNSTILE_SECRET_KEY = var.turnstile_secret_key
+      BFF_SESSION_SECRET    = random_password.bff_session_secret.result
+      HUB_API_TOKEN         = data.terraform_remote_state.hub_app.outputs.bff_api_token
+      HUB_AUTH_BRIDGE_TOKEN = data.terraform_remote_state.hub_app.outputs.hub_auth_bridge_token
+      USAGE_DATABASE_URL    = local.dashboard_usage_db_url
+      TURNSTILE_SECRET_KEY  = var.turnstile_secret_key
     }
   })
 

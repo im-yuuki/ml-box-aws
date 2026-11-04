@@ -76,6 +76,13 @@ resource "random_password" "bff_api_token" {
   special = false
 }
 
+# Bridge token: the Hub authenticator presents it to the BFF's /internal redeem endpoint to
+# exchange a one-time dashboard handoff code for a Hub username. Shared with 04-dashboard.
+resource "random_password" "hub_auth_bridge_token" {
+  length  = 48
+  special = false
+}
+
 # ---------------------------------------------------------------------------
 # JupyterHub helm release
 # ---------------------------------------------------------------------------
@@ -103,6 +110,9 @@ resource "helm_release" "jupyterhub" {
     vram_ceiling_mib      = var.vram_ceiling_mib
     enable_gpu_profiles   = var.enable_gpu_profiles
     bff_api_token         = random_password.bff_api_token.result
+    bff_internal_url      = "http://bff.dashboard.svc.cluster.local:4000"
+    hub_auth_bridge_token = random_password.hub_auth_bridge_token.result
+    dashboard_login_url   = "https://${var.domain}/login"
   })]
 }
 

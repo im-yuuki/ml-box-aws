@@ -18,3 +18,9 @@ output "bff_api_token" {
   sensitive   = true
   value       = random_password.bff_api_token.result
 }
+
+output "hub_auth_bridge_token" {
+  description = "Sensitive bearer token for the BFF internal handoff-redeem endpoint, consumed by the dashboard BFF."
+  sensitive   = true
+  value       = random_password.hub_auth_bridge_token.result
+}

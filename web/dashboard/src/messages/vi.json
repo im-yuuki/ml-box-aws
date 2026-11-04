@@ -362,6 +362,7 @@
     "open": "Mở notebook",
     "readOnly": "Bạn chỉ xem được sandbox của Project này, không khởi động hay dừng được.",
     "forbidden": "Bạn không có quyền vận hành sandbox này.",
+    "openFailed": "Không mở được notebook. Vui lòng thử lại.",
     "startFailed": "Không khởi động được sandbox. Vui lòng thử lại.",
     "stopFailed": "Không dừng được sandbox. Vui lòng thử lại.",
     "ownerNotReady": "Chủ Project cần đăng nhập dashboard một lần trước khi sandbox khởi động được.",

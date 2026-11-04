@@ -69,6 +69,31 @@ export default function ProjectRuntimePanel({ projectId }: { projectId: string }
     }
   };
 
+  // Opens the notebook through a one-time handoff so the user never has to sign in to the Hub.
+  const openNotebook = async () => {
+    if (!data?.sandbox?.url) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const path = new URL(data.sandbox.url).pathname;
+      const response = await bffFetch("/api/bff/hub/handoff", { method: "POST", body: JSON.stringify({ path }) });
+      if (!response.ok) {
+        setError(t("openFailed"));
+        return;
+      }
+      const body = await response.json() as { url?: string };
+      if (!body.url) {
+        setError(t("openFailed"));
+        return;
+      }
+      window.location.href = body.url;
+    } catch {
+      setError(t("openFailed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const stateKey = runtimeStateKey(data?.sandbox?.state);
   const canOperate = data?.canOperate ?? false;
 
@@ -87,7 +112,7 @@ export default function ProjectRuntimePanel({ projectId }: { projectId: string }
         <Button variant="secondary" size="sm" isDisabled={busy || loading || !canOperate || stateKey !== "running"} onPress={() => void act("stop")}>
           {t("stop")}
         </Button>
-        {data?.sandbox?.url ? <a className="workspace-count-label" href={data.sandbox.url} target="_blank" rel="noreferrer">{t("open")}</a> : null}
+        {data?.sandbox?.url ? <Button variant="tertiary" size="sm" isDisabled={busy || loading} onPress={() => void openNotebook()}>{t("open")}</Button> : null}
       </div>
       {data && !canOperate ? <p className="workspace-muted-copy">{t("readOnly")}</p> : null}
       {usage ? <p className="workspace-muted-copy">{t("usage", { hours: usage.hours, days: usage.windowDays })}</p> : null}
