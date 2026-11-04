@@ -13,7 +13,7 @@ labextension, installed **offline** from the wheel vendored in the repository
 (`web/theme/lab/jlab-heroui-theme/dist/`). No secrets are baked into the images
 and the runtime user stays non-root (`jovyan`, uid 1000).
 
-The image build lives outside Terraform (handoff doc §8): Terraform only
+The image build lives outside Terraform: Terraform only
 creates the ECR repositories and points the hub at the resulting image URIs.
 
 ```
@@ -195,5 +195,5 @@ kubectl -n hub run tmp --rm -it --image=<image-uri> --restart=Never -- jupyter l
   `<home>/.jupyter/lab/user-settings/@jupyterlab/apputils-extension/overrides.json`
   in the image.
 - **GPU runtime env.** The GPU image sets `TF_FORCE_GPU_ALLOW_GROWTH=true` and
-  `XLA_PYTHON_CLIENT_PREALLOCATE=false` (handoff doc §8); the hub values set the
+  `XLA_PYTHON_CLIENT_PREALLOCATE=false` ; the hub values set the
   same variables per pod (`singleuser.extraEnv`).

@@ -121,7 +121,6 @@ the two variables if your chart version differs.
 | `versions.tf` | providers (`aws`, `helm`, `kubectl`) + EKS cluster data source |
 | `variables.tf` | inputs (region/domain/images/flags/state coordinates/service ref) |
 | `values/hub-values.yaml.tpl` | Z2JH values (Cognito, spawn hook, profiles, scheduling, cull) |
-| `values/10-spawn-hook.py` | reference copy of the spawn hook (not consumed by Terraform) |
 
 ## Notes / gotchas
 

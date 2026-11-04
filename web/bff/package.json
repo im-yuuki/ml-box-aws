@@ -8,7 +8,8 @@
     "test": "npm run build && node --test dist/*.test.js",
     "start": "node dist/server.js",
     "identity:dry-run": "node dist/hub-identity-dry-run.js",
-    "dev": "tsx watch src/server.ts"
+    "dev": "tsx watch src/server.ts",
+    "test:integration": "node integration/pg-integration.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.968.0",

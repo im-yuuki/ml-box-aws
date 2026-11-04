@@ -16,6 +16,7 @@ import {
   type ProjectRecord,
 } from "@/lib/projects";
 import ProjectCard from "@/components/ProjectCard";
+import { useActiveSpace } from "@/hooks/useActiveSpace";
 
 type CreateProjectResponse = { project?: ProjectRecord };
 
@@ -23,31 +24,34 @@ export default function ProjectBoard() {
   const t = useTranslations("workspace");
   const router = useRouter();
   const [projects, setProjects] = useState<ProjectRecord[]>([]);
-  const [spaceId, setSpaceId] = useState<string | undefined>();
+  const { activeSpace } = useActiveSpace();
   const [query, setQuery] = useState("");
   const [loadState, setLoadState] = useState<ProjectLoadState | "loading">("loading");
   const [projectName, setProjectName] = useState("");
   const [createError, setCreateError] = useState(false);
   const [creating, setCreating] = useState(false);
 
+  const activeSpaceId = activeSpace?.id ?? null;
+
   const loadProjects = useCallback(async () => {
     setLoadState("loading");
     try {
-      const response = await bffFetch("/api/bff/projects", { cache: "no-store" });
+      const query = activeSpaceId ? `?spaceId=${encodeURIComponent(activeSpaceId)}` : "";
+      const response = await bffFetch(`/api/bff/projects${query}`, { cache: "no-store" });
       setLoadState(classifyProjectResponse(response.status));
       if (!response.ok) return;
       const body = await response.json() as ProjectListResponse;
       setProjects(Array.isArray(body.projects) ? body.projects : []);
-      setSpaceId(body.spaceId);
     } catch {
       setLoadState("unavailable");
     }
-  }, []);
+  }, [activeSpaceId]);
 
   useEffect(() => {
+    if (!activeSpaceId) return;
     const task = window.setTimeout(() => void loadProjects(), 0);
     return () => window.clearTimeout(task);
-  }, [loadProjects]);
+  }, [activeSpaceId, loadProjects]);
 
   const visibleProjects = useMemo(() => filterProjects(projects, query), [projects, query]);
 
@@ -59,12 +63,27 @@ export default function ProjectBoard() {
       setCreateError(true);
       return;
     }
+    if (!activeSpaceId) {
+      setCreateError(true);
+      return;
+    }
     setCreating(true);
     try {
+      // Organization Spaces need an explicit team; personal Spaces use their default team.
+      let teamId: string | undefined;
+      if (activeSpace?.type === "organization") {
+        const teamsResponse = await bffFetch(`/api/bff/spaces/${encodeURIComponent(activeSpaceId)}/teams`, { cache: "no-store" });
+        const teamsBody = teamsResponse.ok ? await teamsResponse.json() as { teams?: Array<{ id: string }> } : { teams: [] };
+        teamId = teamsBody.teams?.[0]?.id;
+        if (!teamId) {
+          setCreateError(true);
+          return;
+        }
+      }
       const response = await bffFetch("/api/bff/projects", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name: validated.value, spaceId }),
+        body: JSON.stringify({ name: validated.value, spaceId: activeSpaceId, ...(teamId ? { teamId } : {}) }),
       });
       if (!response.ok) {
         setCreateError(true);

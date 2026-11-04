@@ -1,5 +1,5 @@
 # Z2JH values — rendered via templatefile() in stack 03-hub-app/main.tf.
-# Cross-check field names against the Z2JH chart version in use (handoff doc §12); do not infer from this file.
+# Cross-check field names against the Z2JH chart version in use; do not infer from this file.
 # Decisions applied: commit/ceiling VRAM, L4 shared replicas 3, userScheduler,
 # do-not-disrupt, Cognito OIDC, external RDS, pre-created ALB + ACM (no Ingress).
 #

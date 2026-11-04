@@ -16,6 +16,21 @@ The Hub API token is privileged, so this path construction is the BFF authorizat
 | List path uses authenticated session username | Source inspection; no caller-controlled username parameter exists |
 | A's GET list excludes B's servers; A cannot start/delete B's servers | Not executed: requires two real Hub identities and is excluded from safe local verification |
 
+## Project, team, invitation, artifact and usage routes (phase 2–6)
+
+| Operation | Authorization rule | Covered by |
+|---|---|---|
+| Project list / create | Space membership; create needs owner/admin or team membership (not viewer) | `app-store.test.ts` (SQL predicates) |
+| Project list visibility | Owner/admin/viewer see all; others need team membership or a non-blocked direct grant | `app-store.test.ts` |
+| Team create / member add / member remove | Owner or admin of the Space only | `app-store.test.ts` (denial paths) |
+| Last team lead | Removing or demoting the only lead returns 409 `LAST_TEAM_LEAD` | `app-store.test.ts` |
+| Project sandbox read / start / stop | Read needs canRead (404 otherwise); start/stop need canOperate (403). Runtime runs under the owner's Hub user | `app-store.test.ts` (runtime creation, fail-closed without owner identity) |
+| Artifacts list / create / complete / download | canRead for reads; canOperate for create and complete; keys built server-side under `spaces/{space}/projects/{project}/` | `artifacts.test.ts` (key construction, traversal rejection) |
+| Invitations create / list / revoke | Owner or admin of the Space; accept only for the invited email, never downgrading an existing role | `app-store.test.ts` |
+| Usage (project / space) | Project canRead; space summary requires active membership | `app-store.test.ts` |
+
+Not executed: cross-tenant requests against a live cluster with two real identities. Still required before release.
+
 ## Retry and ambiguous starts
 
 The BFF does **not** automatically retry `POST` start on 502/504. A timeout can happen after Hub accepted the spawn, so replaying the POST is ambiguous without a Hub idempotency guarantee. The UI instead offers a status check (navigate to the sandbox list and perform its safe GET refresh); failed servers expose an explicit user-initiated restart action. No automatic retries are performed for start requests.

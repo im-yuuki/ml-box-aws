@@ -1,7 +1,7 @@
 # Agent context: ML Box UI/theme direction
 
-Extracted from the archived OpenCode history on 2026-10-20. This is a concise
-handoff, not a replacement for the current implementation contract. Read
+Summary of the UI/theme direction (2026-10-20). It is a concise brief, not a
+replacement for the current implementation contract. Read
 `web/theme/README.md`, `web/theme/tokens/heroui-tokens.css`, and the current
 project README before making changes; those files are authoritative where this
 note is abbreviated.
@@ -39,10 +39,9 @@ note is abbreviated.
   JupyterHub với HeroUI”). User first asked for a JupyterHub and notebook web
   UI theme using the HeroUI component kit, then clarified the wider product UX
   ambition and asked to build the Hub/workspace theme first.
-- Build handoffs: `ses_eab729667ffeTCSsnoasPSeC7d` (Hub pages) and
-  `ses_eab729666ffeGZRDaKVZ2Nkqrv` (JupyterLab extension). These archived
-  prompts contain implementation requirements; reconcile them with the
-  current README/tokens rather than copying them blindly.
+- Implementation requirements for the Hub pages and the JupyterLab extension
+  are in `web/theme/README.md`; reconcile them with the current tokens rather
+  than copying older notes.
 
 ## Safe continuation
 

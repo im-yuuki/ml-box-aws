@@ -85,7 +85,7 @@ GPU dedicated 1 GPU/node không chia.
 | GPU shared | **3 user/node** (1 GPU × 3 replica) | g6.xlarge $1.05/3 = **$0.35/giờ** |
 | GPU dedicated | **1 user/node** | g4dn $0.68; g6 $1.05; g5 ~$1.31/giờ |
 
-Quy mô mục tiêu (handoff doc): 50 user đầu, kiến trúc tới 2000 user đồng thời.
+Quy mô mục tiêu: 50 user đầu, kiến trúc tới 2000 user đồng thời.
 
 | Kịch bản | Node cần | Chi phí phần autoscale (Sydney/th) |
 |---|---|---|

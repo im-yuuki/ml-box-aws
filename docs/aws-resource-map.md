@@ -1,6 +1,6 @@
 # AWS Resource Map — JupyterHub GPU Sandbox (EKS, ap-southeast-2)
 
-> Nguồn: mục 4 doc handoff + scaffold `terraform/` hiện tại.
+> Nguồn: scaffold `terraform/` hiện tại.
 > Mũi tên `-->` = phụ thuộc / gọi tới. Nhóm `[...]` = service lẻ tham gia.
 
 ```mermaid

@@ -1,4 +1,4 @@
-# ECR for the standard images (the image build lives outside Terraform, handoff doc §8).
+# ECR for the standard images (the image build lives outside Terraform).
 
 resource "aws_ecr_repository" "images" {
   for_each = toset(var.repo_names)

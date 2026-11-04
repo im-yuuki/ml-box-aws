@@ -26,7 +26,7 @@ import {
   type UsageServer,
 } from "./usage.js";
 import { UsageStore } from "./usage-store.js";
-import { AppStore, PROJECT_RUNTIME_OWNER_NOT_READY, TEAM_MANAGEMENT_DENIED } from "./app-store.js";
+import { AppStore, INVITATION_NOT_AVAILABLE, LAST_TEAM_LEAD, PROJECT_RUNTIME_OWNER_NOT_READY, TEAM_MANAGEMENT_DENIED, type InvitationRole } from "./app-store.js";
 import { ArtifactStorage } from "./artifact-storage.js";
 import { buildArtifactObjectKey, sanitizeArtifactName, validateArtifactSize } from "./artifacts.js";
 import { verifyTurnstile } from "./turnstile.js";
@@ -876,6 +876,127 @@ app.post<{ Body: ProjectBody }>("/v1/projects", async (request, reply) => {
   }
 });
 
+app.get("/v1/spaces", async (request, reply) => {
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Space storage is not configured." });
+  try {
+    return { spaces: await appStore.listSpaces(session.subject) };
+  } catch (error) {
+    request.log.error({ err: error }, "Space list failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Space storage is temporarily unavailable." });
+  }
+});
+
+const USAGE_NOTE = "Số giờ được ghi nhận từ lần khởi động/dừng sandbox qua BFF; không phải dữ liệu thanh toán.";
+
+app.get<{ Params: { projectId: string } }>("/v1/projects/:projectId/usage", async (request, reply) => {
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Usage storage is not configured." });
+  try {
+    if (!(await projectActionAllowed(reply, session.subject, request.params.projectId, "read"))) return;
+    return { projectId: request.params.projectId, usage: await appStore.projectUsageSummary(request.params.projectId, 30), note: USAGE_NOTE };
+  } catch (error) {
+    request.log.error({ err: error }, "Project usage read failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Usage storage is temporarily unavailable." });
+  }
+});
+
+app.get<{ Params: { spaceId: string } }>("/v1/spaces/:spaceId/usage", async (request, reply) => {
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Usage storage is not configured." });
+  try {
+    const summary = await appStore.spaceUsageSummary(session.subject, request.params.spaceId, 30);
+    if (!summary) return reply.code(404).send({ error: "NOT_FOUND", message: "Space không tồn tại hoặc bạn không thuộc Space này." });
+    return { ...summary, note: USAGE_NOTE };
+  } catch (error) {
+    request.log.error({ err: error }, "Space usage read failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Usage storage is temporarily unavailable." });
+  }
+});
+
+const INVITATION_ROLES: InvitationRole[] = ["admin", "member", "viewer"];
+
+app.post<{ Params: { spaceId: string }; Body: { email?: string; role?: string } }>("/v1/spaces/:spaceId/invitations", async (request, reply) => {
+  if (!requireCsrf(request, reply)) return;
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Invitation storage is not configured." });
+  const email = requiredString(request.body?.email)?.toLowerCase();
+  const role = request.body?.role ?? "member";
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return reply.code(400).send({ error: "INVALID_INPUT", message: "Email không hợp lệ." });
+  if (!INVITATION_ROLES.includes(role as InvitationRole)) return reply.code(400).send({ error: "INVALID_INPUT", message: "Vai trò không hợp lệ." });
+  try {
+    return reply.code(201).send({ invitation: await appStore.createSpaceInvitation(session.subject, request.params.spaceId, email, role as InvitationRole) });
+  } catch (error) {
+    if (error instanceof Error && error.message === TEAM_MANAGEMENT_DENIED) {
+      return reply.code(403).send({ error: "FORBIDDEN", message: "Chỉ owner hoặc admin mới được mời thành viên." });
+    }
+    request.log.error({ err: error }, "Invitation create failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Invitation storage is temporarily unavailable." });
+  }
+});
+
+app.get<{ Params: { spaceId: string } }>("/v1/spaces/:spaceId/invitations", async (request, reply) => {
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Invitation storage is not configured." });
+  try {
+    return { spaceId: request.params.spaceId, invitations: await appStore.listSpaceInvitations(session.subject, request.params.spaceId) };
+  } catch (error) {
+    request.log.error({ err: error }, "Invitation list failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Invitation storage is temporarily unavailable." });
+  }
+});
+
+app.delete<{ Params: { spaceId: string; invitationId: string } }>("/v1/spaces/:spaceId/invitations/:invitationId", async (request, reply) => {
+  if (!requireCsrf(request, reply)) return;
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Invitation storage is not configured." });
+  try {
+    await appStore.revokeSpaceInvitation(session.subject, request.params.spaceId, request.params.invitationId);
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof Error && error.message === TEAM_MANAGEMENT_DENIED) {
+      return reply.code(403).send({ error: "FORBIDDEN", message: "Bạn không có quyền thu hồi lời mời này." });
+    }
+    request.log.error({ err: error }, "Invitation revoke failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Invitation storage is temporarily unavailable." });
+  }
+});
+
+app.get("/v1/invitations", async (request, reply) => {
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Invitation storage is not configured." });
+  try {
+    return { invitations: await appStore.listMyInvitations(session.email) };
+  } catch (error) {
+    request.log.error({ err: error }, "Own invitation list failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Invitation storage is temporarily unavailable." });
+  }
+});
+
+app.post<{ Params: { invitationId: string } }>("/v1/invitations/:invitationId/accept", async (request, reply) => {
+  if (!requireCsrf(request, reply)) return;
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Invitation storage is not configured." });
+  try {
+    await appStore.acceptSpaceInvitation(session.subject, session.email, request.params.invitationId);
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof Error && error.message === INVITATION_NOT_AVAILABLE) {
+      return reply.code(404).send({ error: "NOT_FOUND", message: "Lời mời không tồn tại hoặc không dành cho tài khoản này." });
+    }
+    request.log.error({ err: error }, "Invitation accept failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Invitation storage is temporarily unavailable." });
+  }
+});
+
 // Teams (flat, per Space). Owners/admins manage teams; members are added by Cognito sub for now.
 app.get<{ Params: { spaceId: string } }>("/v1/spaces/:spaceId/teams", async (request, reply) => {
   const session = await requireSession(request, reply);
@@ -934,6 +1055,9 @@ app.post<{ Params: { spaceId: string; teamId: string }; Body: { userId?: string;
       await appStore.addTeamMember(session.subject, request.params.spaceId, request.params.teamId, userId, role);
       return reply.code(201).send({ ok: true });
     } catch (error) {
+      if (error instanceof Error && error.message === LAST_TEAM_LEAD) {
+        return reply.code(409).send({ error: "LAST_TEAM_LEAD", message: "Team phải có ít nhất một lead." });
+      }
       if (error instanceof Error && error.message === TEAM_MANAGEMENT_DENIED) {
         return reply.code(403).send({ error: "FORBIDDEN", message: "Bạn không có quyền quản lý thành viên Team này." });
       }
@@ -954,6 +1078,9 @@ app.delete<{ Params: { spaceId: string; teamId: string; userId: string } }>(
       await appStore.removeTeamMember(session.subject, request.params.spaceId, request.params.teamId, request.params.userId);
       return { ok: true };
     } catch (error) {
+      if (error instanceof Error && error.message === LAST_TEAM_LEAD) {
+        return reply.code(409).send({ error: "LAST_TEAM_LEAD", message: "Team phải có ít nhất một lead." });
+      }
       if (error instanceof Error && error.message === TEAM_MANAGEMENT_DENIED) {
         return reply.code(403).send({ error: "FORBIDDEN", message: "Bạn không có quyền quản lý thành viên Team này." });
       }
@@ -993,12 +1120,14 @@ app.get<{ Params: { projectId: string } }>("/v1/projects/:projectId/sandbox", as
       if (hubStatus(error) === 404) return null;
       throw error;
     });
+    const observedState = mapHubServerState(server);
+    if (observedState !== "ready" && observedState !== "starting") await appStore.closeUsageSessions(projectId);
     return {
       projectId,
       canOperate: permission?.canOperate ?? false,
       sandbox: {
         name: runtime.serverName,
-        state: mapHubServerState(server),
+        state: observedState,
         url: server?.ready ? sandboxUrl(hub.hubPublicUrl, runtime.hubUsername, runtime.serverName) : null,
       },
     };
@@ -1047,6 +1176,7 @@ app.post<{ Params: { projectId: string } }>("/v1/projects/:projectId/sandbox/sta
       read: async () => hubRequest<HubServerLike>(hub, "GET", serverPath(username, runtime.serverName)),
       audit: (action, metadata) => auditLifecycle(session, action, projectId, metadata),
     });
+    if (lifecycle.state === "ready" || lifecycle.state === "starting") await appStore.openUsageSession(projectId, session.subject);
     return { ok: true, projectId, state: lifecycle.state };
   } catch (error) {
     if (handleHubIdentityError(reply, error)) return;
@@ -1068,6 +1198,7 @@ app.post<{ Params: { projectId: string } }>("/v1/projects/:projectId/sandbox/sto
     const hub = runtimeConfig();
     const stopped = await hubRequestResponse<HubServerLike>(hub, "DELETE", serverPath(runtime.hubUsername, runtime.serverName));
     await auditLifecycle(session, "project.sandbox_stopped", projectId, { status: stopped.status });
+    await appStore.closeUsageSessions(projectId);
     return { ok: true, projectId, state: "stopped" };
   } catch (error) {
     if (handleHubIdentityError(reply, error)) return;

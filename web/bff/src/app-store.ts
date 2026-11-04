@@ -34,6 +34,49 @@ export type BootstrapContext = {
 };
 
 export const TEAM_MANAGEMENT_DENIED = "Team management denied";
+export const LAST_TEAM_LEAD = "Team must keep at least one lead";
+
+export type SpaceSummary = {
+  id: string;
+  type: "personal" | "organization";
+  name: string;
+  role: SpaceRole;
+};
+
+export type UsageSummary = {
+  windowDays: number;
+  sessions: number;
+  hours: number;
+  openSession: boolean;
+};
+
+export type SpaceUsageSummary = {
+  spaceId: string;
+  windowDays: number;
+  totalHours: number;
+  projects: Array<{ projectId: string; name: string; sessions: number; hours: number }>;
+};
+
+export const INVITATION_NOT_AVAILABLE = "Invitation is not available";
+export type InvitationRole = "admin" | "member" | "viewer";
+
+export type InvitationRecord = {
+  id: string;
+  spaceId: string;
+  email: string;
+  role: InvitationRole;
+  status: "pending" | "accepted" | "revoked";
+};
+
+function invitationFromRow(row: Record<string, unknown>): InvitationRecord {
+  return {
+    id: String(row.id),
+    spaceId: String(row.space_id),
+    email: String(row.email),
+    role: String(row.role) as InvitationRole,
+    status: String(row.status) as InvitationRecord["status"],
+  };
+}
 
 export type TeamRecord = {
   id: string;
@@ -340,6 +383,32 @@ export class AppStore {
         created_at timestamptz NOT NULL DEFAULT now()
       );
       CREATE INDEX IF NOT EXISTS mlbox_artifacts_project_idx ON mlbox_artifacts(project_id);
+
+      CREATE TABLE IF NOT EXISTS mlbox_usage_sessions (
+        id text PRIMARY KEY,
+        space_id text NOT NULL REFERENCES mlbox_spaces(id) ON DELETE CASCADE,
+        project_id text NOT NULL REFERENCES mlbox_projects(id) ON DELETE RESTRICT,
+        started_by text NOT NULL REFERENCES mlbox_users(id) ON DELETE RESTRICT,
+        started_at timestamptz NOT NULL DEFAULT now(),
+        ended_at timestamptz,
+        source text NOT NULL DEFAULT 'bff_lifecycle' CHECK (source IN ('bff_lifecycle'))
+      );
+      CREATE INDEX IF NOT EXISTS mlbox_usage_sessions_project_idx ON mlbox_usage_sessions(project_id, started_at);
+      CREATE INDEX IF NOT EXISTS mlbox_usage_sessions_space_idx ON mlbox_usage_sessions(space_id, started_at);
+
+      CREATE TABLE IF NOT EXISTS mlbox_space_invitations (
+        id text PRIMARY KEY,
+        space_id text NOT NULL REFERENCES mlbox_spaces(id) ON DELETE CASCADE,
+        email text NOT NULL,
+        role text NOT NULL CHECK (role IN ('admin', 'member', 'viewer')),
+        status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'revoked')),
+        created_by text NOT NULL REFERENCES mlbox_users(id) ON DELETE RESTRICT,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        accepted_by text REFERENCES mlbox_users(id) ON DELETE RESTRICT,
+        accepted_at timestamptz
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS mlbox_space_invitations_pending_idx
+        ON mlbox_space_invitations(space_id, lower(email)) WHERE status = 'pending';
       CREATE TABLE IF NOT EXISTS mlbox_hub_identities (
         user_id text PRIMARY KEY REFERENCES mlbox_users(id) ON DELETE CASCADE,
         hub_username text NOT NULL,
@@ -890,6 +959,167 @@ export class AppStore {
     return runtime;
   }
 
+  async listSpaces(userId: string): Promise<SpaceSummary[]> {
+    const result = await this.pool.query(
+      `SELECT s.id, s.type, s.name, sm.role
+       FROM mlbox_spaces s
+       JOIN mlbox_space_memberships sm ON sm.space_id = s.id AND sm.user_id = $1 AND sm.status = 'active'
+       ORDER BY CASE WHEN s.type = 'personal' THEN 0 ELSE 1 END, s.name`,
+      [userId],
+    );
+    return result.rows.map((row) => ({
+      id: String(row.id),
+      type: row.type === "organization" ? "organization" : "personal",
+      name: String(row.name),
+      role: String(row.role) as SpaceRole,
+    }));
+  }
+
+  // Usage is measured from BFF-observed runtime transitions (start / stop / observed stopped).
+  // It approximates quota display and is not billing data.
+  async openUsageSession(projectId: string, actorId: string): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO mlbox_usage_sessions (id, space_id, project_id, started_by)
+       SELECT $1, t.space_id, p.id, $3
+       FROM mlbox_projects p JOIN mlbox_teams t ON t.id = p.team_id
+       WHERE p.id = $2
+         AND NOT EXISTS (SELECT 1 FROM mlbox_usage_sessions u WHERE u.project_id = $2 AND u.ended_at IS NULL)`,
+      [randomUUID(), projectId, actorId],
+    );
+  }
+
+  async closeUsageSessions(projectId: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE mlbox_usage_sessions SET ended_at = now() WHERE project_id = $1 AND ended_at IS NULL`,
+      [projectId],
+    );
+  }
+
+  async projectUsageSummary(projectId: string, windowDays: number): Promise<UsageSummary> {
+    const result = await this.pool.query(
+      `SELECT count(*) AS sessions,
+              COALESCE(sum(EXTRACT(EPOCH FROM (COALESCE(ended_at, now()) - started_at))), 0) AS seconds,
+              bool_or(ended_at IS NULL) AS open_session
+       FROM mlbox_usage_sessions
+       WHERE project_id = $1 AND started_at > now() - ($2::int * interval '1 day')`,
+      [projectId, windowDays],
+    );
+    const row = result.rows[0] ?? {};
+    return {
+      windowDays,
+      sessions: Number(row.sessions ?? 0),
+      hours: Math.round((Number(row.seconds ?? 0) / 3600) * 100) / 100,
+      openSession: Boolean(row.open_session),
+    };
+  }
+
+  async spaceUsageSummary(userId: string, spaceId: string, windowDays: number): Promise<SpaceUsageSummary | null> {
+    const membership = await this.pool.query(
+      `SELECT 1 FROM mlbox_space_memberships WHERE space_id = $1 AND user_id = $2 AND status = 'active'`,
+      [spaceId, userId],
+    );
+    if (!membership.rows[0]) return null;
+    const result = await this.pool.query(
+      `SELECT p.id AS project_id, p.name, count(u.id) AS sessions,
+              COALESCE(sum(EXTRACT(EPOCH FROM (COALESCE(u.ended_at, now()) - u.started_at))), 0) AS seconds
+       FROM mlbox_usage_sessions u
+       JOIN mlbox_projects p ON p.id = u.project_id
+       WHERE u.space_id = $1 AND u.started_at > now() - ($2::int * interval '1 day')
+       GROUP BY p.id, p.name
+       ORDER BY seconds DESC, p.name`,
+      [spaceId, windowDays],
+    );
+    const projects = result.rows.map((row) => ({
+      projectId: String(row.project_id),
+      name: String(row.name),
+      sessions: Number(row.sessions ?? 0),
+      hours: Math.round((Number(row.seconds ?? 0) / 3600) * 100) / 100,
+    }));
+    const totalHours = Math.round(projects.reduce((sum, project) => sum + project.hours, 0) * 100) / 100;
+    return { spaceId, windowDays, totalHours, projects };
+  }
+
+  // Invitations are recorded here; no email is sent. The invitee sees and accepts the invitation
+  // after signing in with the same email address.
+  async createSpaceInvitation(actorId: string, spaceId: string, email: string, role: InvitationRole): Promise<InvitationRecord> {
+    const result = await this.pool.query(
+      `INSERT INTO mlbox_space_invitations (id, space_id, email, role, created_by)
+       SELECT $1, sm.space_id, lower($3), $4, $2
+       FROM mlbox_space_memberships sm
+       WHERE sm.space_id = $5 AND sm.user_id = $2 AND sm.status = 'active' AND sm.role IN ('owner', 'admin')
+       ON CONFLICT (space_id, lower(email)) WHERE status = 'pending'
+         DO UPDATE SET role = EXCLUDED.role
+       RETURNING id, space_id, email, role, status`,
+      [randomUUID(), actorId, email, role, spaceId],
+    );
+    const row = result.rows[0];
+    if (!row) throw new Error(TEAM_MANAGEMENT_DENIED);
+    return invitationFromRow(row);
+  }
+
+  async listSpaceInvitations(actorId: string, spaceId: string): Promise<InvitationRecord[]> {
+    const result = await this.pool.query(
+      `SELECT i.id, i.space_id, i.email, i.role, i.status
+       FROM mlbox_space_invitations i
+       JOIN mlbox_space_memberships sm ON sm.space_id = i.space_id AND sm.user_id = $1 AND sm.status = 'active' AND sm.role IN ('owner', 'admin')
+       WHERE i.space_id = $2 AND i.status = 'pending'
+       ORDER BY i.created_at DESC`,
+      [actorId, spaceId],
+    );
+    return result.rows.map(invitationFromRow);
+  }
+
+  async revokeSpaceInvitation(actorId: string, spaceId: string, invitationId: string): Promise<void> {
+    const result = await this.pool.query(
+      `UPDATE mlbox_space_invitations i SET status = 'revoked'
+       FROM mlbox_space_memberships sm
+       WHERE i.id = $3 AND i.space_id = $2 AND i.status = 'pending'
+         AND sm.space_id = i.space_id AND sm.user_id = $1 AND sm.status = 'active' AND sm.role IN ('owner', 'admin')
+       RETURNING i.id`,
+      [actorId, spaceId, invitationId],
+    );
+    if (!result.rows[0]) throw new Error(TEAM_MANAGEMENT_DENIED);
+  }
+
+  async listMyInvitations(email: string): Promise<InvitationRecord[]> {
+    const result = await this.pool.query(
+      `SELECT i.id, i.space_id, i.email, i.role, i.status
+       FROM mlbox_space_invitations i
+       WHERE lower(i.email) = lower($1) AND i.status = 'pending'
+       ORDER BY i.created_at DESC`,
+      [email],
+    );
+    return result.rows.map(invitationFromRow);
+  }
+
+  // Accepting adds the membership without downgrading an existing higher role.
+  async acceptSpaceInvitation(userId: string, email: string, invitationId: string): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const invitation = await client.query(
+        `UPDATE mlbox_space_invitations SET status = 'accepted', accepted_by = $1, accepted_at = now()
+         WHERE id = $2 AND status = 'pending' AND lower(email) = lower($3)
+         RETURNING space_id, role`,
+        [userId, invitationId, email],
+      );
+      const row = invitation.rows[0];
+      if (!row) throw new Error(INVITATION_NOT_AVAILABLE);
+      await client.query(
+        `INSERT INTO mlbox_space_memberships (space_id, user_id, role, status)
+         VALUES ($1, $2, $3, 'active')
+         ON CONFLICT (space_id, user_id) DO NOTHING`,
+        [String(row.space_id), userId, String(row.role)],
+      );
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async listTeams(userId: string, spaceId: string): Promise<TeamRecord[]> {
     const result = await this.pool.query(
       `SELECT t.id, t.space_id, t.name
@@ -945,10 +1175,17 @@ export class AppStore {
        JOIN mlbox_space_memberships target ON target.space_id = t.space_id AND target.user_id = $4 AND target.status = 'active'
        WHERE t.id = $3 AND t.space_id = $2
        ON CONFLICT (team_id, user_id) DO UPDATE SET role = EXCLUDED.role
-       RETURNING t.id`,
+         WHERE mlbox_team_members.role <> 'lead' OR EXCLUDED.role = 'lead' OR EXISTS (
+           SELECT 1 FROM mlbox_team_members o
+           WHERE o.team_id = mlbox_team_members.team_id AND o.user_id <> mlbox_team_members.user_id AND o.role = 'lead'
+         )
+       RETURNING team_id`,
       [actorId, spaceId, teamId, targetUserId, role],
     );
-    if (!result.rows[0]) throw new Error(TEAM_MANAGEMENT_DENIED);
+    if (!result.rows[0]) {
+      if (await this.isSoleLead(teamId, targetUserId)) throw new Error(LAST_TEAM_LEAD);
+      throw new Error(TEAM_MANAGEMENT_DENIED);
+    }
   }
 
   async removeTeamMember(actorId: string, spaceId: string, teamId: string, targetUserId: string): Promise<void> {
@@ -958,10 +1195,28 @@ export class AppStore {
        WHERE tm.team_id = $3 AND tm.user_id = $4
          AND t.id = tm.team_id AND t.space_id = $2
          AND actor.space_id = $2 AND actor.user_id = $1 AND actor.status = 'active' AND actor.role IN ('owner', 'admin')
+         AND (tm.role <> 'lead' OR EXISTS (
+           SELECT 1 FROM mlbox_team_members o
+           WHERE o.team_id = tm.team_id AND o.user_id <> tm.user_id AND o.role = 'lead'
+         ))
        RETURNING tm.team_id`,
       [actorId, spaceId, teamId, targetUserId],
     );
-    if (!result.rows[0]) throw new Error(TEAM_MANAGEMENT_DENIED);
+    if (!result.rows[0]) {
+      if (await this.isSoleLead(teamId, targetUserId)) throw new Error(LAST_TEAM_LEAD);
+      throw new Error(TEAM_MANAGEMENT_DENIED);
+    }
+  }
+
+  private async isSoleLead(teamId: string, userId: string): Promise<boolean> {
+    const result = await this.pool.query(
+      `SELECT
+         EXISTS (SELECT 1 FROM mlbox_team_members WHERE team_id = $1 AND user_id = $2 AND role = 'lead') AS target_is_lead,
+         (SELECT count(*) FROM mlbox_team_members WHERE team_id = $1 AND role = 'lead') AS lead_count`,
+      [teamId, userId],
+    );
+    const row = result.rows[0];
+    return Boolean(row?.target_is_lead) && Number(row?.lead_count) === 1;
   }
 
   async close(): Promise<void> {
