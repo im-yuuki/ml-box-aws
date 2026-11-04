@@ -346,3 +346,78 @@ test("creating a project uses the authenticated user and selected team scope", a
   assert.deepEqual(queries.at(-1)?.values?.slice(0, 4), ["cognito-sub", "space-1", "team-1", "Project One"]);
   assert.match(String(queries.at(-1)?.values?.[4]), /^[0-9a-f-]{36}$/);
 });
+
+function fakeStore(handler: (sql: string, values?: unknown[]) => { rows: Array<Record<string, unknown>> }) {
+  const queries: Array<{ sql: string; values?: unknown[] }> = [];
+  const store = new AppStore({
+    query: async (sql: string, values?: unknown[]) => {
+      queries.push({ sql, values });
+      return handler(sql, values);
+    },
+    connect: async () => { throw new Error("connect is not expected for this test"); },
+    end: async () => undefined,
+  });
+  return { store, queries };
+}
+
+test("project listing hides blocked projects and non-members unless space owner, admin or viewer", async () => {
+  const { store, queries } = fakeStore(() => ({ rows: [{ id: "p1", space_id: "s1", team_id: "t1", name: "P", created_by: "u1" }] }));
+  const projects = await store.listProjects("u1", "s1");
+  assert.equal(projects.length, 1);
+  const sql = queries.at(-1)?.sql ?? "";
+  assert.match(sql, /sm\.role IN \('owner', 'admin', 'viewer'\)/);
+  assert.match(sql, /COALESCE\(pa\.role, ''\) <> 'blocked'/);
+  assert.match(sql, /tm\.user_id IS NOT NULL OR pa\.role IS NOT NULL/);
+});
+
+test("project creation requires owner, admin or a team member of the target team", async () => {
+  const { store, queries } = fakeStore(() => ({ rows: [] }));
+  await assert.rejects(() => store.createProject("u1", "s1", "t1", "P"), /Project team access denied/);
+  const sql = queries.at(-1)?.sql ?? "";
+  assert.match(sql, /sm\.role IN \('owner', 'admin'\)/);
+  assert.match(sql, /sm\.role = 'member' AND EXISTS/);
+});
+
+test("team creation is denied unless the actor is an active owner or admin", async () => {
+  const { store, queries } = fakeStore(() => ({ rows: [] }));
+  await assert.rejects(() => store.createTeam("u-member", "s1", "Team A"), new RegExp("Team management denied"));
+  assert.match(queries.at(-1)?.sql ?? "", /sm\.role IN \('owner', 'admin'\)/);
+});
+
+test("team member add passes actor, space, team and target scope in order", async () => {
+  const { store, queries } = fakeStore(() => ({ rows: [{ id: "t1" }] }));
+  await store.addTeamMember("actor", "s1", "t1", "target", "lead");
+  assert.deepEqual(queries.at(-1)?.values, ["actor", "s1", "t1", "target", "lead"]);
+  assert.match(queries.at(-1)?.sql ?? "", /target\.user_id = \$4/);
+});
+
+test("team member removal is denied when the actor is not owner or admin", async () => {
+  const { store } = fakeStore(() => ({ rows: [] }));
+  await assert.rejects(() => store.removeTeamMember("actor", "s1", "t1", "target"), /Team management denied/);
+});
+
+test("team member listing requires an active Space membership and returns only the team scope", async () => {
+  const { store, queries } = fakeStore(() => ({ rows: [{ user_id: "u2", role: "member", email: "b@example.com" }] }));
+  const members = await store.listTeamMembers("actor", "s1", "t1");
+  assert.deepEqual(members, [{ userId: "u2", role: "member", email: "b@example.com" }]);
+  const last = queries.at(-1);
+  assert.deepEqual(last?.values, ["actor", "s1", "t1"]);
+  assert.match(last?.sql ?? "", /sm\.status = 'active'/);
+});
+
+test("project runtime is created under the project owner's Hub identity", async () => {
+  const { store, queries } = fakeStore((sql) => {
+    if (sql.includes("INSERT INTO mlbox_sandboxes")) return { rows: [] };
+    return { rows: [{ project_id: "p1", owner_user_id: "owner", hub_username: "cognito-owner", server_name: "p1", state: "unknown" }] };
+  });
+  const runtime = await store.ensureProjectSandboxRuntime("p1");
+  assert.deepEqual(runtime, { projectId: "p1", ownerUserId: "owner", hubUsername: "cognito-owner", serverName: "p1", state: "unknown" });
+  const insert = queries.find((query) => query.sql.includes("INSERT INTO mlbox_sandboxes"));
+  assert.match(insert?.sql ?? "", /JOIN mlbox_hub_identities hi ON hi\.user_id = p\.created_by/);
+  assert.match(insert?.sql ?? "", /ON CONFLICT \(project_id\) DO NOTHING/);
+});
+
+test("project runtime creation fails closed when the owner has no Hub identity", async () => {
+  const { store } = fakeStore((sql) => (sql.includes("FROM mlbox_sandboxes") ? { rows: [] } : { rows: [] }));
+  await assert.rejects(() => store.ensureProjectSandboxRuntime("p1"), /Project runtime owner is not provisioned/);
+});

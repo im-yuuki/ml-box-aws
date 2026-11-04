@@ -396,6 +396,40 @@ resource "aws_iam_role_policy" "bff_sessions" {
   })
 }
 
+# Phase 5 MVP: the BFF signs presigned URLs for artifacts under spaces/*/projects/* only.
+# No bucket listing and no runtime access; hub/runtime roles are unchanged.
+resource "aws_iam_role_policy" "bff_workspace_artifacts" {
+  name = "workspace-artifacts"
+  role = aws_iam_role.bff_sessions.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["s3:PutObject", "s3:GetObject"]
+        Resource = "${module.storage.bucket_arn}/spaces/*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["kms:GenerateDataKey", "kms:Decrypt"]
+        Resource = module.storage.kms_key_arn
+      }
+    ]
+  })
+}
+
+# Browsers upload artifacts directly to the workspace bucket with presigned PUT URLs.
+resource "aws_s3_bucket_cors_configuration" "workspace_artifacts" {
+  bucket = module.storage.bucket
+  cors_rule {
+    allowed_origins = ["https://${var.domain}"]
+    allowed_methods = ["GET", "PUT"]
+    allowed_headers = ["content-type"]
+    expose_headers  = ["ETag"]
+    max_age_seconds = 600
+  }
+}
+
 module "ecr" {
   source = "../../modules/ecr"
 

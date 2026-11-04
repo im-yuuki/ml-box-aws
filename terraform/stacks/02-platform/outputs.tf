@@ -214,3 +214,8 @@ output "cluster_name" {
   description = "EKS cluster name used by this stack."
   value       = local.cluster_name
 }
+
+output "workspace_bucket" {
+  description = "Workspace S3 bucket; the BFF signs artifact URLs only under spaces/*/projects/*."
+  value       = module.storage.bucket
+}

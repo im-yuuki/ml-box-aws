@@ -74,16 +74,31 @@ resource "aws_iam_role" "workspace" {
   tags = var.tags
 }
 
+# Limited to users/* (per-user notebook workspace). Project artifacts live under spaces/* and are
+# reachable only through the dashboard BFF role, so the workspace role is explicitly denied there.
 resource "aws_iam_role_policy" "workspace" {
   name = "s3-workspace"
   role = aws_iam_role.workspace.id
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Effect   = "Allow"
-      Action   = ["s3:ListBucket", "s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
-      Resource = [aws_s3_bucket.workspace.arn, "${aws_s3_bucket.workspace.arn}/*"]
-    }]
+    Statement = [
+      {
+        Effect    = "Allow"
+        Action    = ["s3:ListBucket"]
+        Resource  = aws_s3_bucket.workspace.arn
+        Condition = { StringLike = { "s3:prefix" = ["users/*"] } }
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
+        Resource = "${aws_s3_bucket.workspace.arn}/users/*"
+      },
+      {
+        Effect   = "Deny"
+        Action   = ["s3:*"]
+        Resource = "${aws_s3_bucket.workspace.arn}/spaces/*"
+      },
+    ]
   })
 }
 

@@ -21,12 +21,12 @@ resource "helm_release" "device_plugin" {
   # The device plugin reads the time-slicing ConfigMap; applies only to nodes labeled
   # nvidia.com/device-plugin.config=time-slicing-shared (set via the Karpenter NodePool
   # gpu-shared-l4 or kubectl label — verify the label key per chart version).
+  # Chart 0.20.1 reads top-level `config` (not under `devicePlugin`). Nodes without the label
+  # fall back to `default` = "none" (no sharing) so dedicated GPU nodes keep a whole GPU.
   values = [yamlencode({
-    devicePlugin = {
-      config = {
-        name    = "time-slicing-shared"
-        default = "any" # unlabeled nodes use the default config (whole GPU) for dedicated
-      }
+    config = {
+      name    = "time-slicing-shared"
+      default = "none"
     }
     nodeSelector = {
       "tier" = "shared"

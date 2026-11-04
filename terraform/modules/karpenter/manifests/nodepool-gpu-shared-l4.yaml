@@ -12,6 +12,7 @@ spec:
       labels:
         tier: shared
         gpu-family: L4
+        nvidia.com/device-plugin.config: any # selects the time-slicing config key in the gpu-stack ConfigMap
         hub.jupyter.org/node-purpose: user # mandatory for Z2JH matchNodePurpose=require
     spec:
       nodeClassRef:

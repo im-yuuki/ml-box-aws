@@ -115,7 +115,10 @@ export default function ProjectBoard() {
           <h1>{t("projectsTitle")}</h1>
           <p>{t("projectsSubtitle")}</p>
         </div>
-        <span className="workspace-count-label">{t("projectCount", { count: projects.length })}</span>
+        <div className="flex flex-col items-end gap-2">
+          <span className="workspace-count-label">{t("projectCount", { count: projects.length })}</span>
+          <Link href="/teams" className="workspace-count-label">{t("teamsLink")}</Link>
+        </div>
       </header>
 
       <section className="workspace-project-toolbar" aria-label={t("searchProjects")}>

@@ -26,7 +26,9 @@ import {
   type UsageServer,
 } from "./usage.js";
 import { UsageStore } from "./usage-store.js";
-import { AppStore } from "./app-store.js";
+import { AppStore, PROJECT_RUNTIME_OWNER_NOT_READY, TEAM_MANAGEMENT_DENIED } from "./app-store.js";
+import { ArtifactStorage } from "./artifact-storage.js";
+import { buildArtifactObjectKey, sanitizeArtifactName, validateArtifactSize } from "./artifacts.js";
 import { verifyTurnstile } from "./turnstile.js";
 import {
   HubIdentityConflictError,
@@ -874,6 +876,298 @@ app.post<{ Body: ProjectBody }>("/v1/projects", async (request, reply) => {
   }
 });
 
+// Teams (flat, per Space). Owners/admins manage teams; members are added by Cognito sub for now.
+app.get<{ Params: { spaceId: string } }>("/v1/spaces/:spaceId/teams", async (request, reply) => {
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Team storage is not configured." });
+  try {
+    return { spaceId: request.params.spaceId, teams: await appStore.listTeams(session.subject, request.params.spaceId) };
+  } catch (error) {
+    request.log.error({ err: error }, "Team list failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Team storage is temporarily unavailable." });
+  }
+});
+
+app.post<{ Params: { spaceId: string }; Body: { name?: string } }>("/v1/spaces/:spaceId/teams", async (request, reply) => {
+  if (!requireCsrf(request, reply)) return;
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Team storage is not configured." });
+  const name = requiredString(request.body?.name);
+  if (!name) return reply.code(400).send({ error: "INVALID_INPUT", message: "Team name is required." });
+  try {
+    return reply.code(201).send({ team: await appStore.createTeam(session.subject, request.params.spaceId, name) });
+  } catch (error) {
+    if (error instanceof Error && error.message === TEAM_MANAGEMENT_DENIED) {
+      return reply.code(403).send({ error: "FORBIDDEN", message: "Bạn không có quyền quản lý Team trong Space này." });
+    }
+    request.log.error({ err: error }, "Team creation failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Team storage is temporarily unavailable." });
+  }
+});
+
+app.get<{ Params: { spaceId: string; teamId: string } }>("/v1/spaces/:spaceId/teams/:teamId/members", async (request, reply) => {
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Team storage is not configured." });
+  try {
+    return { teamId: request.params.teamId, members: await appStore.listTeamMembers(session.subject, request.params.spaceId, request.params.teamId) };
+  } catch (error) {
+    request.log.error({ err: error }, "Team member list failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Team storage is temporarily unavailable." });
+  }
+});
+
+app.post<{ Params: { spaceId: string; teamId: string }; Body: { userId?: string; role?: string } }>(
+  "/v1/spaces/:spaceId/teams/:teamId/members",
+  async (request, reply) => {
+    if (!requireCsrf(request, reply)) return;
+    const session = await requireSession(request, reply);
+    if (!session) return;
+    if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Team storage is not configured." });
+    const userId = requiredString(request.body?.userId);
+    const role = request.body?.role ?? "member";
+    if (!userId) return reply.code(400).send({ error: "INVALID_INPUT", message: "User ID is required." });
+    if (role !== "lead" && role !== "member") return reply.code(400).send({ error: "INVALID_INPUT", message: "Team role is invalid." });
+    try {
+      await appStore.addTeamMember(session.subject, request.params.spaceId, request.params.teamId, userId, role);
+      return reply.code(201).send({ ok: true });
+    } catch (error) {
+      if (error instanceof Error && error.message === TEAM_MANAGEMENT_DENIED) {
+        return reply.code(403).send({ error: "FORBIDDEN", message: "Bạn không có quyền quản lý thành viên Team này." });
+      }
+      request.log.error({ err: error }, "Team member add failed");
+      return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Team storage is temporarily unavailable." });
+    }
+  },
+);
+
+app.delete<{ Params: { spaceId: string; teamId: string; userId: string } }>(
+  "/v1/spaces/:spaceId/teams/:teamId/members/:userId",
+  async (request, reply) => {
+    if (!requireCsrf(request, reply)) return;
+    const session = await requireSession(request, reply);
+    if (!session) return;
+    if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Team storage is not configured." });
+    try {
+      await appStore.removeTeamMember(session.subject, request.params.spaceId, request.params.teamId, request.params.userId);
+      return { ok: true };
+    } catch (error) {
+      if (error instanceof Error && error.message === TEAM_MANAGEMENT_DENIED) {
+        return reply.code(403).send({ error: "FORBIDDEN", message: "Bạn không có quyền quản lý thành viên Team này." });
+      }
+      request.log.error({ err: error }, "Team member removal failed");
+      return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Team storage is temporarily unavailable." });
+    }
+  },
+);
+
+// Project-scoped sandbox runtime (phase 4): authorization is per Project; the Hub server runs
+// under the Project owner's Hub user, and the owner's identity is only used as the runtime holder.
+async function projectActionAllowed(reply: FastifyReply, userId: string, projectId: string, action: "read" | "operate"): Promise<boolean> {
+  const permission = await appStore!.projectPermission(userId, projectId);
+  if (!permission) {
+    reply.code(404).send({ error: "NOT_FOUND", message: "Project không tồn tại hoặc bạn không có quyền truy cập." });
+    return false;
+  }
+  if (action === "operate" && !permission.canOperate) {
+    reply.code(403).send({ error: "FORBIDDEN", message: "Bạn không có quyền vận hành Sandbox của Project này." });
+    return false;
+  }
+  return true;
+}
+
+app.get<{ Params: { projectId: string } }>("/v1/projects/:projectId/sandbox", async (request, reply) => {
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Project storage is not configured." });
+  const { projectId } = request.params;
+  try {
+    if (!(await projectActionAllowed(reply, session.subject, projectId, "read"))) return;
+    const permission = await appStore.projectPermission(session.subject, projectId);
+    const runtime = await appStore.getProjectSandboxRuntime(projectId);
+    if (!runtime) return { projectId, canOperate: permission?.canOperate ?? false, sandbox: null };
+    const hub = runtimeConfig();
+    const server = await hubRequest<HubServerLike | null>(hub, "GET", serverPath(runtime.hubUsername, runtime.serverName)).catch((error) => {
+      if (hubStatus(error) === 404) return null;
+      throw error;
+    });
+    return {
+      projectId,
+      canOperate: permission?.canOperate ?? false,
+      sandbox: {
+        name: runtime.serverName,
+        state: mapHubServerState(server),
+        url: server?.ready ? sandboxUrl(hub.hubPublicUrl, runtime.hubUsername, runtime.serverName) : null,
+      },
+    };
+  } catch (error) {
+    if (handleHubIdentityError(reply, error)) return;
+    request.log.error({ err: error }, "Project sandbox read failed");
+    return handleHubError(reply, error);
+  }
+});
+
+app.post<{ Params: { projectId: string } }>("/v1/projects/:projectId/sandbox/start", async (request, reply) => {
+  if (!requireCsrf(request, reply)) return;
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Project storage is not configured." });
+  const { projectId } = request.params;
+  try {
+    if (!(await projectActionAllowed(reply, session.subject, projectId, "operate"))) return;
+    let runtime;
+    try {
+      runtime = await appStore.ensureProjectSandboxRuntime(projectId);
+    } catch (error) {
+      if (error instanceof Error && error.message === PROJECT_RUNTIME_OWNER_NOT_READY) {
+        return reply.code(409).send({ error: "PROJECT_OWNER_NOT_READY", message: "Chủ Project cần đăng nhập dashboard một lần để khởi tạo runtime." });
+      }
+      throw error;
+    }
+    const hub = runtimeConfig();
+    const username = runtime.hubUsername;
+    const existing = await hubRequest<HubServerLike | null>(hub, "GET", serverPath(username, runtime.serverName)).catch((error) => {
+      if (hubStatus(error) === 404) return null;
+      throw error;
+    });
+    if (!shouldStartHubSandbox(existing)) {
+      return { ok: true, projectId, state: mapHubServerState(existing) };
+    }
+    const lifecycle = await resolveStartLifecycle({
+      start: () => startHubSandbox({
+        userExists: true,
+        ensureUser: async () => {
+          await ensureRuntimeHubUser(hub, username);
+        },
+        onRetry: () => auditLifecycle(session, "project.sandbox_start_retry", projectId, { status: 404 }),
+        start: () => hubRequestResponse<HubServerLike>(hub, "POST", serverPath(username, runtime.serverName), {}),
+      }),
+      read: async () => hubRequest<HubServerLike>(hub, "GET", serverPath(username, runtime.serverName)),
+      audit: (action, metadata) => auditLifecycle(session, action, projectId, metadata),
+    });
+    return { ok: true, projectId, state: lifecycle.state };
+  } catch (error) {
+    if (handleHubIdentityError(reply, error)) return;
+    request.log.error({ err: error }, "Project sandbox start failed");
+    return handleHubError(reply, error);
+  }
+});
+
+app.post<{ Params: { projectId: string } }>("/v1/projects/:projectId/sandbox/stop", async (request, reply) => {
+  if (!requireCsrf(request, reply)) return;
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Project storage is not configured." });
+  const { projectId } = request.params;
+  try {
+    if (!(await projectActionAllowed(reply, session.subject, projectId, "operate"))) return;
+    const runtime = await appStore.getProjectSandboxRuntime(projectId);
+    if (!runtime) return reply.code(404).send({ error: "NOT_FOUND", message: "Project chưa có Sandbox." });
+    const hub = runtimeConfig();
+    const stopped = await hubRequestResponse<HubServerLike>(hub, "DELETE", serverPath(runtime.hubUsername, runtime.serverName));
+    await auditLifecycle(session, "project.sandbox_stopped", projectId, { status: stopped.status });
+    return { ok: true, projectId, state: "stopped" };
+  } catch (error) {
+    if (handleHubIdentityError(reply, error)) return;
+    request.log.error({ err: error }, "Project sandbox stop failed");
+    return handleHubError(reply, error);
+  }
+});
+
+// Artifacts (phase 5 MVP): metadata in Postgres, bytes in the workspace bucket under the Project prefix.
+// Upload is two-step: create (presigned PUT URL) then complete (HEAD check) before it becomes ready.
+const workspaceBucket = process.env.WORKSPACE_BUCKET;
+const artifactStorage = workspaceBucket ? new ArtifactStorage(workspaceBucket) : null;
+
+app.get<{ Params: { projectId: string } }>("/v1/projects/:projectId/artifacts", async (request, reply) => {
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Project storage is not configured." });
+  try {
+    if (!(await projectActionAllowed(reply, session.subject, request.params.projectId, "read"))) return;
+    const permission = await appStore.projectPermission(session.subject, request.params.projectId);
+    return {
+      projectId: request.params.projectId,
+      canOperate: permission?.canOperate ?? false,
+      artifacts: await appStore.listArtifacts(request.params.projectId),
+    };
+  } catch (error) {
+    request.log.error({ err: error }, "Artifact list failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Artifact storage is temporarily unavailable." });
+  }
+});
+
+app.post<{ Params: { projectId: string }; Body: { name?: string; contentType?: string; sizeBytes?: number } }>(
+  "/v1/projects/:projectId/artifacts",
+  async (request, reply) => {
+    if (!requireCsrf(request, reply)) return;
+    const session = await requireSession(request, reply);
+    if (!session) return;
+    if (!appStore || !artifactStorage) return reply.code(503).send({ error: "ARTIFACTS_NOT_CONFIGURED", message: "Artifact storage is not configured." });
+    const projectId = request.params.projectId;
+    try {
+      if (!(await projectActionAllowed(reply, session.subject, projectId, "operate"))) return;
+      const name = sanitizeArtifactName(request.body?.name ?? "");
+      const sizeBytes = validateArtifactSize(request.body?.sizeBytes);
+      if (!name || sizeBytes === null) return reply.code(400).send({ error: "INVALID_INPUT", message: "Tên file hoặc kích thước không hợp lệ." });
+      const contentType = typeof request.body?.contentType === "string" && /^[\w.+-]+\/[\w.+-]+$/.test(request.body.contentType)
+        ? request.body.contentType
+        : "application/octet-stream";
+      const spaceId = await appStore.getProjectSpaceId(projectId);
+      if (!spaceId) return reply.code(404).send({ error: "NOT_FOUND", message: "Project không tồn tại." });
+      const artifactId = randomUUID();
+      const objectKey = buildArtifactObjectKey(spaceId, projectId, artifactId, name);
+      const artifact = await appStore.createArtifact({ id: artifactId, projectId, name, objectKey, contentType, sizeBytes, createdBy: session.subject });
+      const uploadUrl = await artifactStorage.presignUpload(objectKey, contentType, sizeBytes);
+      return reply.code(201).send({ artifact, upload: { url: uploadUrl, method: "PUT", headers: { "content-type": contentType } } });
+    } catch (error) {
+      request.log.error({ err: error }, "Artifact create failed");
+      return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Artifact storage is temporarily unavailable." });
+    }
+  },
+);
+
+app.post<{ Params: { projectId: string; artifactId: string } }>("/v1/projects/:projectId/artifacts/:artifactId/complete", async (request, reply) => {
+  if (!requireCsrf(request, reply)) return;
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore || !artifactStorage) return reply.code(503).send({ error: "ARTIFACTS_NOT_CONFIGURED", message: "Artifact storage is not configured." });
+  const { projectId, artifactId } = request.params;
+  try {
+    if (!(await projectActionAllowed(reply, session.subject, projectId, "operate"))) return;
+    const artifact = await appStore.getArtifact(projectId, artifactId);
+    if (!artifact) return reply.code(404).send({ error: "NOT_FOUND", message: "Artifact không tồn tại." });
+    if (artifact.status === "ready") return { ok: true, artifact };
+    const stored = await artifactStorage.headObjectSize(artifact.objectKey);
+    if (stored !== artifact.sizeBytes) {
+      return reply.code(409).send({ error: "UPLOAD_INCOMPLETE", message: "File chưa được tải lên đầy đủ." });
+    }
+    await appStore.markArtifactReady(projectId, artifactId);
+    return { ok: true, artifact: { ...artifact, status: "ready" } };
+  } catch (error) {
+    request.log.error({ err: error }, "Artifact completion failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Artifact storage is temporarily unavailable." });
+  }
+});
+
+app.get<{ Params: { projectId: string; artifactId: string } }>("/v1/projects/:projectId/artifacts/:artifactId/download", async (request, reply) => {
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore || !artifactStorage) return reply.code(503).send({ error: "ARTIFACTS_NOT_CONFIGURED", message: "Artifact storage is not configured." });
+  const { projectId, artifactId } = request.params;
+  try {
+    if (!(await projectActionAllowed(reply, session.subject, projectId, "read"))) return;
+    const artifact = await appStore.getArtifact(projectId, artifactId);
+    if (!artifact || artifact.status !== "ready") return reply.code(404).send({ error: "NOT_FOUND", message: "Artifact không tồn tại." });
+    return { artifact: { id: artifact.id, name: artifact.name }, url: await artifactStorage.presignDownload(artifact.objectKey, artifact.name) };
+  } catch (error) {
+    request.log.error({ err: error }, "Artifact download failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Artifact storage is temporarily unavailable." });
+  }
+});
+
 app.get("/v1/sandboxes", async (request, reply) => {
   const session = await requireSession(request, reply);
   if (!session) return;
@@ -1073,7 +1367,7 @@ app.post<{ Params: { name: string } }>("/v1/sandboxes/:name/start", async (reque
     request.log.error({ err: error }, "JupyterHub sandbox start failed");
     if (handleHubIdentityError(reply, error)) return;
     if (shouldUseHubActivationFallback(hubUserExists, error)) {
-      reply.code(409).send({ error: "HUB_USER_UNKNOWN", activationUrl: hubActivationUrl(runtime.hubPublicUrl), message: "Tài khoản chưa được kích hoạt trên Hub. Đăng nhập vào notebook hub một lần để kích hoạt." });
+      reply.code(409).send({ error: "HUB_USER_UNKNOWN", activationUrl: hubActivationUrl(runtime.hubPublicUrl), message: "Workspace của bạn đang được chuẩn bị. Vui lòng thử lại sau ít phút." });
       return;
     }
     return handleHubError(reply, error);

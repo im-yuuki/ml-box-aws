@@ -250,6 +250,7 @@ resource "kubectl_manifest" "bff_deployment" {
               { name = "COGNITO_CLIENT_ID", value = data.terraform_remote_state.platform.outputs.cognito_dashboard_client_id },
               { name = "HUB_URL", value = "http://proxy-public.hub.svc.cluster.local" },
               { name = "HUB_PUBLIC_URL", value = "https://notebook.mlbox.june8th.me" },
+              { name = "WORKSPACE_BUCKET", value = data.terraform_remote_state.platform.outputs.workspace_bucket },
               { name = "SECURE_COOKIES", value = tostring(var.bff_secure_cookies) },
               { name = "CPU_QUOTA_HOURS", value = tostring(var.cpu_quota_hours) },
               { name = "RAM_QUOTA_GB", value = tostring(var.ram_quota_gb) },
