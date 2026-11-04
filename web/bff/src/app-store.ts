@@ -1179,7 +1179,7 @@ export class AppStore {
            SELECT 1 FROM mlbox_team_members o
            WHERE o.team_id = mlbox_team_members.team_id AND o.user_id <> mlbox_team_members.user_id AND o.role = 'lead'
          )
-       RETURNING t.id`,
+       RETURNING team_id`,
       [actorId, spaceId, teamId, targetUserId, role],
     );
     if (!result.rows[0]) {
