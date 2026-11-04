@@ -1,200 +1,94 @@
-# ML Box — TODO checklist
+# ML Box — Backlog
 
 Cập nhật: 2026-11-04
 
-Target WebUI multi-tenant và trình tự triển khai được mô tả tại
-[`docs/multi-tenant-product-plan.md`](docs/multi-tenant-product-plan.md). Các mục
-trong kế hoạch đó chưa được coi là hoàn thành chỉ vì đã được thiết kế.
+Ký hiệu: ✅ xong và đã kiểm chứng · ⚠️ đã làm nhưng còn thiếu kiểm chứng hoặc còn phụ thuộc · ☐ chưa làm
 
-Ký hiệu:
+Target sản phẩm và thứ tự phase: [`docs/multi-tenant-product-plan.md`](docs/multi-tenant-product-plan.md). Vận hành: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md), [`docs/OPERATIONS.md`](docs/OPERATIONS.md).
 
-- ✅ Đã hoàn thành hoặc đã xác nhận hoạt động.
-- ☐ Chưa hoàn thành.
-- ⚠️ Đã triển khai một phần nhưng còn blocker hoặc chưa đạt end-to-end.
+## Trạng thái hiện tại
 
-## Hạ tầng và triển khai
+- **Hạ tầng (region `ap-southeast-2`, account `451058046864`):** stack `00`–`04` và `99-unverified-gpu` đã apply. Stack `01-foundation` **chưa** được apply lại (state lệch với cluster, xem mục GPU).
+- **Image đang chạy:** BFF `dev-pgfix-1104`, dashboard `dev-p6-1104`, CPU `dev-8d0469b`, GPU `dev-3f1cd93`.
+- **Hub:** `enable_auth_state=false` (user không cần vào JupyterHub để kích hoạt). Cognito client của Hub đã xoay; client cũ đã xóa.
+- **Git:** PR #3 đã merge vào `master` lúc 2026-11-04 16:37Z. Các commit sau đó trên `feat/dashboard-team-management` (lời mời, usage, sửa RETURNING, test tích hợp, docs) **chưa** nằm trên `master`.
+- **Test:** BFF `npm test` 107/107; test tích hợp Postgres 14/14 (chạy tay); test helper dashboard qua `npm test`.
 
-- ✅ `00-bootstrap`: S3 Terraform state bucket và DynamoDB lock table.
-- ✅ `01-foundation`: VPC, EKS, system node group, Karpenter và CPU NodePool.
-- ✅ `02-platform`: RDS, workspace S3, Cognito, ECR, ALB, ACM và AWS Load Balancer Controller.
-- ✅ Route53 authoritative cho `mlbox.june8th.me`; certificate notebook và apex đã `ISSUED`.
-- ✅ `03-hub-app`: JupyterHub tại `notebook.mlbox.june8th.me` với CPU profile.
-- ✅ Notebook theme light/dark adaptive và ML Box theme đã apply.
-- ✅ `04-dashboard`: dashboard/BFF đã fresh deploy; pods Running và ALB target healthy.
-- ✅ Sửa config production `DYNAMIC_SERVER_USAGE`: đã bỏ `cacheComponents`/`partialPrefetching` và xác nhận qua ALB (`/`, `/login` trả `200`).
-- ✅ Build/push immutable dashboard+BFF images và apply lại toàn bộ luồng 00→04.
-- ✅ Xác nhận ALB target dashboard healthy và `/`, `/login` trả `200` trong production.
-- ✅ Remote state keys của `01`→`04` đã được tạo mới trong backend S3; không thực hiện state migration từ state cũ.
-- ☐ Rà soát/migrate remote state keys sau khi đổi tên stack nếu có thay đổi naming tiếp theo.
-- ✅ KMS key lịch sử không còn sử dụng đã được xác nhận ở `PendingDeletion`; không cancel deletion.
-- ☐ Hoàn thiện CI/CD build, scan, push image và rollout có approval.
+## Cần người dùng
 
-## Dashboard UI
+- ☐ **E2E trên trình duyệt với tài khoản thật:** đăng ký → xác nhận email → đăng nhập notebook → spawn profile → sandbox/artifact/team/lời mời/Space. Chưa thực hiện.
+- ☐ **Logo và brand pack (phase 8):** người dùng chọn concept logo.
+- ☐ **Mở PR cho các commit chưa merge** trên `feat/dashboard-team-management` (sau khi có xác nhận).
 
-- ✅ Next.js App Router + TypeScript + HeroUI v3 scaffold.
-- ✅ Landing page, login, register, sandboxes, usage và account pages.
-- ✅ Responsive light/dark theme theo system preference và local override.
-- ✅ i18n English/Vietnamese bằng `next-intl` và cookie `mlbox-locale`.
-- ✅ Locale switcher và `/api/locale` route.
-- ✅ Dockerfile multi-stage và build args Cognito/BFF.
-- ✅ Production runtime healthy qua ALB; dashboard pod và target đều healthy, `/` và `/login` trả `200`.
-- ☐ Hoàn thiện `/verify` email confirmation page.
-- ✅ Hoàn thiện `/sandboxes/new` flow.
-- ⚠️ Usage/quota realtime đã nối API thật; các màn hình khác vẫn còn phần mock cần thay dần.
+## Đã xong (đã kiểm chứng ở mức code/deploy)
 
-## Authentication và BFF
-
-- ✅ Cognito user pool và public dashboard app client đã được fresh apply trong `02-platform`.
-- ✅ Dashboard có config/client scaffolding; auth UI đã gọi same-origin BFF.
-- ✅ Source `web/bff/` (Fastify/TypeScript), Dockerfile và lockfile đã có.
-- ✅ BFF verify Cognito JWT bằng JWKS, issuer, client và claims; session dùng encrypted HttpOnly cookie.
-- ✅ Hub service token được random trong `03-hub-app`, xuất sensitive và inject vào Kubernetes Secret.
-- ✅ BFF map Cognito email sang Hub username và proxy list/start/stop Hub REST API.
-- ✅ Các `/api/bff/*` route proxy không còn trả `501 BFF_NOT_DEPLOYED`.
-- ✅ Terraform đã có BFF Deployment/Service/Secret và nối dashboard qua `BFF_INTERNAL_URL`.
-- ⚠️ Hạ tầng đã apply; BFF health/readiness đã xác nhận, còn test Cognito thật cần test user (chưa thực hiện).
-- ☐ Bổ sung refresh-token/session rotation, CSRF protection, forgot-password và revoke/logout hardening.
-
-## Sandbox lifecycle
-
-- ✅ UI danh sách sandbox đã nối API BFF và có loading/error/empty state.
-- ✅ BFF list server thật theo user và giới hạn username từ session đã verify.
-- ⚠️ Đã redeploy; test sandbox list với Cognito/JupyterHub user thật cần test user.
-- ✅ Spawn sandbox mới từ `/sandboxes/new`.
-- ✅ Stop/start sandbox hiện có qua BFF và hiển thị trạng thái pending.
-- ☐ Link vào Lab thật qua `notebook.mlbox.june8th.me` sau khi SSO/session mapping được xác nhận.
-- ☐ Xử lý timeout, quota exceeded, failed server và retry đầy đủ.
-- ☐ Thêm authorization test: user A không thấy hoặc điều khiển sandbox của user B.
-
-## Usage và quota
-
-- ✅ Usage page hiển thị quota policy `32 CPU-hours / 24 GB RAM / 20 GB storage / 0 GPU-hours`.
-- ✅ BFF `GET /v1/usage` lấy server/state/last_activity từ JupyterHub và trả timestamp realtime.
-- ✅ Realtime footprint tách khỏi historical usage; CPU-hours và storage usage trả `null` khi chưa tracking.
-- ✅ RAM footprint chỉ hiển thị khi Hub trả resource metadata; thiếu metadata không đoán giá trị.
-- ✅ Dashboard có loading, error, unauthenticated, empty và unavailable states; có English/Vietnamese translations.
-- ☐ Persist historical usage/quota thay vì chỉ đọc footprint realtime.
-- ☐ Implement CPU/RAM/storage enforcement và thông báo khi gần/vượt quota.
-- ☐ GPU-hours accounting; chỉ làm sau khi GPU stack và policy quota được chốt.
-- ✅ Hiển thị timestamp cập nhật và trạng thái tracking của từng metric.
+- ✅ Hạ tầng 00–04 và Route53/ACM cho `mlbox.june8th.me`.
+- ✅ Auth Cognito qua BFF (register, confirm, login, logout, refresh, forgot/reset, change password), CSRF, session cookie.
+- ✅ Turnstile cho register và checkout, bật theo cấu hình.
+- ✅ Hub spawn không cần auth state (BFF làm việc spawn).
+- ✅ Personal Space và default Team cho mỗi user; Space switcher trên dashboard.
+- ✅ Project: list/create theo Space, phân quyền theo team và direct grant (blocked, manager, contributor, viewer).
+- ✅ Team phẳng: tạo, liệt kê, thêm/xóa thành viên, chặn xóa lead cuối cùng.
+- ✅ Lời mời Space: owner/admin mời, thu hồi; người được mời chấp nhận đúng email (không gửi email).
+- ✅ Sandbox theo Project: đọc, start, stop; runtime chạy dưới Hub user của owner Project.
+- ✅ Artifact (MVP): metadata Postgres; upload/download qua presigned URL; key dưới `spaces/{space}/projects/{project}/`.
+- ✅ Cách ly workspace: role workspace của hub chỉ `users/*`, deny `spaces/*`; role BFF chỉ `spaces/*`.
+- ✅ Usage (MVP): phiên sandbox từ sự kiện start/stop/observed; tổng giờ theo Project và Space. Không phải dữ liệu thanh toán.
+- ✅ GPU: time-slicing `nvidia.com/gpu` (3 replica) trên pool shared; đã chạy `nvidia-smi` trên T4 (g4dn) và ba pod chia sẻ một GPU.
 
 ## GPU
 
-- ✅ GPU Terraform đã được tách thành `99-unverified-gpu` để không nằm trong luồng bắt buộc.
-- ✅ GPU profiles trong `03-hub-app` hiện tắt (`enable_gpu_profiles=false`).
-- ✅ Xin và xác nhận EC2 GPU quota trong region mục tiêu (On-Demand G/VT = 8 vCPU).
-- ⚠️ Validate GPU image, NVIDIA device plugin, time-slicing và DCGM exporter: time-slicing đã chạy trên g4dn (T4), ba pod chia sẻ một GPU; DCGM đang chạy nhưng ServiceMonitor còn tắt.
-- ✅ Apply `99-unverified-gpu` (device plugin, dcgm-exporter, time-slicing `nvidia.com/gpu`).
-- ⚠️ Bật GPU profile trong `03-hub-app` (đã bật). Shared L4 vẫn phụ thuộc capacity g6; spawn từ hub chưa kiểm chứng end-to-end.
-- ☐ Test dedicated/shared GPU sandbox và giới hạn GPU-hours.
+- ⚠️ Shared L4 (g6) đã bật profile nhưng chưa spawn được end-to-end: AWS thiếu capacity g6 ở các AZ đã thử. Đã kiểm chứng trên g4dn; đã trả NodePool về g6.
+- ☐ Kiểm tra hook VRAM balloon trên pod thật (chưa có pod nào spawn qua profile GPU).
+- ☐ Bật `serviceMonitor` của dcgm-exporter khi cluster có Prometheus CRD; kiểm tra metric thật.
+- ⚠️ **State `01-foundation` lệch cluster:** plan muốn destroy fck-NAT, tạo NAT gateway, thay IAM. Label `nvidia.com/device-plugin.config=any` trên NodePool `gpu-shared-l4` đã được patch tay. Cần reconcile trước khi apply `01` lại.
+- ☐ Đồng bộ handoff: `renameByDefault=false` là quyết định mới; cập nhật tài liệu thiết kế nếu cần.
 
-## Hub Provisioning Adapter
+## Dashboard và BFF (còn thiếu)
 
-### Phase 1 — Provisioning trong BFF (đã triển khai local, chờ deploy)
+- ☐ Tạo organization Space self-serve (hiện tạo bằng SQL).
+- ☐ Gửi email lời mời (hiện chỉ ghi nhận trong hệ thống).
+- ☐ UI quản lý quyền Project (manager/contributor/viewer/blocked) và thu hồi quyền có hiệu lực ngay.
+- ☐ Đổi profile sandbox; đổi tên/xóa Project; Project settings.
+- ☐ Xóa artifact; phân trang danh sách.
+- ☐ Enforce quota CPU/RAM/storage/GPU. Chỉ làm khi nguồn usage đủ tin cậy.
+- ☐ Thanh toán thật: không trong phạm vi hiện tại.
+- ☐ Turnstile: test đầy đủ disabled/enabled/token sai/hết hạn/replay/Siteverify lỗi.
+- ☐ Form `/verify` và các màn hình còn mock; kiểm tra a11y, responsive, en/vi cho các màn mới.
 
-- ✅ Thêm `ensureHubUser` idempotent qua JupyterHub REST API, username chỉ lấy từ authenticated session.
-- ✅ Eager provision khi load `/sandboxes`; lazy provision + retry start tối đa một lần.
-- ✅ Giữ authorization app-owned trước khi provision; không tạo Hub user cho request trái quyền.
-- ✅ Bổ sung service role scopes tối thiểu `admin:users`, `servers`, `admin:servers`.
-- ✅ Giữ Hub activation card làm fallback cho lỗi quyền/token/mapping/Hub.
-- ✅ Test existing/new user, race/idempotency, retry-once, provisioning failure và secret containment.
-- ☐ Apply stack `03-hub-app`, deploy BFF image và verify production E2E sau khi AWS credentials hợp lệ.
+## Cách ly và bảo mật
 
-### Phase 2 — Sandbox lifecycle (đã triển khai local, chờ deploy/production verification)
-
-- ✅ Phân biệt canonical states `starting`, `ready`, `stopped`, `failed` ở BFF và dashboard.
-- ✅ Giữ status/body Hub 201/202 trong BFF; polling progress có timeout và backoff giới hạn.
-- ✅ Retry transient có giới hạn, không duplicate spawn; lifecycle audit best-effort cho request/starting/retry/ready/failed/stopped.
-- ✅ Dashboard refresh có giới hạn khi sandbox đang `starting`; Hub activation fallback vẫn được giữ.
-- ☐ Apply/deploy thay đổi và verify production E2E sau khi có Terraform plan hợp lệ, backup và AWS credentials.
-
-### Phase 3 — Stable identity mapping (đã triển khai local, compatibility mode)
-
-- ✅ Resolve identity mới từ Cognito `sub` thành `cognito-${sub}`; stored legacy mapping và owner-scoped legacy sandbox mapping được ưu tiên.
-- ✅ Email rename giữ nguyên Hub username; email chỉ là metadata/display; collision không overwrite và không provision.
-- ✅ Có additive `mlbox_hub_identities`, dry-run planner, conflict handling và rollback helper; sandbox ownership/Hub users không bị rename hoặc xóa.
-- ✅ Giữ JupyterHub OAuth `username_claim: email`; rollout hiện là BFF compatibility mode, chưa migrate Hub records production.
-- ✅ Có read-only migration dry-run command (`cd web/bff && npm run identity:dry-run`) trả report và chặn apply khi có collision.
-- ☐ Backup database, review report/collisions, chuẩn bị rollback, rồi mới plan/apply production migration.
-- ☐ Chạy integration/E2E verification sau migration; không bật mapping production trước khi các safeguard được hoàn tất.
-
-### Phase 4 — Optional JupyterHub extension (chỉ khi cần)
-
-- ☐ Đánh giá REST/service role sau Phase 1–2 cho profile, entitlement/quota, metadata và lifecycle events.
-- ☐ Chỉ xây extension/service hook nếu REST không đáp ứng; không fork JupyterHub core.
-- ☐ Chỉ đánh giá orchestrator thay thế khi chứng minh JupyterHub là giới hạn thực tế.
-
-## Security, reliability và vận hành
-
-- ✅ Có deployment runbook tại `docs/DEPLOYMENT.md`.
-- ✅ Hub không còn yêu cầu user vào JupyterHub để kích hoạt (`enable_auth_state=false`); spawn đi qua BFF.
-- ✅ Có operations runbook tại `docs/OPERATIONS.md`.
-- ☐ Hoàn thiện secret management cho Hub/BFF bằng Kubernetes Secret/Secrets Manager.
-- ☐ Review IAM least privilege cho Terraform, LB controller, Karpenter, Hub và BFF.
-- ☐ Bổ sung monitoring/alerting cho EKS, ALB, target health, pod restart, RDS và quota.
-- ☐ Bổ sung log retention, audit trail và hướng dẫn điều tra incident.
-- ☐ Bổ sung backup/restore test cho RDS, S3 workspace và Terraform state.
-- ☐ Tạo budget/cost anomaly alert và quy trình dừng lab khi không sử dụng.
+- ☐ Runtime user (notebook) chưa có sidecar đồng bộ `users/<id>/`. Khi thêm, phải dùng session policy riêng cho từng user (không dùng role workspace trực tiếp).
+- ☐ Kiểm tra cross-tenant trên cluster thật với hai danh tính thật (`web/bff/test/authz-matrix.md`).
+- ☐ Review IAM least privilege: Terraform, LB controller, Karpenter, hub, BFF.
+- ☐ Secret management: chuyển secret Hub/BFF sang Kubernetes Secret có kiểm soát hoặc Secrets Manager. Xoay mọi secret đã từng hiển thị trong log hoặc output.
 - ☐ NetworkPolicy và egress policy cho namespace dashboard/BFF.
-- ☐ Security scan dependency/container và image signing/provenance.
-- ☐ Define SLO/health endpoint và readiness/liveness checks cho dashboard/BFF.
+- ☐ Scan dependency/container; ký image và provenance.
 
-## Tài liệu và quản trị thay đổi
+## Test và CI
 
-- ✅ Stack names/order đã chuẩn hóa: `00`, `01`, `02`, `03`, `04`, optional `99`.
-- ✅ README, DNS deployment guide và architecture diagram đã cập nhật theo stack mới.
-- ✅ Commit history đã rewrite về `Yuuki <me@june8th.eu.org>` và force-push.
-- ☐ Khi migrate state key, ghi lại mapping, backup và kết quả verify trong change record.
-- ☐ Cập nhật tài liệu sau mỗi lần thay đổi public URL, stack output, image tag hoặc auth flow.
-- ☐ Viết acceptance checklist cho release dashboard và BFF trước khi tuyên bố production-ready.
+- ✅ BFF unit test (`npm test`), test tích hợp Postgres (`npm run test:integration`, cần `DATABASE_URL`).
+- ☐ Đưa test tích hợp Postgres vào CI (hiện chạy tay).
+- ☐ Test dashboard cho component và route (hiện chỉ có test helper).
+- ☐ Kế hoạch CI/CD: `.github/workflows/*.disabled` chưa được bật; build, scan, push và rollout có approval.
 
-## Product control plane: Space → Team → Project
+## Vận hành
 
-Target model: Personal/Organization là loại của Space; mỗi Space có Team phẳng; mỗi
-Project thuộc đúng một Team; Sandbox tạm thời 1:1 với Project; Artifacts tồn tại độc
-lập runtime. Không nested Team, không cross-Space project sharing, không shared
-multi-user Sandbox. Xem [`docs/multi-tenant-product-plan.md`](docs/multi-tenant-product-plan.md)
-để biết schema logic, quyền, UX, branding, migration và acceptance criteria đầy đủ.
+- ☐ Monitoring/alert cho EKS, ALB, target health, pod restart, RDS, quota GPU.
+- ☐ Log retention, audit trail và hướng dẫn điều tra incident.
+- ☐ Backup/restore test cho RDS, S3 workspace và Terraform state.
+- ☐ Budget và cost anomaly alert; quy trình dừng lab khi không dùng.
+- ☐ Runbook và rollback cho các tính năng mới (team, lời mời, sandbox theo Project, artifact, usage).
+- ☐ Acceptance checklist cho release dashboard và BFF trước khi tuyên bố production-ready.
 
-### Phase 1 — Foundation và authorization
+## Phase còn lại của kế hoạch multi-tenant
 
-- ☐ Chốt app-owned relational schema/migration framework; đánh giá mở rộng dashboard usage PostgreSQL hay tạo app DB riêng; tuyệt đối không dùng Hub-owned schema.
-- ☐ Chuyển application user key sang Cognito `sub`; bootstrap Personal Space + default Team cho user hiện tại/mới.
-- ☐ Implement Space membership, invitation lifecycle và role cố định Owner/Admin/Member/Viewer.
-- ☐ Implement flat Team CRUD/membership/Lead; bảo đảm Team và Project luôn cùng Space.
-- ☐ Implement server-side permission resolution, Project direct overrides (Manager/Contributor/Viewer/Blocked), Owner/Admin bypass và permission cache invalidation.
-- ☐ Thêm audit events cho invite, membership/role/team/project access, billing mock và thay đổi runtime.
-- ☐ Viết authz tests: default deny, isolation giữa Space, Team inheritance, direct override/Blocked, Viewer cap, revocation và Owner/Admin không bị khóa.
+- ⚠️ Phase 6 (subscription và usage): mock subscription có; usage là MVP từ sự kiện BFF. Ledger chính xác cần nguồn dữ liệu đã kiểm chứng.
+- ☐ Phase 7: Turnstile theo luồng (xem mục Dashboard).
+- ☐ Phase 8: logo, brand pack, token dùng chung; Space switcher đã có.
+- ☐ Phase 9: release hardening, migration/backup/restore, runbook, rollback.
 
-### Phase 2 — Project-first và runtime
+## Tài liệu
 
-- ☐ Tạo Project CRUD/API/UI; mọi Project thuộc đúng một Team; thêm project search theo Space hiện tại.
-- ☐ Migration idempotent: ánh xạ named Hub sandbox hiện hữu vào Project mặc định trong Personal Space/Team; giữ nguyên server/dữ liệu và có backup/rollback.
-- ☐ Thêm Space switcher, Teams/Members admin, project detail/settings; giữ `/sandboxes` và API cũ làm compatibility alias trong migration.
-- ☐ Chuyển BFF sandbox actions sang authorize theo Project rồi resolve server từ Project record; không nhận Hub username tùy ý.
-- ☐ Giữ một Sandbox/Project, user-owned Hub runtime và single active user; thêm start/stop/change profile cùng pending/failure/quota states.
-- ☐ Test project-level permission trước mọi Hub list/start/stop, kể cả sửa Space/Project ID từ client.
-
-### Phase 3 — Persistent artifacts và tenant isolation
-
-- ☐ Thêm Artifact metadata và upload/download API gắn Project.
-- ☐ Chuyển object key sang `spaces/{space_id}/projects/{project_id}/...`; BFF authorize trước khi cấp presigned URL.
-- ☐ Rà IAM/bucket policy/session scope thực tế; chứng minh runtime/browser không thể đọc prefix ngoài Project được cấp.
-- ☐ Viết migration/backup/restore và integration tests cho S3 isolation; dừng/xóa Sandbox không xóa Artifacts.
-
-### Phase 4 — Subscription, usage và Turnstile
-
-- ☐ Tạo subscription/entitlement theo Space; mock plan activation cập nhật trạng thái ngay và ghi audit, không tích hợp payment provider.
-- ☐ Thiết kế usage ledger theo Space/Project/Sandbox/User/resource; xác minh nguồn dữ liệu trước khi enforce hoặc hiển thị billing chính xác.
-- ☐ Thêm Turnstile config bật/tắt riêng cho registration và mock checkout; mặc định tắt local/dev.
-- ☐ Khi bật registration protection, hiển thị widget ở `/register`; gửi token qua BFF và verify server-side trước Cognito SignUp.
-- ☐ Khi bật checkout protection, verify server-side trước khi activate mock subscription; secret chỉ ở BFF, không log token.
-- ☐ Test Turnstile disabled/enabled, token thiếu/sai/hết hạn/replay và Siteverify unavailable; bật mà verify lỗi phải fail closed.
-
-### Phase 5 — Brand pack và release readiness
-
-- ☐ Chốt logo concept open-box M/B, kiểm tra contrast/light-dark và tạo wordmark, symbol, compact mark, favicon/app icon, monochrome/reversed SVG.
-- ☐ Áp dụng token dùng chung cho Dashboard, Hub và Lab; giữ `web/theme/tokens/heroui-tokens.css` là nguồn sự thật.
-- ☐ Hoàn thiện project-first navigation: logo + Space switcher, project search, preferences (theme/language), avatar menu (Usage/Account/billing theo quyền).
-- ☐ Hoàn tất en/vi, responsive, keyboard/focus, loading/empty/error/unauthorized states và E2E với ít nhất hai Space.
-- ☐ Viết release, data migration, backup/restore, rollback và operations checklist; chỉ đánh dấu hoàn tất sau khi kiểm chứng.
+- ✅ Đã xóa các tài liệu đã hoàn thành hoặc đã bị thay thế (brief handoff ban đầu, plan/spec superpowers 29/10, plan hub-provisioning-adapter). Lịch sử vẫn có trong git.
+- ☐ Cập nhật tài liệu sau mỗi thay đổi public URL, stack output, image tag hoặc auth flow.

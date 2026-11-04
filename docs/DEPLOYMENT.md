@@ -1,7 +1,6 @@
 # ML Box — Deployment Runbook
 
-> AWS resources đã được dọn project-owned trước khi redeploy. Luồng dưới đây đã được chạy
-> lại theo kiểu external-clone từ `00-bootstrap`; remote state hiện nằm trong backend S3 mới.
+> Cập nhật 2026-11-04. Trạng thái chi tiết và backlog: [`TODO.md`](../TODO.md).
 
 Tài liệu này là quy trình triển khai hiện tại cho một region. Quy trình mặc định được viết cho
 `ap-southeast-2` và account `451058046864`; thay các giá trị này nếu triển khai region khác.
@@ -17,8 +16,9 @@ Tài liệu này là quy trình triển khai hiện tại cho một region. Quy 
 | `03-hub-app` | ✅ Đã apply | JupyterHub tại `notebook.mlbox.june8th.me`, có BFF service token |
 | Hub theme | ✅ Đã apply | ConfigMap theme ML Box và rollout Hub |
 | `04-dashboard` | ✅ Đã apply | Dashboard + BFF, apex listener rule và healthy target |
-| `99-unverified-gpu` | ⏸ Chưa apply | Chờ AWS cấp GPU quota |
-| BFF thật | ⚠️ Đã deploy, chưa E2E | Readiness và unauthenticated routes đã verify; cần test user Cognito cho auth/sandbox |
+| `99-unverified-gpu` | ✅ Đã apply | Device plugin (time-slicing `nvidia.com/gpu`) và dcgm-exporter; GPU quota On-Demand G/VT = 8 vCPU |
+| GPU profile trong hub | ⚠️ Đã bật | Đã kiểm chứng trên g4dn (T4); shared L4 (g6) phụ thuộc capacity AWS |
+| BFF / dashboard | ✅ Đã deploy, ⚠️ chưa E2E | Health 200; route Project/Team/lời mời/artifact đã có; luồng trình duyệt với tài khoản thật chưa kiểm chứng |
 
 ## Thứ tự stack bắt buộc
 
@@ -27,8 +27,8 @@ Tài liệu này là quy trình triển khai hiện tại cho một region. Quy 
              → 03-hub-app → apply hub theme → 04-dashboard
 ```
 
-`99-unverified-gpu` nằm ngoài luồng bắt buộc. Chỉ apply sau khi quota GPU được cấp và đã
-kiểm tra image/plugin GPU.
+`99-unverified-gpu` nằm ngoài luồng bắt buộc nhưng đã được apply. Chỉ apply lại sau khi kiểm tra
+GPU device plugin, và không apply `01-foundation` cho đến khi reconcile state (xem TODO).
 
 ## Prerequisites
 

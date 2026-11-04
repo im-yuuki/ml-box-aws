@@ -1,6 +1,6 @@
 # ML Box WebUI — product và multi-tenant implementation plan
 
-> **Trạng thái:** target design và kế hoạch triển khai; chưa phải mô tả tính năng đã có. Ứng dụng hiện vẫn là MVP single-user, sandbox-first. Dùng tài liệu này cùng [`dashboard-architecture.md`](dashboard-architecture.md) và [`TODO.md`](../TODO.md) khi giao việc cho agent.
+> **Trạng thái (2026-11-04):** kế hoạch này là target design. Phần đã triển khai: phase 1–5 ở mức MVP (Space/Team/Project, lời mời không gửi email, sandbox theo Project, artifact qua presigned URL, usage từ sự kiện BFF). Còn thiếu: E2E trình duyệt, logo/brand pack, quota enforcement, Turnstile test đầy đủ, phase 9. Chi tiết trong [`TODO.md`](../TODO.md).
 
 ## Mục tiêu sản phẩm
 

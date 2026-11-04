@@ -12,9 +12,9 @@ mặc định dùng account `451058046864`, region `ap-southeast-2` và cluster
   `jhub-gpu-sandbox-dev-apse2`.
 - Dashboard production đã được xác nhận qua ALB: `/` và `/login` trả `200`, target healthy,
   không còn lỗi `DYNAMIC_SERVER_USAGE`. BFF readiness nội bộ `/v1/health` trả `200`.
-- Authenticated Cognito và sandbox lifecycle chưa được test vì chưa có test user.
-- GPU chưa được bật; `99-unverified-gpu` chỉ được apply sau khi AWS cấp quota và image/plugin GPU
-  đã được kiểm tra.
+- Authenticated Cognito và sandbox lifecycle chưa được test end-to-end trên trình duyệt với tài khoản thật.
+- GPU: stack `99-unverified-gpu` đã apply; profile GPU trong hub đã bật. Shared L4 (g6) phụ thuộc
+  capacity AWS; đã kiểm chứng time-slicing trên g4dn (T4). Không apply `01-foundation` khi chưa reconcile state.
 - Luôn pin image bằng tag immutable, ví dụ `dev-<git-short-sha>`. Không dùng `latest` cho rollout.
 - Không sửa hoặc xóa state Terraform, secret, backend config hay resource production thủ công nếu
   chưa xác định stack sở hữu resource đó.

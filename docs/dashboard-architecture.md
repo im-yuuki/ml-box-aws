@@ -1,9 +1,9 @@
-# ML Box Dashboard — kiến trúc MVP hiện tại
+# ML Box Dashboard — kiến trúc hiện tại (2026-11-04)
 
 Dashboard hiện là web app cho đăng nhập/đăng ký, tài khoản, sandbox và usage/quota.
 JupyterHub lùi về vai trò **API-only** (spawn/stop/status qua REST API).
 
-> Tài liệu này ghi trạng thái MVP/single-user hiện tại, không phải target architecture. Kế hoạch project-first và multi-tenant đã được chốt tại [`multi-tenant-product-plan.md`](multi-tenant-product-plan.md); tài liệu đó là nguồn chuẩn cho product model và các phase tiếp theo. Các mục “tương lai” cũ ở dưới cần được hiểu trong bối cảnh MVP ban đầu.
+> Tài liệu này mô tả kiến trúc đang chạy: Space/Team/Project, sandbox theo Project, artifact, lời mời, usage MVP. Phạm vi còn lại xem [`TODO.md`](../TODO.md); mục tiêu sản phẩm xem [`multi-tenant-product-plan.md`](multi-tenant-product-plan.md).
 
 ## Quyết định đã chốt (2026-10-27)
 
