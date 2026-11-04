@@ -1027,3 +1027,24 @@ body {
   color: var(--success);
   font-size: 0.9rem;
 }
+
+/* Layout v2 fixes */
+.toolbar {
+  width: 100%;
+}
+
+.workspace-signout {
+  width: auto;
+  justify-content: center;
+  gap: 0;
+  border: 1px solid var(--separator);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--foreground);
+  padding-inline: 0.9rem;
+  font-size: 0.85rem;
+}
+
+.workspace-signout:hover {
+  background: var(--surface-secondary);
+}
