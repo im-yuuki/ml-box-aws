@@ -9,14 +9,14 @@ import {
 
 test("workspace navigation exposes the four approved destinations", () => {
   const items = getWorkspaceNavigation("/projects/alpha");
-  assert.deepEqual(items.map((item) => item.href), ["/projects", "/sandboxes", "/usage", "/account"]);
+  assert.deepEqual(items.map((item) => item.href), ["/projects", "/teams", "/usage", "/account"]);
   assert.equal(items.find((item) => item.href === "/projects")?.current, true);
-  assert.equal(items.find((item) => item.href === "/sandboxes")?.current, false);
+  assert.equal(items.find((item) => item.href === "/teams")?.current, false);
 });
 
 test("navigation marks only the exact section current", () => {
-  const items: WorkspaceNavigationItem[] = getWorkspaceNavigation("/sandboxes/new");
-  assert.equal(items.find((item) => item.href === "/sandboxes")?.current, true);
+  const items: WorkspaceNavigationItem[] = getWorkspaceNavigation("/teams/new");
+  assert.equal(items.find((item) => item.href === "/teams")?.current, true);
   assert.equal(items.find((item) => item.href === "/projects")?.current, false);
 });
 

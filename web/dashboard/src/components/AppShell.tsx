@@ -13,7 +13,7 @@ import { getWorkspaceNavigation } from "@/lib/workspace-nav";
 
 const icons: Record<string, string> = {
   "/projects": "▦",
-  "/sandboxes": "◈",
+  "/teams": "◈",
   "/usage": "⌁",
   "/account": "◎",
 };
@@ -29,7 +29,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const items = getWorkspaceNavigation(pathname);
   const labels = {
     "/projects": tNav("projects"),
-    "/sandboxes": tNav("sandboxes"),
+    "/teams": tNav("teams"),
     "/usage": tNav("usage"),
     "/account": tNav("account"),
   } as const;

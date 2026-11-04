@@ -1,9 +1,10 @@
 export type WorkspaceNavigationItem = {
-  href: "/projects" | "/sandboxes" | "/usage" | "/account";
+  href: "/projects" | "/teams" | "/usage" | "/account";
   current: boolean;
 };
 
-const destinations = ["/projects", "/sandboxes", "/usage", "/account"] as const;
+// Sandboxes live inside a Project now; /sandboxes redirects to /projects (next.config.ts).
+const destinations = ["/projects", "/teams", "/usage", "/account"] as const;
 
 export const workspaceControls = {
   menuLabel: "workspace.menu",

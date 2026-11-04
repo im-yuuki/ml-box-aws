@@ -1,6 +1,6 @@
 # ML Box — Backlog
 
-Cập nhật: 2026-11-04
+Cập nhật: 2026-11-05
 
 Ký hiệu: ✅ xong và đã kiểm chứng · ⚠️ đã làm nhưng còn thiếu kiểm chứng hoặc còn phụ thuộc · ☐ chưa làm
 
@@ -16,7 +16,7 @@ Target sản phẩm và thứ tự phase: [`docs/multi-tenant-product-plan.md`](
 
 ## Cần người dùng
 
-- ☐ **E2E trên trình duyệt với tài khoản thật:** đăng ký → xác nhận email → đăng nhập notebook → spawn profile → sandbox/artifact/team/lời mời/Space. Chưa thực hiện.
+- ⚠️ **E2E trên trình duyệt với tài khoản thật:** đã kiểm: đăng nhập dashboard, tạo Project, start sandbox, bấm "Mở notebook" qua handoff → JupyterLab (không qua UI Hub). Chưa kiểm: đăng xuất rồi vào lại, mã handoff dùng lại (phải bị từ chối), team/lời mời/artifact/usage trên giao diện thật.
 - ☐ **Logo và brand pack (phase 8):** người dùng chọn concept logo.
 - ☐ **Mở PR cho các commit chưa merge** trên `feat/dashboard-team-management` (sau khi có xác nhận).
 
@@ -26,6 +26,9 @@ Target sản phẩm và thứ tự phase: [`docs/multi-tenant-product-plan.md`](
 - ✅ Auth Cognito qua BFF (register, confirm, login, logout, refresh, forgot/reset, change password), CSRF, session cookie.
 - ✅ Turnstile cho register và checkout, bật theo cấu hình.
 - ✅ Hub spawn không cần auth state (BFF làm việc spawn).
+- ✅ Mở notebook qua mã handoff một lần (60 giây, chỉ lưu hash, chỉ dùng được một lần); người dùng không vào UI Hub. Hub dùng `MlBoxBffAuthenticator`, BFF là cổng kiểm soát (`allow_all`).
+- ✅ Trạng thái sandbox đọc từ `GET /users/<u>` vì JupyterHub 5 trả 405 với GET named server; `state` có thể là object.
+- ✅ Điều hướng: Projects, Teams, Usage, Account; `/sandboxes` chuyển về `/projects`.
 - ✅ Personal Space và default Team cho mỗi user; Space switcher trên dashboard.
 - ✅ Project: list/create theo Space, phân quyền theo team và direct grant (blocked, manager, contributor, viewer).
 - ✅ Team phẳng: tạo, liệt kê, thêm/xóa thành viên, chặn xóa lead cuối cùng.
@@ -53,6 +56,8 @@ Target sản phẩm và thứ tự phase: [`docs/multi-tenant-product-plan.md`](
 - ☐ Xóa artifact; phân trang danh sách.
 - ☐ Enforce quota CPU/RAM/storage/GPU. Chỉ làm khi nguồn usage đủ tin cậy.
 - ☐ Thanh toán thật: không trong phạm vi hiện tại.
+- ☐ Xoay secret đã lộ trong output plan (`BFF_SESSION_SECRET`, `HUB_AUTH_BRIDGE_TOKEN`, client secret Cognito cũ của Hub).
+- ☐ Redesign giao diện: token, shell, các màn chính (xem kế hoạch redesign trong phiên làm việc); chụp ảnh trước/sau ở mobile, tablet, desktop, sáng/tối, en/vi.
 - ☐ Turnstile: test đầy đủ disabled/enabled/token sai/hết hạn/replay/Siteverify lỗi.
 - ☐ Form `/verify` và các màn hình còn mock; kiểm tra a11y, responsive, en/vi cho các màn mới.
 
