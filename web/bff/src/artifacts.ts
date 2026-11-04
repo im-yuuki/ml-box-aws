@@ -7,6 +7,9 @@ export const PRESIGN_UPLOAD_SECONDS = 15 * 60;
 export const PRESIGN_DOWNLOAD_SECONDS = 5 * 60;
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
+// Space ids include a type prefix for personal Spaces ("personal:<sub>"). A colon is a valid S3 key
+// character, and a Space id never contains a slash, so it is safe inside the key prefix.
+const SAFE_SPACE_ID = /^[A-Za-z0-9][A-Za-z0-9_:-]{0,127}$/;
 
 export function sanitizeArtifactName(name: string): string | null {
   const trimmed = name.trim();
@@ -25,8 +28,8 @@ export function validateArtifactSize(sizeBytes: unknown): number | null {
 }
 
 export function buildArtifactObjectKey(spaceId: string, projectId: string, artifactId: string, fileName: string): string {
-  for (const id of [spaceId, projectId, artifactId]) {
-    if (!SAFE_ID.test(id)) throw new Error("Invalid identifier for artifact key");
+  if (!SAFE_SPACE_ID.test(spaceId) || !SAFE_ID.test(projectId) || !SAFE_ID.test(artifactId)) {
+    throw new Error("Invalid identifier for artifact key");
   }
   const safeName = sanitizeArtifactName(fileName);
   if (!safeName) throw new Error("Invalid artifact name");
@@ -34,6 +37,6 @@ export function buildArtifactObjectKey(spaceId: string, projectId: string, artif
 }
 
 export function artifactKeyPrefix(spaceId: string, projectId: string): string {
-  if (!SAFE_ID.test(spaceId) || !SAFE_ID.test(projectId)) throw new Error("Invalid identifier for artifact prefix");
+  if (!SAFE_SPACE_ID.test(spaceId) || !SAFE_ID.test(projectId)) throw new Error("Invalid identifier for artifact prefix");
   return `spaces/${spaceId}/projects/${projectId}/`;
 }
