@@ -23,8 +23,8 @@
   --spacing: 0.25rem;
 
   /* HeroUI accent + status hues (shared between modes) */
-  --accent: oklch(0.6204 0.195 253.83);
-  --accent-foreground: var(--snow);
+  --accent: oklch(0.6 0.155 40);
+  --accent-foreground: var(--white);
   --success: oklch(0.7329 0.1935 150.81);
   --success-foreground: var(--eclipse);
   --warning: oklch(0.8203 0.1388 76.34);
@@ -49,41 +49,41 @@
 /* --- 2a. Semantic — LIGHT ------------------------------------------------- */
 :root,
 [data-theme="light"] {
-  --background: var(--white);
-  --foreground: var(--eclipse);
+  --background: oklch(0.985 0.008 80);
+  --foreground: oklch(0.25 0.02 50);
 
-  --surface: var(--snow);
+  --surface: oklch(0.995 0.004 80);
   --surface-foreground: var(--foreground);
-  --surface-secondary: oklch(0.9672 0.0034 286.32);
+  --surface-secondary: oklch(0.965 0.012 75);
   --surface-secondary-foreground: var(--foreground);
-  --surface-tertiary: oklch(0.9261 0.0055 286.32);
+  --surface-tertiary: oklch(0.935 0.016 70);
   --surface-tertiary-foreground: var(--foreground);
 
-  --overlay: var(--white);
+  --overlay: oklch(0.995 0.004 80);
   --overlay-foreground: var(--foreground);
 
-  --muted: oklch(0.552 0.0157 285.938);
-  --default: oklch(0.9259 0.0058 286.011);
+  --muted: oklch(0.55 0.025 60);
+  --default: oklch(0.94 0.014 70);
   --default-foreground: var(--eclipse);
   --default-soft-foreground: var(--muted);
 
-  --field-background: var(--white);
+  --field-background: oklch(0.995 0.004 80);
   --field-foreground: var(--foreground);
   --field-placeholder: var(--muted);
-  --field-border: oklch(0.9132 0.0053 286.13);
+  --field-border: oklch(0.88 0.016 70);
 
-  --segment: oklch(0.9672 0.0034 286.32);
+  --segment: oklch(0.955 0.012 75);
   --segment-foreground: var(--foreground);
 
-  --border: oklch(0.9132 0.0053 286.13);
-  --separator: oklch(0.9375 0.0044 286.2);
+  --border: oklch(0.885 0.016 70);
+  --separator: oklch(0.925 0.012 70);
 
   --focus: var(--accent);
   --link: var(--accent);
   --backdrop: rgba(0, 0, 0, 0.5);
 
-  --surface-shadow: 0 1px 2px 0 rgba(24, 24, 27, 0.06), 0 1px 3px 0 rgba(24, 24, 27, 0.08);
-  --overlay-shadow: 0 4px 24px 0 rgba(24, 24, 27, 0.14);
+  --surface-shadow: 0 1px 2px 0 rgba(70, 40, 20, 0.07), 0 1px 3px 0 rgba(70, 40, 20, 0.08);
+  --overlay-shadow: 0 4px 24px 0 rgba(70, 40, 20, 0.14);
   --field-shadow: 0 0 0 0 transparent inset;
   --background-inverse: var(--foreground);
 }
