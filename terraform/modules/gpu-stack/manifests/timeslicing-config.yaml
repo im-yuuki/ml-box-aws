@@ -7,11 +7,17 @@ metadata:
   name: time-slicing-shared
   namespace: gpu-operator-resources
 data:
+  # Default for nodes without the label (dedicated pool): no sharing.
+  none: |-
+    version: v1
   any: |-
     version: v1
     sharing:
       timeSlicing:
-        renameByDefault: true
+        # false: shared nodes keep the name nvidia.com/gpu (time-sliced replicas). Karpenter only
+        # knows nvidia.com/gpu, so renamed nvidia.com/gpu.shared made shared pods unschedulable.
+        # Isolation between shared and dedicated stays by node taints (tier=shared / tier=dedicated).
+        renameByDefault: false
         failRequestsGreaterThanOne: true
         resources:
           - name: nvidia.com/gpu
