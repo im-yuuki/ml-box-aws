@@ -25,7 +25,7 @@ export default function ProjectCard({ project }: { project: ProjectRecord }) {
           <Button variant="primary" size="sm">{t("openProject")}</Button>
         </Link>
         {project.sandboxName ? (
-          <Link href="/sandboxes">
+          <Link href={`/projects/${encodeURIComponent(project.id)}`}>
             <Button variant="secondary" size="sm">{t("openSandbox")}</Button>
           </Link>
         ) : null}

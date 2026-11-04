@@ -93,10 +93,10 @@
   },
   "home": {
     "title": "Một nơi duy nhất để đăng nhập, chạy sandbox và theo dõi mức dùng của bạn.",
-    "subtitle": "Hub vẫn phụ trách spawn và tắt notebook — dashboard này là cửa vào ML Box. Đăng nhập bằng email công ty để tiếp tục.",
+    "subtitle": "Project giữ công việc của bạn. Bật sandbox và mở notebook ngay tại đây, không cần đăng nhập Hub riêng. Đăng nhập bằng email công việc để tiếp tục.",
     "signIn": "Đăng nhập",
     "createAccount": "Tạo tài khoản",
-    "orJump": "Hoặc vào thẳng {sandboxes} hoặc {usage}.",
+    "orJump": "Hoặc vào thẳng {projects} hoặc {usage}.",
     "noBackendTitle": "Luồng đăng nhập chưa nối",
     "noBackendBody": "Thiết lập NEXT_PUBLIC_COGNITO_USER_POOL_ID và NEXT_PUBLIC_COGNITO_CLIENT_ID, rồi dựng BFF service để bật form."
   },

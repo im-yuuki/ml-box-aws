@@ -41,7 +41,7 @@ export default async function Home() {
         </div>
         <p className="text-xs mt-6" style={{ color: "var(--muted)" }}>
           {t("orJump", {
-            sandboxes: tNav("sandboxes"),
+            projects: tNav("projects"),
             usage: tNav("usage"),
           })}
         </p>
