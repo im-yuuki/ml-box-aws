@@ -16,7 +16,8 @@ Target sản phẩm và thứ tự phase: [`docs/multi-tenant-product-plan.md`](
 
 ## Cần người dùng
 
-- ⚠️ **E2E trên trình duyệt với tài khoản thật:** đã kiểm: đăng nhập dashboard, tạo Project, start sandbox, bấm "Mở notebook" qua handoff → JupyterLab (không qua UI Hub). Đã kiểm: mã handoff dùng lại bị từ chối (quay về đăng nhập dashboard). Chưa kiểm: đăng xuất rồi vào lại, team/lời mời/artifact/usage trên giao diện thật.
+- ⚠️ **E2E trên trình duyệt với tài khoản thật:** đã kiểm: đăng nhập dashboard, tạo Project, start sandbox, bấm "Mở notebook" qua handoff → JupyterLab (không qua UI Hub). Đã kiểm: mã handoff dùng lại bị từ chối; tạo team; upload và tải artifact (nội dung khớp); trang Usage hiển thị số sandbox đang chạy. Sửa trong lượt này: đăng xuất dashboard nay cũng chuyển qua `/hub/logout` (đã kiểm: sau `/hub/logout` notebook không mở được). Chưa kiểm: nút đăng xuất trên UI (cần đăng nhập lại), lời mời được chấp nhận bởi người khác (cần tài khoản thứ hai).
+- ⚠️ Usage: CPU và RAM đã cấp phát hiển thị "—" khi sandbox đang chạy; chưa rõ nguồn số liệu.
 - ☐ **Logo và brand pack (phase 8):** người dùng chọn concept logo.
 - ☐ **Mở PR cho các commit chưa merge** trên `feat/dashboard-team-management` (sau khi có xác nhận).
 
