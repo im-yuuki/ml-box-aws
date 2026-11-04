@@ -905,6 +905,18 @@ app.post<{ Params: { spaceId: string }; Body: { name?: string } }>("/v1/spaces/:
   }
 });
 
+app.get<{ Params: { spaceId: string; teamId: string } }>("/v1/spaces/:spaceId/teams/:teamId/members", async (request, reply) => {
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Team storage is not configured." });
+  try {
+    return { teamId: request.params.teamId, members: await appStore.listTeamMembers(session.subject, request.params.spaceId, request.params.teamId) };
+  } catch (error) {
+    request.log.error({ err: error }, "Team member list failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Team storage is temporarily unavailable." });
+  }
+});
+
 app.post<{ Params: { spaceId: string; teamId: string }; Body: { userId?: string; role?: string } }>(
   "/v1/spaces/:spaceId/teams/:teamId/members",
   async (request, reply) => {

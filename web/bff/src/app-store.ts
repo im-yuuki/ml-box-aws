@@ -41,6 +41,12 @@ export type TeamRecord = {
   name: string;
 };
 
+export type TeamMemberRecord = {
+  userId: string;
+  role: TeamRole;
+  email: string | null;
+};
+
 export type ProjectRecord = {
   id: string;
   spaceId: string;
@@ -768,6 +774,25 @@ export class AppStore {
     const row = result.rows[0];
     if (!row) throw new Error(TEAM_MANAGEMENT_DENIED);
     return { id: String(row.id), spaceId: String(row.space_id), name: String(row.name) };
+  }
+
+  // Any active Space member can see who belongs to a team in their Space.
+  async listTeamMembers(userId: string, spaceId: string, teamId: string): Promise<TeamMemberRecord[]> {
+    const result = await this.pool.query(
+      `SELECT tm.user_id, tm.role, u.email
+       FROM mlbox_team_members tm
+       JOIN mlbox_teams t ON t.id = tm.team_id
+       JOIN mlbox_space_memberships sm ON sm.space_id = t.space_id AND sm.user_id = $1 AND sm.status = 'active'
+       LEFT JOIN mlbox_users u ON u.id = tm.user_id
+       WHERE t.id = $3 AND t.space_id = $2
+       ORDER BY tm.role, u.email`,
+      [userId, spaceId, teamId],
+    );
+    return result.rows.map((row) => ({
+      userId: String(row.user_id),
+      role: String(row.role) as TeamRole,
+      email: row.email === null || row.email === undefined ? null : String(row.email),
+    }));
   }
 
   async addTeamMember(actorId: string, spaceId: string, teamId: string, targetUserId: string, role: TeamRole): Promise<void> {

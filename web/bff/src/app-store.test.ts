@@ -395,3 +395,12 @@ test("team member removal is denied when the actor is not owner or admin", async
   const { store } = fakeStore(() => ({ rows: [] }));
   await assert.rejects(() => store.removeTeamMember("actor", "s1", "t1", "target"), /Team management denied/);
 });
+
+test("team member listing requires an active Space membership and returns only the team scope", async () => {
+  const { store, queries } = fakeStore(() => ({ rows: [{ user_id: "u2", role: "member", email: "b@example.com" }] }));
+  const members = await store.listTeamMembers("actor", "s1", "t1");
+  assert.deepEqual(members, [{ userId: "u2", role: "member", email: "b@example.com" }]);
+  const last = queries.at(-1);
+  assert.deepEqual(last?.values, ["actor", "s1", "t1"]);
+  assert.match(last?.sql ?? "", /sm\.status = 'active'/);
+});
