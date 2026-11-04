@@ -751,7 +751,9 @@ app.post("/v1/auth/logout", async (request, reply) => {
   }
   reply.clearCookie(SESSION_COOKIE, { httpOnly: true, secure: runtime.secureCookies, sameSite: "lax", path: "/" });
   reply.clearCookie(CSRF_COOKIE, { httpOnly: false, secure: runtime.secureCookies, sameSite: "lax", path: "/" });
-  return { ok: true };
+  // The Hub keeps its own session cookie on the notebook host, which this origin cannot clear.
+  // The dashboard navigates to this URL so JupyterHub drops its cookie as well.
+  return { ok: true, hubLogoutUrl: runtime.hubPublicUrl ? `${runtime.hubPublicUrl}/hub/logout` : null };
 });
 
 app.get<{ Querystring: { spaceId?: string } }>("/v1/projects", async (request, reply) => {

@@ -36,9 +36,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     setSigningOut(true);
+    let hubLogoutUrl: string | null = null;
     try {
-      await bffFetch("/api/bff/auth/logout", { method: "POST" });
+      const response = await bffFetch("/api/bff/auth/logout", { method: "POST" });
+      const body = await response.json().catch(() => ({})) as { hubLogoutUrl?: string | null };
+      hubLogoutUrl = body.hubLogoutUrl ?? null;
     } finally {
+      if (hubLogoutUrl) {
+        // Full navigation: the Hub logout clears its cookie on the notebook host and ends on the login page.
+        window.location.href = hubLogoutUrl;
+        return;
+      }
       router.push("/login");
       router.refresh();
     }
