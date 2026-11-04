@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Button, Card } from "@heroui/react";
+import { Button } from "@heroui/react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 import { runtimeStateKey } from "@/lib/artifacts";
@@ -98,25 +98,26 @@ export default function ProjectRuntimePanel({ projectId }: { projectId: string }
   const canOperate = data?.canOperate ?? false;
 
   return (
-    <Card className="workspace-detail-section">
-      <span className="workspace-section-index">{t("section")}</span>
-      <h2>{t("title")}</h2>
-      <p>{t("body")}</p>
-      {loading ? <p className="workspace-muted-copy" role="status">{t("loading")}</p> : null}
-      {data ? <p className="workspace-status workspace-status-muted" aria-live="polite">{t(`state.${stateKey}`)}</p> : null}
-      {error ? <p className="workspace-form-error" role="alert">{error}</p> : null}
-      <div className="flex flex-wrap gap-2">
-        <Button variant="primary" size="sm" isDisabled={busy || loading || !canOperate || stateKey === "running" || stateKey === "starting"} onPress={() => void act("start")}>
+    <section className="panel runtime">
+      <div className="runtime-head">
+        <h2 className="panel-title">{t("title")}</h2>
+        {data ? <span className={`status-dot status-${stateKey}`} aria-live="polite">{t(`state.${stateKey}`)}</span> : null}
+      </div>
+      <p className="muted">{t("body")}</p>
+      {loading ? <p className="muted" role="status">{t("loading")}</p> : null}
+      {error ? <p className="form-error" role="alert">{error}</p> : null}
+      <div className="runtime-actions">
+        <Button variant="primary" isDisabled={busy || loading || !canOperate || stateKey === "running" || stateKey === "starting"} onPress={() => void act("start")}>
           {t("start")}
         </Button>
-        <Button variant="secondary" size="sm" isDisabled={busy || loading || !canOperate || stateKey !== "running"} onPress={() => void act("stop")}>
+        <Button variant="secondary" isDisabled={busy || loading || !canOperate || stateKey !== "running"} onPress={() => void act("stop")}>
           {t("stop")}
         </Button>
-        {data?.sandbox?.url ? <Button variant="tertiary" size="sm" isDisabled={busy || loading} onPress={() => void openNotebook()}>{t("open")}</Button> : null}
+        {data?.sandbox?.url ? <Button variant="tertiary" isDisabled={busy || loading} onPress={() => void openNotebook()}>{t("open")}</Button> : null}
       </div>
-      {data && !canOperate ? <p className="workspace-muted-copy">{t("readOnly")}</p> : null}
-      {usage ? <p className="workspace-muted-copy">{t("usage", { hours: usage.hours, days: usage.windowDays })}</p> : null}
-      {usage ? <p className="workspace-muted-copy">{t("usageNote")}</p> : null}
-    </Card>
+      {data && !canOperate ? <p className="muted">{t("readOnly")}</p> : null}
+      {usage ? <p className="muted">{t("usage", { hours: usage.hours, days: usage.windowDays })}</p> : null}
+      {usage ? <p className="muted small">{t("usageNote")}</p> : null}
+    </section>
   );
 }

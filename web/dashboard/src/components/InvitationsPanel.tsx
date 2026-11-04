@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Button, Card } from "@heroui/react";
+import { Button } from "@heroui/react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 import { canManageTeams, type SpaceSummary } from "@/lib/spaces";
@@ -90,14 +90,13 @@ export default function InvitationsPanel({ space }: { space: SpaceSummary }) {
   };
 
   return (
-    <Card className="workspace-detail-section">
-      <span className="workspace-section-index">{t("section")}</span>
-      <h2>{t("title")}</h2>
-      <p>{t("body")}</p>
+    <section className="panel">
+      <h2 className="panel-title">{t("title")}</h2>
+      <p className="muted">{t("body")}</p>
 
       {manager ? (
         <>
-          <form className="workspace-create-form" onSubmit={invite}>
+          <form className="add-member" onSubmit={invite}>
             <label className="sr-only" htmlFor="invite-email">{t("email")}</label>
             <input id="invite-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder={t("emailPlaceholder")} />
             <label className="sr-only" htmlFor="invite-role">{t("role")}</label>
@@ -108,10 +107,11 @@ export default function InvitationsPanel({ space }: { space: SpaceSummary }) {
             </select>
             <Button type="submit" variant="primary" isPending={busy} isDisabled={busy}>{t("invite")}</Button>
           </form>
-          <ul aria-label={t("pendingList")} className="flex flex-col gap-2">
+          <ul aria-label={t("pendingList")} className="artifact-list">
             {pending.map((invitation) => (
-              <li key={invitation.id} className="flex items-center justify-between gap-4">
-                <span>{invitation.email} · {invitation.role}</span>
+              <li key={invitation.id} className="artifact-row">
+                <span className="artifact-name">{invitation.email}</span>
+                <span className="muted small">{invitation.role}</span>
                 <Button variant="secondary" size="sm" isDisabled={busy} onPress={() => void revoke(invitation.id)}>{t("revoke")}</Button>
               </li>
             ))}
@@ -120,17 +120,17 @@ export default function InvitationsPanel({ space }: { space: SpaceSummary }) {
       ) : null}
 
       {mine.length > 0 ? (
-        <ul aria-label={t("incomingList")} className="flex flex-col gap-2">
+        <ul aria-label={t("incomingList")} className="artifact-list">
           {mine.map((invitation) => (
-            <li key={invitation.id} className="flex items-center justify-between gap-4">
-              <span>{t("incoming", { role: invitation.role })}</span>
+            <li key={invitation.id} className="artifact-row">
+              <span className="artifact-name">{t("incoming", { role: invitation.role })}</span>
               <Button variant="primary" size="sm" isDisabled={busy} onPress={() => void accept(invitation.id)}>{t("accept")}</Button>
             </li>
           ))}
         </ul>
       ) : null}
 
-      {error ? <p className="workspace-form-error" role="alert">{error}</p> : null}
-    </Card>
+      {error ? <p className="form-error" role="alert">{error}</p> : null}
+    </section>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Button, Card, ProgressBar, Surface } from "@heroui/react";
+import { Button, ProgressBar } from "@heroui/react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 
@@ -98,85 +98,91 @@ export default function UsagePanel() {
   if (!data) return null;
 
   return (
-    <div className="flex flex-col gap-8">
-      <section aria-labelledby="quota-heading" className="flex flex-col gap-3">
-        <div className="flex items-end justify-between gap-4">
+    <div className="page">
+      <section className="usage-section" aria-labelledby="quota-heading">
+        <div className="section-head">
           <div>
-            <h2 id="quota-heading" className="text-lg font-medium">{t("quotaHeading")}</h2>
-            <p className="text-sm" style={{ color: "var(--muted)" }}>{t("quotaDescription")}</p>
+            <h2 id="quota-heading" className="panel-title">{t("quotaHeading")}</h2>
+            <p className="muted">{t("quotaDescription")}</p>
           </div>
-          <span className="text-xs" style={{ color: "var(--muted)" }}>{t("lastUpdated", { when: formatDate(data.generatedAt) })}</span>
+          <span className="muted small">{t("lastUpdated", { when: formatDate(data.generatedAt) })}</span>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="stat-grid">
           {cards.map((card) => {
             const usage = card.metric.usage;
             const progress = usage === null || card.metric.limit <= 0 ? undefined : Math.min(100, (usage / card.metric.limit) * 100);
             return (
-              <Card key={card.key} className="flex flex-col gap-4 p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-sm" style={{ color: "var(--muted)" }}>{card.label}</span>
-                    <span className="text-xl font-semibold">{card.detail}</span>
-                  </div>
-                  <span className="rounded-full px-2 py-1 text-xs" style={{ background: "color-mix(in srgb, var(--default) 70%, transparent)", color: "var(--muted)" }}>
-                    {trackingLabel(card.metric.tracking, t)}
-                  </span>
+              <article key={card.key} className="stat">
+                <div className="stat-top">
+                  <span className="muted small">{card.label}</span>
+                  <span className="pill">{trackingLabel(card.metric.tracking, t)}</span>
                 </div>
+                <span className="stat-value">{card.detail}</span>
                 {progress === undefined ? (
-                  <p className="text-sm" style={{ color: "var(--muted)" }}>{trackingLabel(card.metric.tracking, t)}</p>
+                  <p className="muted small">{trackingLabel(card.metric.tracking, t)}</p>
                 ) : (
-                  <div className="flex flex-col gap-2">
-                    <div className="flex justify-between text-sm"><span>{formatNumber(usage)} {card.metric.unit}</span><span>{formatNumber(card.metric.limit)} {card.metric.unit}</span></div>
+                  <div className="stat-progress">
+                    <div className="stat-progress-labels muted small"><span>{formatNumber(usage)} {card.metric.unit}</span><span>{formatNumber(card.metric.limit)} {card.metric.unit}</span></div>
                     <ProgressBar value={progress} aria-label={card.label} color={progress > 80 ? "warning" : "accent"} />
                   </div>
                 )}
-              </Card>
+              </article>
             );
           })}
         </div>
         {data.quota.ramGb.usage !== null && data.quota.ramGb.limit > 0 && data.quota.ramGb.usage / data.quota.ramGb.limit >= 0.8 ? (
-          <p className="text-sm" role="status" style={{ color: "var(--warning)" }}>{t("quotaWarningRam")}</p>
+          <p className="form-warning" role="status">{t("quotaWarningRam")}</p>
         ) : null}
       </section>
 
-      <section aria-labelledby="footprint-heading" className="flex flex-col gap-3">
-        <div>
-          <h2 id="footprint-heading" className="text-lg font-medium">{t("footprintHeading")}</h2>
-          <p className="text-sm" style={{ color: "var(--muted)" }}>{t("footprintDescription")}</p>
+      <section className="usage-section" aria-labelledby="footprint-heading">
+        <div className="section-head">
+          <div>
+            <h2 id="footprint-heading" className="panel-title">{t("footprintHeading")}</h2>
+            <p className="muted">{t("footprintDescription")}</p>
+          </div>
         </div>
-        <div className="grid gap-4 sm:grid-cols-4">
-          <Surface className="flex flex-col gap-1 p-4"><span className="text-sm" style={{ color: "var(--muted)" }}>{t("runningServers")}</span><strong className="text-2xl">{data.footprint.runningServers}</strong></Surface>
-          <Surface className="flex flex-col gap-1 p-4"><span className="text-sm" style={{ color: "var(--muted)" }}>{t("pendingServers")}</span><strong className="text-2xl">{data.footprint.pendingServers}</strong></Surface>
-          <Surface className="flex flex-col gap-1 p-4"><span className="text-sm" style={{ color: "var(--muted)" }}>{t("cpuAllocated")}</span><strong className="text-2xl">{formatNumber(data.footprint.cpuCoresAllocated)} {t("unitCores")}</strong></Surface>
-          <Surface className="flex flex-col gap-1 p-4"><span className="text-sm" style={{ color: "var(--muted)" }}>{t("ramAllocated")}</span><strong className="text-2xl">{formatNumber(data.footprint.ramGbAllocated)} {t("unitGb")}</strong></Surface>
+        <div className="stat-grid stat-grid-4">
+          <article className="stat"><span className="muted small">{t("runningServers")}</span><span className="stat-value">{data.footprint.runningServers}</span></article>
+          <article className="stat"><span className="muted small">{t("pendingServers")}</span><span className="stat-value">{data.footprint.pendingServers}</span></article>
+          <article className="stat"><span className="muted small">{t("cpuAllocated")}</span><span className="stat-value">{formatNumber(data.footprint.cpuCoresAllocated)} <small>{t("unitCores")}</small></span></article>
+          <article className="stat"><span className="muted small">{t("ramAllocated")}</span><span className="stat-value">{formatNumber(data.footprint.ramGbAllocated)} <small>{t("unitGb")}</small></span></article>
         </div>
         {data.footprint.servers.length === 0 ? (
-          <Card className="p-5"><p className="text-sm" style={{ color: "var(--muted)" }}>{t("noRunningServers")}</p></Card>
+          <div className="empty"><p>{t("noRunningServers")}</p></div>
         ) : (
-          <div className="flex flex-col gap-2">
+          <ul className="artifact-list">
             {data.footprint.servers.map((server) => (
-              <Card key={server.name} className="flex flex-wrap items-center justify-between gap-3 p-4">
-                <div className="flex flex-col gap-1"><strong>{server.name}</strong><span className="text-sm" style={{ color: "var(--muted)" }}>{server.lastActivity ? t("lastActivity", { when: formatDate(server.lastActivity) }) : t("lastActivityUnknown")}</span></div>
-                <div className="flex items-center gap-4 text-sm" style={{ color: "var(--muted)" }}><span>{formatNumber(server.cpuCoresAllocated)} {t("unitCores")}</span><span>{formatNumber(server.ramGbAllocated)} {t("unitGb")}</span></div>
-              </Card>
+              <li key={server.name} className="artifact-row">
+                <div className="server-meta">
+                  <span className="artifact-name">{server.name}</span>
+                  <span className="muted small">{server.lastActivity ? t("lastActivity", { when: formatDate(server.lastActivity) }) : t("lastActivityUnknown")}</span>
+                </div>
+                <span className="muted small">{formatNumber(server.cpuCoresAllocated)} {t("unitCores")}</span>
+                <span className="muted small">{formatNumber(server.ramGbAllocated)} {t("unitGb")}</span>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </section>
 
-      <section aria-labelledby="history-heading" className="flex flex-col gap-3">
-        <div>
-          <h2 id="history-heading" className="text-lg font-medium">{t("historyHeading")}</h2>
-          <p className="text-sm" style={{ color: "var(--muted)" }}>{data.historyAvailable ? t("historyDescription") : t("historyUnavailable")}</p>
+      <section className="usage-section" aria-labelledby="history-heading">
+        <div className="section-head">
+          <div>
+            <h2 id="history-heading" className="panel-title">{t("historyHeading")}</h2>
+            <p className="muted">{data.historyAvailable ? t("historyDescription") : t("historyUnavailable")}</p>
+          </div>
         </div>
         {data.historyAvailable && (data.history?.length ?? 0) > 0 ? (
-          <div className="flex flex-col gap-2">
-            {data.history?.map((sample) => <Card key={sample.sampledAt} className="flex flex-wrap items-center justify-between gap-3 p-4">
-              <span>{formatDate(sample.sampledAt)}</span>
-              <span className="text-sm" style={{ color: "var(--muted)" }}>{t("historySample", { servers: sample.runningServers, cpu: formatNumber(sample.cpuCoresAllocated), ram: formatNumber(sample.ramGbAllocated) })}</span>
-            </Card>)}
-          </div>
-        ) : data.historyAvailable ? <Card className="p-4 text-sm" style={{ color: "var(--muted)" }}>{t("historyEmpty")}</Card> : null}
+          <ul className="artifact-list">
+            {data.history?.map((sample) => (
+              <li key={sample.sampledAt} className="artifact-row">
+                <span className="artifact-name">{formatDate(sample.sampledAt)}</span>
+                <span className="muted small">{t("historySample", { servers: sample.runningServers, cpu: formatNumber(sample.cpuCoresAllocated), ram: formatNumber(sample.ramGbAllocated) })}</span>
+              </li>
+            ))}
+          </ul>
+        ) : data.historyAvailable ? <div className="empty"><p>{t("historyEmpty")}</p></div> : null}
       </section>
     </div>
   );

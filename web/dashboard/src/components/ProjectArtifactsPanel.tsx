@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ChangeEvent } from "react";
-import { Button, Card } from "@heroui/react";
+import { Button } from "@heroui/react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 import { formatBytes, validateUploadFile, type ArtifactListResponse, type ArtifactRecord } from "@/lib/artifacts";
@@ -102,28 +102,31 @@ export default function ProjectArtifactsPanel({ projectId }: { projectId: string
   };
 
   return (
-    <Card className="workspace-detail-section">
-      <span className="workspace-section-index">{t("section")}</span>
-      <h2>{t("title")}</h2>
-      <p>{t("body")}</p>
-      {loading ? <p className="workspace-muted-copy" role="status">{t("loading")}</p> : null}
-      {!loading && artifacts.length === 0 ? <p className="workspace-muted-copy">{t("empty")}</p> : null}
-      <ul aria-label={t("list")} className="flex flex-col gap-2">
+    <section className="panel">
+      <div className="runtime-head">
+        <h2 className="panel-title">{t("title")}</h2>
+        <span className="pill">{artifacts.filter((artifact) => artifact.status === "ready").length}</span>
+      </div>
+      <p className="muted">{t("body")}</p>
+      {loading ? <p className="muted" role="status">{t("loading")}</p> : null}
+      {!loading && artifacts.length === 0 ? <p className="muted">{t("empty")}</p> : null}
+      <ul aria-label={t("list")} className="artifact-list">
         {artifacts.filter((artifact) => artifact.status === "ready").map((artifact) => (
-          <li key={artifact.id} className="flex items-center justify-between gap-4">
-            <span>{artifact.name} · {formatBytes(artifact.sizeBytes)}</span>
+          <li key={artifact.id} className="artifact-row">
+            <span className="artifact-name">{artifact.name}</span>
+            <span className="muted small">{formatBytes(artifact.sizeBytes)}</span>
             <Button variant="secondary" size="sm" onPress={() => void download(artifact)}>{t("download")}</Button>
           </li>
         ))}
       </ul>
       {canWrite ? (
-        <label className="flex flex-col gap-2">
+        <label className="file-drop">
           <span className="sr-only">{t("chooseFile")}</span>
           <input type="file" disabled={busy} onChange={(event) => void upload(event)} />
         </label>
-      ) : <p className="workspace-muted-copy">{t("readOnly")}</p>}
-      {busy ? <p className="workspace-muted-copy" role="status">{t("uploading")}</p> : null}
-      {error ? <p className="workspace-form-error" role="alert">{error}</p> : null}
-    </Card>
+      ) : <p className="muted">{t("readOnly")}</p>}
+      {busy ? <p className="muted" role="status">{t("uploading")}</p> : null}
+      {error ? <p className="form-error" role="alert">{error}</p> : null}
+    </section>
   );
 }

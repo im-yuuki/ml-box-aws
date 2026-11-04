@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Button, Card } from "@heroui/react";
+import { Button } from "@heroui/react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 
@@ -79,27 +79,27 @@ export default function AccountPanel() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <Card className="flex flex-col gap-3 p-5">
-        <h2 className="text-base font-medium">{t("emailHeading")}</h2>
-        {loading ? <p className="text-sm" style={{ color: "var(--muted)" }}>{t("loading")}</p>
-          : loadError ? <div className="flex flex-wrap items-center gap-3"><p className="text-sm" role="alert" style={{ color: "var(--danger)" }}>{t("loadFailed")}</p><Button size="sm" variant="secondary" onPress={() => void loadSession()}>{t("retry")}</Button></div>
-            : <p className="text-sm">{email}</p>}
-      </Card>
-      <Card className="flex flex-col gap-4 p-5">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-base font-medium">{t("passwordHeading")}</h2>
-          <p className="text-sm" style={{ color: "var(--muted)" }}>{t("passwordBody")}</p>
+    <div className="account-grid">
+      <section className="panel">
+        <h2 className="panel-title">{t("emailHeading")}</h2>
+        {loading ? <p className="muted">{t("loading")}</p>
+          : loadError ? <div className="runtime-actions"><p className="form-error" role="alert">{t("loadFailed")}</p><Button size="sm" variant="secondary" onPress={() => void loadSession()}>{t("retry")}</Button></div>
+            : <p className="email-value">{email}</p>}
+      </section>
+      <section className="panel">
+        <div className="stack-tight">
+          <h2 className="panel-title">{t("passwordHeading")}</h2>
+          <p className="muted">{t("passwordBody")}</p>
         </div>
-        <form className="flex max-w-md flex-col gap-4" onSubmit={changePassword}>
-          <label className="flex flex-col gap-1 text-sm">{t("currentPasswordLabel")}<input className="rounded-md border px-3 py-2" style={{ borderColor: "var(--border)", background: "var(--surface)" }} type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} /></label>
-          <label className="flex flex-col gap-1 text-sm">{t("newPasswordLabel")}<input className="rounded-md border px-3 py-2" style={{ borderColor: "var(--border)", background: "var(--surface)" }} type="password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /><span className="text-xs" style={{ color: "var(--muted)" }}>{t("passwordHint")}</span></label>
-          <label className="flex flex-col gap-1 text-sm">{t("confirmPasswordLabel")}<input className="rounded-md border px-3 py-2" style={{ borderColor: "var(--border)", background: "var(--surface)" }} type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label>
-          {formError ? <p className="text-sm" role="alert" style={{ color: "var(--danger)" }}>{formError}</p> : null}
-          {message ? <p className="text-sm" role="status" style={{ color: "var(--success)" }}>{message}</p> : null}
+        <form className="stack-form" onSubmit={changePassword}>
+          <label className="field">{t("currentPasswordLabel")}<input type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} /></label>
+          <label className="field">{t("newPasswordLabel")}<input type="password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /><span className="muted small">{t("passwordHint")}</span></label>
+          <label className="field">{t("confirmPasswordLabel")}<input type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label>
+          {formError ? <p className="form-error" role="alert">{formError}</p> : null}
+          {message ? <p className="form-success" role="status">{message}</p> : null}
           <Button type="submit" variant="primary" isPending={pending} isDisabled={pending}>{t("changePassword")}</Button>
         </form>
-      </Card>
+      </section>
     </div>
   );
 }

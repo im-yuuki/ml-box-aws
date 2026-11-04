@@ -104,13 +104,12 @@ export default function ProjectBoard() {
   };
 
   if (loadState === "loading") {
-    return <p className="workspace-muted-copy" role="status">{t("loadingProjects")}</p>;
+    return <p className="muted" role="status">{t("loadingProjects")}</p>;
   }
 
   if (loadState === "unauthenticated") {
     return (
-      <section className="workspace-state-panel" aria-labelledby="projects-auth-title">
-        <span className="workspace-section-index">{t("authSection")}</span>
+      <section className="empty" aria-labelledby="projects-auth-title">
         <h2 id="projects-auth-title">{t("unauthenticatedTitle")}</h2>
         <p>{t("unauthenticatedBody")}</p>
         <Link href="/login"><Button variant="primary">{t("signIn")}</Button></Link>
@@ -127,46 +126,44 @@ export default function ProjectBoard() {
   }
 
   return (
-    <div className="flex flex-col gap-8">
-      <header className="workspace-page-heading">
-        <div>
-          <span className="workspace-section-index">{t("projectsSection")}</span>
-          <h1>{t("projectsTitle")}</h1>
-          <p>{t("projectsSubtitle")}</p>
+    <div className="page">
+      <header className="page-header">
+        <div className="page-header-text">
+          <p className="page-kicker">{t("projectsSection")}</p>
+          <h1 className="page-title">{t("projectsTitle")}</h1>
+          <p className="page-lede">{t("projectsSubtitle")}</p>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <span className="workspace-count-label">{t("projectCount", { count: projects.length })}</span>
-          <Link href="/teams" className="workspace-count-label">{t("teamsLink")}</Link>
+        <div className="page-header-meta">
+          <span className="pill">{t("projectCount", { count: projects.length })}</span>
+          <Link href="/teams" className="text-link">{t("teamsLink")}</Link>
         </div>
       </header>
 
-      <section className="workspace-project-toolbar" aria-label={t("searchProjects")}>
-        <label className="workspace-search-field">
+      <section className="toolbar" aria-label={t("searchProjects")}>
+        <label className="search">
           <span className="sr-only">{t("searchProjects")}</span>
-          <span aria-hidden="true">⌕</span>
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("searchProjectsHint")} />
         </label>
-        <form className="workspace-create-form" onSubmit={createProject}>
+        <form className="create" onSubmit={createProject}>
           <label className="sr-only" htmlFor="new-project-name">{t("projectName")}</label>
           <input id="new-project-name" value={projectName} onChange={(event) => setProjectName(event.target.value)} placeholder={t("projectNamePlaceholder")} />
           <Button type="submit" variant="primary" isPending={creating} isDisabled={creating}>{t("newProject")}</Button>
         </form>
       </section>
-      {createError ? <p className="workspace-form-error" role="alert">{projectName.trim() ? t("projectCreateFailed") : t("projectNameRequired")}</p> : null}
+      {createError ? <p className="form-error" role="alert">{projectName.trim() ? t("projectCreateFailed") : t("projectNameRequired")}</p> : null}
 
       {projects.length === 0 ? (
-        <section className="workspace-state-panel" aria-labelledby="projects-empty-title">
-          <span className="workspace-section-index">{t("workspaceSection")}</span>
+        <section className="empty" aria-labelledby="projects-empty-title">
           <h2 id="projects-empty-title">{t("projectsEmptyTitle")}</h2>
           <p>{t("projectsEmptyBody")}</p>
         </section>
       ) : visibleProjects.length === 0 ? (
-        <section className="workspace-state-panel" aria-labelledby="projects-results-title">
+        <section className="empty" aria-labelledby="projects-results-title">
           <h2 id="projects-results-title">{t("noResultsTitle")}</h2>
           <p>{t("noResultsBody")}</p>
         </section>
       ) : (
-        <section className="workspace-project-grid" aria-label={t("projectsTitle")}>
+        <section className="grid-cards" aria-label={t("projectsTitle")}>
           {visibleProjects.map((project) => <ProjectCard key={project.id} project={project} />)}
         </section>
       )}
@@ -178,8 +175,7 @@ function StatePanel({ title, body, action, onAction }: { title: string; body: st
   const t = useTranslations("workspace");
 
   return (
-    <section className="workspace-state-panel" aria-live="polite">
-      <span className="workspace-section-index">{t("statusSection")}</span>
+    <section className="empty" aria-live="polite">
       <h2>{title}</h2>
       <p>{body}</p>
       <Button variant="secondary" onPress={onAction}>{action}</Button>

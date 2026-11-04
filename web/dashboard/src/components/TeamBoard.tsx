@@ -174,59 +174,67 @@ export default function TeamBoard() {
   const selectedTeam = teams.find((team) => team.id === selectedTeamId) ?? null;
 
   return (
-    <div className="flex flex-col gap-8">
-      <header className="workspace-page-heading">
-        <div>
-          <span className="workspace-section-index">{t("section")}</span>
-          <h1>{t("title")}</h1>
-          <p>{t("subtitle")}</p>
+    <div className="page">
+      <header className="page-header">
+        <div className="page-header-text">
+          <p className="page-kicker">{t("section")}</p>
+          <h1 className="page-title">{t("title")}</h1>
+          <p className="page-lede">{t("subtitle")}</p>
         </div>
-        <Link href="/projects" className="workspace-count-label">{t("backToProjects")}</Link>
+        <div className="page-header-meta">
+          <Link href="/projects" className="text-link">{t("backToProjects")}</Link>
+        </div>
       </header>
 
-      {activeSpace ? <InvitationsPanel space={activeSpace} /> : null}
-
-      <section className="workspace-project-toolbar" aria-label={t("createTeam")}>
-        <form className="workspace-create-form" onSubmit={createTeam}>
+      <section className="toolbar" aria-label={t("createTeam")}>
+        <form className="create" onSubmit={createTeam}>
           <label className="sr-only" htmlFor="new-team-name">{t("teamName")}</label>
           <input id="new-team-name" value={teamName} onChange={(event) => setTeamName(event.target.value)} placeholder={t("teamNamePlaceholder")} />
           <Button type="submit" variant="primary" isPending={busy} isDisabled={busy}>{t("createTeam")}</Button>
         </form>
       </section>
-      {teamError ? <p className="workspace-form-error" role="alert">{teamError}</p> : null}
+      {teamError ? <p className="form-error" role="alert">{teamError}</p> : null}
+
+      {activeSpace ? <InvitationsPanel space={activeSpace} /> : null}
 
       {teams.length === 0 ? (
-        <section className="workspace-state-panel">
+        <section className="empty">
           <h2>{t("emptyTitle")}</h2>
           <p>{t("emptyBody")}</p>
         </section>
       ) : (
-        <div className="flex flex-col gap-4">
-          <ul aria-label={t("teamList")} className="flex flex-wrap gap-2">
+        <div className="team-layout">
+          <ul aria-label={t("teamList")} className="team-list">
             {teams.map((team) => (
               <li key={team.id}>
-                <Button variant={team.id === selectedTeamId ? "primary" : "secondary"} onPress={() => void selectTeam(team.id)}>
+                <button
+                  type="button"
+                  className={`team-item${team.id === selectedTeamId ? " is-selected" : ""}`}
+                  aria-pressed={team.id === selectedTeamId}
+                  onClick={() => void selectTeam(team.id)}
+                >
                   {team.name}
-                </Button>
+                </button>
               </li>
             ))}
           </ul>
 
           {selectedTeam ? (
-            <section className="workspace-state-panel" aria-labelledby="team-detail-title">
-              <h2 id="team-detail-title">{selectedTeam.name}</h2>
-              {membersError ? <p className="workspace-form-error" role="alert">{membersError}</p> : null}
-              {members.length === 0 && !membersError ? <p>{t("noMembers")}</p> : null}
-              <ul aria-label={t("memberList")} className="flex flex-col gap-2">
+            <section className="panel" aria-labelledby="team-detail-title">
+              <h2 id="team-detail-title" className="panel-title">{selectedTeam.name}</h2>
+              {membersError ? <p className="form-error" role="alert">{membersError}</p> : null}
+              {members.length === 0 && !membersError ? <p className="muted">{t("noMembers")}</p> : null}
+              <ul aria-label={t("memberList")} className="artifact-list">
                 {members.map((member) => (
-                  <li key={member.userId} className="flex items-center justify-between gap-4">
-                    <span>{memberLabel(member)} · {member.role === "lead" ? t("roleLead") : t("roleMember")}</span>
-                    <Button variant="secondary" isDisabled={busy} onPress={() => void removeMember(member.userId)}>{t("remove")}</Button>
+                  <li key={member.userId} className="artifact-row">
+                    <span className="artifact-name">{memberLabel(member)}</span>
+                    <span className="muted small">{member.role === "lead" ? t("roleLead") : t("roleMember")}</span>
+                    <Button variant="secondary" size="sm" isDisabled={busy} onPress={() => void removeMember(member.userId)}>{t("remove")}</Button>
                   </li>
                 ))}
               </ul>
 
-              <form className="workspace-create-form" onSubmit={addMember}>
+              <form className="add-member" onSubmit={addMember}>
                 <label className="sr-only" htmlFor="member-id">{t("memberId")}</label>
                 <input id="member-id" value={memberId} onChange={(event) => setMemberId(event.target.value)} placeholder={t("memberIdPlaceholder")} />
                 <label className="sr-only" htmlFor="member-role">{t("role")}</label>
@@ -236,8 +244,8 @@ export default function TeamBoard() {
                 </select>
                 <Button type="submit" variant="primary" isPending={busy} isDisabled={busy}>{t("addMember")}</Button>
               </form>
-              <p className="workspace-muted-copy">{t("memberIdHint")}</p>
-              {memberError ? <p className="workspace-form-error" role="alert">{memberError}</p> : null}
+              <p className="muted small">{t("memberIdHint")}</p>
+              {memberError ? <p className="form-error" role="alert">{memberError}</p> : null}
             </section>
           ) : null}
         </div>

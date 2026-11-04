@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { Button, Card } from "@heroui/react";
+import { Button } from "@heroui/react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 import { resolveProject, type ProjectListResponse, type ProjectRecord } from "@/lib/projects";
@@ -47,37 +47,37 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
     return () => window.clearTimeout(task);
   }, [loadProject]);
 
-  if (loading) return <p className="workspace-muted-copy" role="status">{t("loadingProjects")}</p>;
+  if (loading) return <p className="muted" role="status">{t("loadingProjects")}</p>;
   if (error === "unauthorized") return <DetailState title={t("unauthorizedTitle")} body={t("unauthorizedBody")} action={t("backToProjects")} href="/projects" />;
   if (error === "unavailable") return <DetailState title={t("unavailableTitle")} body={t("unavailableBody")} action={t("retry")} onAction={() => void loadProject()} />;
   if (!project) return <DetailState title={t("projectNotFoundTitle")} body={t("projectNotFoundBody")} action={t("backToProjects")} href="/projects" />;
 
   return (
-    <div className="flex flex-col gap-8">
-      <div className="workspace-detail-back"><Link href="/projects">← {t("backToProjects")}</Link></div>
-      <header className="workspace-page-heading">
-        <div>
-          <span className="workspace-section-index">{t("projectSection")} / {project.id}</span>
-          <h1>{project.name}</h1>
-          <p>{t("projectOverviewBody")}</p>
+    <div className="page">
+      <Link href="/projects" className="text-link">← {t("backToProjects")}</Link>
+      <header className="page-header">
+        <div className="page-header-text">
+          <p className="page-kicker">{project.teamName || t("personalTeam")}</p>
+          <h1 className="page-title">{project.name}</h1>
+          <p className="page-lede">{t("projectOverviewBody")}</p>
         </div>
       </header>
 
-      <section className="workspace-detail-grid" aria-label={t("projectOverview")}>
-        <Card className="workspace-detail-overview">
-          <span className="workspace-section-index">{t("overviewSection")}</span>
-          <h2>{t("projectOverview")}</h2>
-          <p>{t("projectOverviewBody")}</p>
-          <dl className="workspace-detail-facts">
-            <div><dt>{t("projectId")}</dt><dd>{project.id}</dd></div>
-            <div><dt>{t("personalSpace")}</dt><dd>{project.spaceId || t("personalSpace")}</dd></div>
-            <div><dt>{t("projectTeam")}</dt><dd>{project.teamName || t("personalTeam")}</dd></div>
-          </dl>
-        </Card>
-        <div className="flex flex-col gap-4">
-          <ProjectRuntimePanel projectId={project.id} />
+      <section className="project-layout" aria-label={t("projectOverview")}>
+        <div className="project-layout-main">
           <ProjectArtifactsPanel projectId={project.id} />
         </div>
+        <aside className="project-layout-side">
+          <ProjectRuntimePanel projectId={project.id} />
+          <section className="panel">
+            <h2 className="panel-title">{t("projectOverview")}</h2>
+            <dl className="facts">
+              <div><dt>{t("projectId")}</dt><dd>{project.id}</dd></div>
+              <div><dt>{t("personalSpace")}</dt><dd>{project.spaceId || t("personalSpace")}</dd></div>
+              <div><dt>{t("projectTeam")}</dt><dd>{project.teamName || t("personalTeam")}</dd></div>
+            </dl>
+          </section>
+        </aside>
       </section>
     </div>
   );
@@ -87,9 +87,8 @@ function DetailState({ title, body, action, href, onAction }: { title: string; b
   const t = useTranslations("workspace");
 
   return (
-    <section className="workspace-state-panel" aria-live="polite">
-      <span className="workspace-section-index">{t("projectSection")} / {t("statusSection")}</span>
-      <h1>{title}</h1>
+    <section className="empty" aria-live="polite">
+      <h2>{title}</h2>
       <p>{body}</p>
       {href ? <Link href={href}><Button variant="secondary">{action}</Button></Link> : <Button variant="secondary" onPress={onAction}>{action}</Button>}
     </section>

@@ -10,10 +10,12 @@ export default async function UsagePage() {
   const t = await getTranslations("usage");
 
   return (
-    <div className="flex flex-col gap-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
-        <p className="text-sm" style={{ color: "var(--muted)" }}>{t("subtitle")}</p>
+    <div className="page">
+      <header className="page-header">
+        <div className="page-header-text">
+          <h1 className="page-title">{t("title")}</h1>
+          <p className="page-lede">{t("subtitle")}</p>
+        </div>
       </header>
       <UsagePanel />
     </div>
