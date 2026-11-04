@@ -47,6 +47,50 @@ export type TeamMemberRecord = {
   email: string | null;
 };
 
+export const PROJECT_RUNTIME_OWNER_NOT_READY = "Project runtime owner is not provisioned";
+
+export type ProjectSandboxRuntime = {
+  projectId: string;
+  ownerUserId: string;
+  hubUsername: string;
+  serverName: string;
+  state: string;
+};
+
+function projectSandboxFromRow(row: Record<string, unknown>): ProjectSandboxRuntime {
+  return {
+    projectId: String(row.project_id),
+    ownerUserId: String(row.owner_user_id),
+    hubUsername: String(row.hub_username),
+    serverName: String(row.server_name),
+    state: String(row.state ?? "unknown"),
+  };
+}
+
+export type ArtifactRecord = {
+  id: string;
+  projectId: string;
+  name: string;
+  objectKey: string;
+  contentType: string;
+  sizeBytes: number;
+  status: "pending" | "ready";
+  createdBy: string;
+};
+
+function artifactFromRow(row: Record<string, unknown>): ArtifactRecord {
+  return {
+    id: String(row.id),
+    projectId: String(row.project_id),
+    name: String(row.name),
+    objectKey: String(row.object_key),
+    contentType: String(row.content_type),
+    sizeBytes: Number(row.size_bytes),
+    status: row.status === "ready" ? "ready" : "pending",
+    createdBy: String(row.created_by),
+  };
+}
+
 export type ProjectRecord = {
   id: string;
   spaceId: string;
@@ -283,6 +327,19 @@ export class AppStore {
         state text NOT NULL DEFAULT 'unknown',
         created_at timestamptz NOT NULL DEFAULT now()
       );
+
+      CREATE TABLE IF NOT EXISTS mlbox_artifacts (
+        id text PRIMARY KEY,
+        project_id text NOT NULL REFERENCES mlbox_projects(id) ON DELETE RESTRICT,
+        name text NOT NULL,
+        object_key text NOT NULL UNIQUE,
+        content_type text NOT NULL,
+        size_bytes bigint NOT NULL,
+        status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'ready')),
+        created_by text NOT NULL REFERENCES mlbox_users(id) ON DELETE RESTRICT,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS mlbox_artifacts_project_idx ON mlbox_artifacts(project_id);
       CREATE TABLE IF NOT EXISTS mlbox_hub_identities (
         user_id text PRIMARY KEY REFERENCES mlbox_users(id) ON DELETE CASCADE,
         hub_username text NOT NULL,
@@ -747,6 +804,90 @@ export class AppStore {
     const row = result.rows[0];
     if (!row) throw new Error("Project team access denied");
     return { id: String(row.id), spaceId, teamId: String(row.team_id), name: String(row.name), createdBy: String(row.created_by) };
+  }
+
+  // Artifacts are metadata only here; bytes live in S3 under the Project's prefix.
+  async getProjectSpaceId(projectId: string): Promise<string | null> {
+    const result = await this.pool.query(
+      `SELECT t.space_id FROM mlbox_projects p JOIN mlbox_teams t ON t.id = p.team_id WHERE p.id = $1`,
+      [projectId],
+    );
+    const value = result.rows[0]?.space_id;
+    return value === undefined || value === null ? null : String(value);
+  }
+
+  async listArtifacts(projectId: string): Promise<ArtifactRecord[]> {
+    const result = await this.pool.query(
+      `SELECT id, project_id, name, object_key, content_type, size_bytes, status, created_by
+       FROM mlbox_artifacts WHERE project_id = $1 ORDER BY created_at DESC`,
+      [projectId],
+    );
+    return result.rows.map(artifactFromRow);
+  }
+
+  async getArtifact(projectId: string, artifactId: string): Promise<ArtifactRecord | null> {
+    const result = await this.pool.query(
+      `SELECT id, project_id, name, object_key, content_type, size_bytes, status, created_by
+       FROM mlbox_artifacts WHERE project_id = $1 AND id = $2`,
+      [projectId, artifactId],
+    );
+    const row = result.rows[0];
+    return row ? artifactFromRow(row) : null;
+  }
+
+  async createArtifact(input: {
+    id: string;
+    projectId: string;
+    name: string;
+    objectKey: string;
+    contentType: string;
+    sizeBytes: number;
+    createdBy: string;
+  }): Promise<ArtifactRecord> {
+    const result = await this.pool.query(
+      `INSERT INTO mlbox_artifacts (id, project_id, name, object_key, content_type, size_bytes, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, project_id, name, object_key, content_type, size_bytes, status, created_by`,
+      [input.id, input.projectId, input.name, input.objectKey, input.contentType, input.sizeBytes, input.createdBy],
+    );
+    return artifactFromRow(result.rows[0] ?? {});
+  }
+
+  async markArtifactReady(projectId: string, artifactId: string): Promise<boolean> {
+    const result = await this.pool.query(
+      `UPDATE mlbox_artifacts SET status = 'ready' WHERE project_id = $1 AND id = $2 AND status = 'pending' RETURNING id`,
+      [projectId, artifactId],
+    );
+    return result.rows.length > 0;
+  }
+
+  // Project-scoped runtime (phase 4, option A): the Hub server always runs under the Project
+  // owner's Hub user. Authorization is decided per Project; the owner is only the runtime holder.
+  async getProjectSandboxRuntime(projectId: string): Promise<ProjectSandboxRuntime | null> {
+    const result = await this.pool.query(
+      `SELECT project_id, owner_user_id, hub_username, server_name, state
+       FROM mlbox_sandboxes WHERE project_id = $1`,
+      [projectId],
+    );
+    const row = result.rows[0];
+    return row ? projectSandboxFromRow(row) : null;
+  }
+
+  // Creates the runtime row on first start. Requires the owner to have a Hub identity, which is
+  // persisted the first time the owner signs in to the dashboard.
+  async ensureProjectSandboxRuntime(projectId: string): Promise<ProjectSandboxRuntime> {
+    await this.pool.query(
+      `INSERT INTO mlbox_sandboxes (id, project_id, owner_user_id, hub_username, server_name)
+       SELECT $1, p.id, p.created_by, hi.hub_username, p.id
+       FROM mlbox_projects p
+       JOIN mlbox_hub_identities hi ON hi.user_id = p.created_by
+       WHERE p.id = $2
+       ON CONFLICT (project_id) DO NOTHING`,
+      [randomUUID(), projectId],
+    );
+    const runtime = await this.getProjectSandboxRuntime(projectId);
+    if (!runtime) throw new Error(PROJECT_RUNTIME_OWNER_NOT_READY);
+    return runtime;
   }
 
   async listTeams(userId: string, spaceId: string): Promise<TeamRecord[]> {

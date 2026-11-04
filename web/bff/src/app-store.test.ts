@@ -404,3 +404,20 @@ test("team member listing requires an active Space membership and returns only t
   assert.deepEqual(last?.values, ["actor", "s1", "t1"]);
   assert.match(last?.sql ?? "", /sm\.status = 'active'/);
 });
+
+test("project runtime is created under the project owner's Hub identity", async () => {
+  const { store, queries } = fakeStore((sql) => {
+    if (sql.includes("INSERT INTO mlbox_sandboxes")) return { rows: [] };
+    return { rows: [{ project_id: "p1", owner_user_id: "owner", hub_username: "cognito-owner", server_name: "p1", state: "unknown" }] };
+  });
+  const runtime = await store.ensureProjectSandboxRuntime("p1");
+  assert.deepEqual(runtime, { projectId: "p1", ownerUserId: "owner", hubUsername: "cognito-owner", serverName: "p1", state: "unknown" });
+  const insert = queries.find((query) => query.sql.includes("INSERT INTO mlbox_sandboxes"));
+  assert.match(insert?.sql ?? "", /JOIN mlbox_hub_identities hi ON hi\.user_id = p\.created_by/);
+  assert.match(insert?.sql ?? "", /ON CONFLICT \(project_id\) DO NOTHING/);
+});
+
+test("project runtime creation fails closed when the owner has no Hub identity", async () => {
+  const { store } = fakeStore((sql) => (sql.includes("FROM mlbox_sandboxes") ? { rows: [] } : { rows: [] }));
+  await assert.rejects(() => store.ensureProjectSandboxRuntime("p1"), /Project runtime owner is not provisioned/);
+});
