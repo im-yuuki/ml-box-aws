@@ -1,6 +1,6 @@
 # ML Box — TODO checklist
 
-Cập nhật: 2026-10-29
+Cập nhật: 2026-11-04
 
 Target WebUI multi-tenant và trình tự triển khai được mô tả tại
 [`docs/multi-tenant-product-plan.md`](docs/multi-tenant-product-plan.md). Các mục
@@ -52,7 +52,7 @@ Ký hiệu:
 - ✅ BFF map Cognito email sang Hub username và proxy list/start/stop Hub REST API.
 - ✅ Các `/api/bff/*` route proxy không còn trả `501 BFF_NOT_DEPLOYED`.
 - ✅ Terraform đã có BFF Deployment/Service/Secret và nối dashboard qua `BFF_INTERNAL_URL`.
-- ⚠️ Hạ tầng đã apply; BFF health/readiness đã xác nhận, còn test Cognito thật cần test user.
+- ⚠️ Hạ tầng đã apply; BFF health/readiness đã xác nhận, còn test Cognito thật cần test user (chưa thực hiện).
 - ☐ Bổ sung refresh-token/session rotation, CSRF protection, forgot-password và revoke/logout hardening.
 
 ## Sandbox lifecycle
@@ -82,10 +82,10 @@ Ký hiệu:
 
 - ✅ GPU Terraform đã được tách thành `99-unverified-gpu` để không nằm trong luồng bắt buộc.
 - ✅ GPU profiles trong `03-hub-app` hiện tắt (`enable_gpu_profiles=false`).
-- ☐ Xin và xác nhận EC2 GPU quota trong region mục tiêu.
-- ☐ Validate GPU image, NVIDIA device plugin, time-slicing và DCGM exporter.
-- ☐ Apply `99-unverified-gpu` sau khi có quota và backup state.
-- ☐ Bật GPU profile trong `03-hub-app` rồi kiểm tra scheduling/device visibility.
+- ✅ Xin và xác nhận EC2 GPU quota trong region mục tiêu (On-Demand G/VT = 8 vCPU).
+- ⚠️ Validate GPU image, NVIDIA device plugin, time-slicing và DCGM exporter: time-slicing đã chạy trên g4dn (T4), ba pod chia sẻ một GPU; DCGM đang chạy nhưng ServiceMonitor còn tắt.
+- ✅ Apply `99-unverified-gpu` (device plugin, dcgm-exporter, time-slicing `nvidia.com/gpu`).
+- ⚠️ Bật GPU profile trong `03-hub-app` (đã bật). Shared L4 vẫn phụ thuộc capacity g6; spawn từ hub chưa kiểm chứng end-to-end.
 - ☐ Test dedicated/shared GPU sandbox và giới hạn GPU-hours.
 
 ## Hub Provisioning Adapter
@@ -127,6 +127,7 @@ Ký hiệu:
 ## Security, reliability và vận hành
 
 - ✅ Có deployment runbook tại `docs/DEPLOYMENT.md`.
+- ✅ Hub không còn yêu cầu user vào JupyterHub để kích hoạt (`enable_auth_state=false`); spawn đi qua BFF.
 - ✅ Có operations runbook tại `docs/OPERATIONS.md`.
 - ☐ Hoàn thiện secret management cho Hub/BFF bằng Kubernetes Secret/Secrets Manager.
 - ☐ Review IAM least privilege cho Terraform, LB controller, Karpenter, Hub và BFF.
