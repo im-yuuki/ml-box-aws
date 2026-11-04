@@ -6,6 +6,8 @@ import { Button, Card } from "@heroui/react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 import { resolveProject, type ProjectListResponse, type ProjectRecord } from "@/lib/projects";
+import ProjectArtifactsPanel from "@/components/ProjectArtifactsPanel";
+import ProjectRuntimePanel from "@/components/ProjectRuntimePanel";
 
 export default function ProjectDetail({ projectId }: { projectId: string }) {
   const t = useTranslations("workspace");
@@ -54,7 +56,6 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
           <h1>{project.name}</h1>
           <p>{t("projectOverviewBody")}</p>
         </div>
-        <span className="workspace-status workspace-status-muted"><span className="workspace-status-dot" aria-hidden="true" />{t("runtimeUnavailable")}</span>
       </header>
 
       <section className="workspace-detail-grid" aria-label={t("projectOverview")}>
@@ -69,19 +70,8 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
           </dl>
         </Card>
         <div className="flex flex-col gap-4">
-          <Card className="workspace-detail-section">
-            <span className="workspace-section-index">{t("runtimeSection")}</span>
-            <h2>{t("runtimeTitle")}</h2>
-            <p>{t("runtimeBody")}</p>
-            <p className="workspace-status workspace-status-muted"><span className="workspace-status-dot" aria-hidden="true" />{t("runtimeUnavailable")}</p>
-            <Link href="/sandboxes"><Button variant="primary" size="sm">{t("openRuntimes")}</Button></Link>
-          </Card>
-          <Card className="workspace-detail-section">
-            <span className="workspace-section-index">{t("artifactsSection")}</span>
-            <h2>{t("artifactsTitle")}</h2>
-            <p>{t("artifactsBody")}</p>
-            <span className="workspace-coming-soon">{t("artifactsComingSoon")}</span>
-          </Card>
+          <ProjectRuntimePanel projectId={project.id} />
+          <ProjectArtifactsPanel projectId={project.id} />
         </div>
       </section>
     </div>

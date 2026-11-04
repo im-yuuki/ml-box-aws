@@ -346,5 +346,48 @@
     "unauthorizedTitle": "You do not have access to teams",
     "unavailableTitle": "Teams are temporarily unavailable",
     "retry": "Retry"
+  },
+  "projectRuntime": {
+    "section": "RUNTIME",
+    "title": "Sandbox",
+    "body": "The sandbox runs under the Project owner's account. Stopping it keeps the Project and its artifacts.",
+    "loading": "Checking sandbox...",
+    "loadFailed": "Could not load sandbox status.",
+    "start": "Start",
+    "stop": "Stop",
+    "open": "Open notebook",
+    "readOnly": "You can view this Project's sandbox but cannot start or stop it.",
+    "forbidden": "You do not have permission to operate this sandbox.",
+    "startFailed": "Could not start the sandbox. Try again.",
+    "stopFailed": "Could not stop the sandbox. Try again.",
+    "ownerNotReady": "The Project owner needs to sign in to the dashboard once before the sandbox can start.",
+    "state": {
+      "running": "Running",
+      "starting": "Starting",
+      "stopped": "Stopped",
+      "failed": "Failed",
+      "unknown": "Not started"
+    }
+  },
+  "projectArtifacts": {
+    "section": "ARTIFACTS",
+    "title": "Artifacts",
+    "body": "Files stored with this Project. They stay when the sandbox stops.",
+    "loading": "Loading artifacts...",
+    "empty": "No artifacts yet.",
+    "list": "Artifacts",
+    "download": "Download",
+    "chooseFile": "Choose a file to upload",
+    "uploading": "Uploading...",
+    "uploadFailed": "Upload failed. Try again.",
+    "downloadFailed": "Could not prepare the download.",
+    "loadFailed": "Could not load artifacts.",
+    "forbidden": "You cannot upload to this Project.",
+    "readOnly": "You can view and download artifacts but cannot upload.",
+    "invalid": {
+      "empty": "The file is empty.",
+      "tooLarge": "The file is larger than 100 MB.",
+      "name": "The file name is not valid."
+    }
   }
 }

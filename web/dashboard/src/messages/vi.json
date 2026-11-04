@@ -346,5 +346,48 @@
     "unauthorizedTitle": "Bạn không có quyền truy cập teams",
     "unavailableTitle": "Teams tạm thời không khả dụng",
     "retry": "Thử lại"
+  },
+  "projectRuntime": {
+    "section": "RUNTIME",
+    "title": "Sandbox",
+    "body": "Sandbox chạy dưới tài khoản chủ Project. Dừng sandbox không xóa Project hoặc artifacts.",
+    "loading": "Đang kiểm tra sandbox...",
+    "loadFailed": "Không tải được trạng thái sandbox.",
+    "start": "Khởi động",
+    "stop": "Dừng",
+    "open": "Mở notebook",
+    "readOnly": "Bạn chỉ xem được sandbox của Project này, không khởi động hay dừng được.",
+    "forbidden": "Bạn không có quyền vận hành sandbox này.",
+    "startFailed": "Không khởi động được sandbox. Vui lòng thử lại.",
+    "stopFailed": "Không dừng được sandbox. Vui lòng thử lại.",
+    "ownerNotReady": "Chủ Project cần đăng nhập dashboard một lần trước khi sandbox khởi động được.",
+    "state": {
+      "running": "Đang chạy",
+      "starting": "Đang khởi động",
+      "stopped": "Đã dừng",
+      "failed": "Lỗi",
+      "unknown": "Chưa khởi động"
+    }
+  },
+  "projectArtifacts": {
+    "section": "ARTIFACTS",
+    "title": "Artifacts",
+    "body": "Tệp lưu cùng Project. Vẫn còn khi sandbox dừng.",
+    "loading": "Đang tải artifacts...",
+    "empty": "Chưa có artifact nào.",
+    "list": "Artifacts",
+    "download": "Tải xuống",
+    "chooseFile": "Chọn tệp để tải lên",
+    "uploading": "Đang tải lên...",
+    "uploadFailed": "Tải lên thất bại. Vui lòng thử lại.",
+    "downloadFailed": "Không chuẩn bị được tệp tải xuống.",
+    "loadFailed": "Không tải được artifacts.",
+    "forbidden": "Bạn không có quyền tải lên Project này.",
+    "readOnly": "Bạn chỉ xem và tải xuống được artifacts, không tải lên được.",
+    "invalid": {
+      "empty": "Tệp rỗng.",
+      "tooLarge": "Tệp lớn hơn 100 MB.",
+      "name": "Tên tệp không hợp lệ."
+    }
   }
 }
