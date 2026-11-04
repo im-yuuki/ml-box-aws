@@ -349,12 +349,13 @@ test("creating a project uses the authenticated user and selected team scope", a
 
 function fakeStore(handler: (sql: string, values?: unknown[]) => { rows: Array<Record<string, unknown>> }) {
   const queries: Array<{ sql: string; values?: unknown[] }> = [];
+  const runQuery = async (sql: string, values?: unknown[]) => {
+    queries.push({ sql, values });
+    return handler(sql, values);
+  };
   const store = new AppStore({
-    query: async (sql: string, values?: unknown[]) => {
-      queries.push({ sql, values });
-      return handler(sql, values);
-    },
-    connect: async () => { throw new Error("connect is not expected for this test"); },
+    query: runQuery,
+    connect: async () => ({ query: runQuery, release: () => undefined }),
     end: async () => undefined,
   });
   return { store, queries };
@@ -420,4 +421,70 @@ test("project runtime is created under the project owner's Hub identity", async 
 test("project runtime creation fails closed when the owner has no Hub identity", async () => {
   const { store } = fakeStore((sql) => (sql.includes("FROM mlbox_sandboxes") ? { rows: [] } : { rows: [] }));
   await assert.rejects(() => store.ensureProjectSandboxRuntime("p1"), /Project runtime owner is not provisioned/);
+});
+
+test("removing the only team lead is rejected with a specific error", async () => {
+  const { store } = fakeStore((sql) => {
+    if (sql.includes("DELETE FROM mlbox_team_members")) return { rows: [] };
+    return { rows: [{ target_is_lead: true, lead_count: "1" }] };
+  });
+  await assert.rejects(() => store.removeTeamMember("owner", "s1", "t1", "lead-1"), /at least one lead/);
+});
+
+test("demoting the only team lead is rejected with a specific error", async () => {
+  const { store } = fakeStore((sql) => {
+    if (sql.includes("INSERT INTO mlbox_team_members")) return { rows: [] };
+    return { rows: [{ target_is_lead: true, lead_count: "1" }] };
+  });
+  await assert.rejects(() => store.addTeamMember("owner", "s1", "t1", "lead-1", "member"), /at least one lead/);
+});
+
+test("removing a non-lead member is still allowed by the guarded delete", async () => {
+  const { store, queries } = fakeStore((sql) => (sql.includes("DELETE FROM mlbox_team_members") ? { rows: [{ team_id: "t1" }] } : { rows: [] }));
+  await store.removeTeamMember("owner", "s1", "t1", "member-1");
+  assert.match(queries.find((q) => q.sql.includes("DELETE FROM"))?.sql ?? "", /tm\.role <> 'lead' OR EXISTS/);
+});
+
+test("space listing returns only active memberships with the caller role", async () => {
+  const { store, queries } = fakeStore(() => ({ rows: [{ id: "personal:u1", type: "personal", name: "u1's Space", role: "owner" }] }));
+  const spaces = await store.listSpaces("u1");
+  assert.deepEqual(spaces, [{ id: "personal:u1", type: "personal", name: "u1's Space", role: "owner" }]);
+  assert.match(queries.at(-1)?.sql ?? "", /sm\.status = 'active'/);
+  assert.deepEqual(queries.at(-1)?.values, ["u1"]);
+});
+
+test("usage sessions open only once per project and close on stop", async () => {
+  const { store, queries } = fakeStore(() => ({ rows: [] }));
+  await store.openUsageSession("p1", "u1");
+  await store.closeUsageSessions("p1");
+  const open = queries.find((q) => q.sql.includes("INSERT INTO mlbox_usage_sessions"));
+  assert.match(open?.sql ?? "", /AND NOT EXISTS \(SELECT 1 FROM mlbox_usage_sessions u WHERE u\.project_id = \$2 AND u\.ended_at IS NULL\)/);
+  assert.match(queries.find((q) => q.sql.includes("UPDATE mlbox_usage_sessions"))?.sql ?? "", /ended_at IS NULL/);
+});
+
+test("project usage summary converts seconds to hours and reports an open session", async () => {
+  const { store } = fakeStore(() => ({ rows: [{ sessions: "2", seconds: "5400", open_session: true }] }));
+  assert.deepEqual(await store.projectUsageSummary("p1", 30), { windowDays: 30, sessions: 2, hours: 1.5, openSession: true });
+});
+
+test("space usage requires an active membership", async () => {
+  const { store } = fakeStore(() => ({ rows: [] }));
+  assert.equal(await store.spaceUsageSummary("outsider", "s1", 30), null);
+});
+
+test("invitations are created only by space owners and admins", async () => {
+  const { store, queries } = fakeStore(() => ({ rows: [] }));
+  await assert.rejects(() => store.createSpaceInvitation("member-1", "s1", "A@Example.com", "member"), /Team management denied/);
+  const insert = queries.at(-1);
+  assert.match(insert?.sql ?? "", /sm\.role IN \('owner', 'admin'\)/);
+  assert.equal(insert?.values?.[2], "A@Example.com");
+});
+
+test("accepting an invitation is limited to the invited email and does not downgrade roles", async () => {
+  const { store, queries } = fakeStore((sql) => (sql.includes("UPDATE mlbox_space_invitations") ? { rows: [{ space_id: "s1", role: "member" }] } : { rows: [] }));
+  await store.acceptSpaceInvitation("u2", "b@example.com", "inv-1");
+  const update = queries.find((q) => q.sql.includes("UPDATE mlbox_space_invitations"));
+  assert.match(update?.sql ?? "", /lower\(email\) = lower\(\$3\)/);
+  const insert = queries.find((q) => q.sql.includes("INSERT INTO mlbox_space_memberships"));
+  assert.match(insert?.sql ?? "", /ON CONFLICT \(space_id, user_id\) DO NOTHING/);
 });
