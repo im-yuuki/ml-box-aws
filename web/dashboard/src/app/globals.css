@@ -1048,3 +1048,134 @@ body {
 .workspace-signout:hover {
   background: var(--surface-secondary);
 }
+
+.billing {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.notice {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border: 1px solid color-mix(in oklab, var(--warning) 60%, transparent);
+  border-radius: 1.25rem;
+  background: color-mix(in oklab, var(--warning) 10%, var(--surface));
+  padding: 1.25rem 1.5rem;
+}
+
+.notice-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.pill-warning {
+  background: color-mix(in oklab, var(--warning) 30%, transparent);
+  color: var(--foreground);
+}
+
+.small-value {
+  font-size: 1.15rem;
+}
+
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.75rem;
+}
+
+.plan-option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  border: 1px solid var(--separator);
+  border-radius: 1rem;
+  background: var(--surface-secondary);
+  padding: 1rem;
+  text-align: left;
+  transition: border-color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
+}
+
+.plan-option:hover {
+  border-color: var(--accent);
+}
+
+.plan-option.is-selected {
+  border-color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 10%, var(--surface));
+}
+
+.plan-name {
+  font-weight: 650;
+}
+
+.plan-price {
+  font-size: 1.35rem;
+  font-weight: 650;
+}
+
+.plan-quotas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.2rem 0.6rem;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.checkout-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem;
+}
+
+.checkout-row .field {
+  min-width: 12rem;
+  flex: 1 1 12rem;
+}
+
+.field select {
+  border: 1px solid var(--field-border);
+  border-radius: 0.9rem;
+  background: var(--field-background);
+  padding: 0.6rem 0.9rem;
+}
+
+/* --- Auth screens: one centred card on a warm backdrop ------------------- */
+.auth {
+  display: flex;
+  flex: 1;
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1.25rem;
+  background-color: var(--background);
+  background-image: radial-gradient(90% 60% at 50% 0%, color-mix(in oklab, var(--accent) 10%, transparent), transparent 70%);
+}
+
+.auth-card {
+  display: flex;
+  width: 100%;
+  max-width: 26rem;
+  flex-direction: column;
+  gap: 1.5rem;
+  border: 1px solid var(--separator);
+  border-radius: 1.5rem;
+  background: var(--surface);
+  box-shadow: var(--overlay-shadow);
+  padding: 2rem;
+}
+
+@media (max-width: 480px) {
+  .auth-card {
+    padding: 1.5rem;
+  }
+}

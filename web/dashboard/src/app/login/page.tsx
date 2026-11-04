@@ -12,8 +12,8 @@ export default async function LoginPage() {
   const tCommon = await getTranslations("common");
 
   return (
-    <main className="flex flex-1 items-center justify-center px-6 py-16">
-      <div className="w-full max-w-sm flex flex-col gap-6">
+    <main className="auth">
+      <div className="auth-card">
         <header className="flex flex-col items-center gap-2 text-center">
           <span
             className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs"

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Button, Card } from "@heroui/react";
+import { Button } from "@heroui/react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 
@@ -173,57 +173,95 @@ export default function BillingPanel() {
   };
 
   if (loading) {
-    return <Card className="p-5"><p className="text-sm" style={{ color: "var(--muted)" }}>{t("billingLoading")}</p></Card>;
+    return <section className="panel"><p className="muted">{t("billingLoading")}</p></section>;
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <Card className="flex flex-col gap-3 border p-5" style={{ borderColor: "var(--warning)" }}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-base font-medium">{t("billingHeading")}</h2>
-          <span className="rounded-full px-3 py-1 text-xs font-medium" style={{ background: "var(--warning)", color: "var(--foreground)" }}>{t("billingBadge")}</span>
+    <div className="billing">
+      <section className="notice" role="note">
+        <div className="notice-head">
+          <h2 className="panel-title">{t("billingHeading")}</h2>
+          <span className="pill pill-warning">{t("billingBadge")}</span>
         </div>
-        <p className="text-sm" style={{ color: "var(--muted)" }}>{t("billingDisclaimer")}</p>
-      </Card>
+        <p className="muted">{t("billingDisclaimer")}</p>
+      </section>
 
-      {error ? <p className="text-sm" role="alert" style={{ color: "var(--danger)" }}>{error}</p> : null}
-      {message ? <p className="text-sm" role="status" style={{ color: "var(--success)" }}>{message}</p> : null}
+      {error ? <p className="form-error" role="alert">{error}</p> : null}
+      {message ? <p className="form-success" role="status">{message}</p> : null}
 
-      <Card className="flex flex-col gap-4 p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+      <section className="panel">
+        <div className="section-head">
           <div>
-            <h2 className="text-base font-medium">{t("currentSubscription")}</h2>
-            <p className="text-sm" style={{ color: "var(--muted)" }}>{details?.subscription ? details.subscription.plan : t("noSubscription")}</p>
+            <h2 className="panel-title">{t("currentSubscription")}</h2>
+            <p className="muted">{details?.subscription ? details.subscription.plan : t("noSubscription")}</p>
           </div>
-          {details?.subscription ? <span className="rounded-full border px-3 py-1 text-xs" style={{ borderColor: "var(--border)" }}>{statusLabel(details.subscription.status)}</span> : null}
+          {details?.subscription ? <span className="pill">{statusLabel(details.subscription.status)}</span> : null}
         </div>
         {details?.subscription && ["active", "pending", "past_due"].includes(details.subscription.status) ? <Button size="sm" variant="secondary" onPress={() => void cancelSubscription()} isPending={pending} isDisabled={pending}>{t("cancelSubscription")}</Button> : null}
-        {details?.entitlements.length ? <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{details.entitlements.map((entitlement) => <div className="rounded-md border p-3" style={{ borderColor: "var(--border)" }} key={entitlement.resource}><p className="text-xs uppercase tracking-wide" style={{ color: "var(--muted)" }}>{quotaLabel(entitlement.resource)}</p><p className="text-sm font-medium">{formatQuota(entitlement.limitValue, entitlement.resource === "storage_gb" ? t("billingGb") : entitlement.resource === "members" ? t("billingMembers") : t("billingHours"))}</p></div>)}</div> : null}
-      </Card>
+        {details?.entitlements.length ? (
+          <div className="stat-grid stat-grid-4">
+            {details.entitlements.map((entitlement) => (
+              <article className="stat" key={entitlement.resource}>
+                <span className="muted small">{quotaLabel(entitlement.resource)}</span>
+                <span className="stat-value small-value">{formatQuota(entitlement.limitValue, entitlement.resource === "storage_gb" ? t("billingGb") : entitlement.resource === "members" ? t("billingMembers") : t("billingHours"))}</span>
+              </article>
+            ))}
+          </div>
+        ) : null}
+      </section>
 
-      <Card className="flex flex-col gap-4 p-5">
-        <div>
-          <h2 className="text-base font-medium">{t("choosePlan")}</h2>
-          <p className="text-sm" style={{ color: "var(--muted)" }}>{t("choosePlanBody")}</p>
+      <section className="panel">
+        <div className="stack-tight">
+          <h2 className="panel-title">{t("choosePlan")}</h2>
+          <p className="muted">{t("choosePlanBody")}</p>
         </div>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {activePlans.map((plan) => <button className="flex flex-col gap-3 rounded-lg border p-4 text-left transition hover:border-[var(--primary)]" style={{ borderColor: selectedPlanId === plan.id ? "var(--primary)" : "var(--border)", background: "var(--surface)" }} type="button" key={plan.id} onClick={() => setSelectedPlanId(plan.id)} aria-pressed={selectedPlanId === plan.id}>
-            <div className="flex items-start justify-between gap-2"><span className="font-medium">{plan.name}</span><span className="text-sm">{formatPrice(plan)}</span></div>
-            <div className="grid grid-cols-2 gap-1 text-xs" style={{ color: "var(--muted)" }}><span>{formatQuota(plan.quotas.projects, t("billingProjects"))}</span><span>{formatQuota(plan.quotas.storageGb, t("billingGb"))}</span><span>{formatQuota(plan.quotas.cpuHours, t("billingHours"))}</span><span>{formatQuota(plan.quotas.gpuHours, t("billingGpuHours"))}</span></div>
-          </button>)}
+        <div className="plan-grid">
+          {activePlans.map((plan) => (
+            <button type="button" key={plan.id} className={`plan-option${selectedPlanId === plan.id ? " is-selected" : ""}`} onClick={() => setSelectedPlanId(plan.id)} aria-pressed={selectedPlanId === plan.id}>
+              <span className="plan-name">{plan.name}</span>
+              <span className="plan-price">{formatPrice(plan)}</span>
+              <span className="plan-quotas muted small">
+                <span>{formatQuota(plan.quotas.projects, t("billingProjects"))}</span>
+                <span>{formatQuota(plan.quotas.storageGb, t("billingGb"))}</span>
+                <span>{formatQuota(plan.quotas.cpuHours, t("billingHours"))}</span>
+                <span>{formatQuota(plan.quotas.gpuHours, t("billingGpuHours"))}</span>
+              </span>
+            </button>
+          ))}
         </div>
-        {upcomingPlans.length ? <div><p className="mb-2 text-xs font-medium uppercase tracking-wide" style={{ color: "var(--muted)" }}>{t("comingSoon")}</p><div className="flex flex-wrap gap-2">{upcomingPlans.map((plan) => <span className="rounded-full border px-3 py-1 text-xs" style={{ borderColor: "var(--border)", color: "var(--muted)" }} key={plan.id}>{plan.name} · {t("comingSoon")}</span>)}</div></div> : null}
-        <div className="grid gap-4 md:grid-cols-3">
-          <label className="flex flex-col gap-1 text-sm">{t("paymentMethodLabel")}<select className="rounded-md border px-3 py-2" style={{ borderColor: "var(--border)", background: "var(--surface)" }} value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value as PaymentMethod)}>{paymentMethods.map((method) => <option value={method} key={method}>{methodLabel(method)}</option>)}</select></label>
-          <label className="flex flex-col gap-1 text-sm">{t("mockOutcomeLabel")}<select className="rounded-md border px-3 py-2" style={{ borderColor: "var(--border)", background: "var(--surface)" }} value={outcome} onChange={(event) => setOutcome(event.target.value as PaymentOutcome)}>{paymentOutcomes.map((value) => <option value={value} key={value}>{outcomeLabel(value)}</option>)}</select></label>
-          <div className="flex items-end"><Button className="w-full" variant="primary" onPress={() => void checkout()} isPending={pending} isDisabled={pending || !selectedPlan}>{t("startMockCheckout")}</Button></div>
+        {upcomingPlans.length ? (
+          <div className="stack-tight">
+            <p className="muted small">{t("comingSoon")}</p>
+            <div className="chip-row">{upcomingPlans.map((plan) => <span className="pill" key={plan.id}>{plan.name} · {t("comingSoon")}</span>)}</div>
+          </div>
+        ) : null}
+        <div className="checkout-row">
+          <label className="field">{t("paymentMethodLabel")}<select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value as PaymentMethod)}>{paymentMethods.map((method) => <option value={method} key={method}>{methodLabel(method)}</option>)}</select></label>
+          <label className="field">{t("mockOutcomeLabel")}<select value={outcome} onChange={(event) => setOutcome(event.target.value as PaymentOutcome)}>{paymentOutcomes.map((value) => <option value={value} key={value}>{outcomeLabel(value)}</option>)}</select></label>
+          <Button variant="primary" onPress={() => void checkout()} isPending={pending} isDisabled={pending || !selectedPlan}>{t("startMockCheckout")}</Button>
         </div>
-      </Card>
+      </section>
 
-      <Card className="flex flex-col gap-4 p-5">
-        <div><h2 className="text-base font-medium">{t("paymentHistory")}</h2><p className="text-sm" style={{ color: "var(--muted)" }}>{t("paymentHistoryBody")}</p></div>
-        {payments.length === 0 ? <p className="text-sm" style={{ color: "var(--muted)" }}>{t("paymentHistoryEmpty")}</p> : <div className="flex flex-col gap-3">{payments.map((payment) => <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3" style={{ borderColor: "var(--border)" }} key={payment.id}><div><p className="text-sm font-medium">{payment.planId} · {outcomeLabel(payment.status)}</p><p className="text-xs" style={{ color: "var(--muted)" }}>{methodLabel(payment.paymentMethod)} · {payment.id}</p></div><div className="flex items-center gap-3"><span className="text-sm">{new Intl.NumberFormat(undefined, { style: "currency", currency: payment.currency }).format(payment.amountCents / 100)}</span>{payment.status === "failed" ? <Button size="sm" variant="secondary" onPress={() => void retryPayment(payment)} isPending={pending} isDisabled={pending}>{t("retryPayment")}</Button> : null}</div></div>)}</div>}
-      </Card>
+      <section className="panel">
+        <div className="stack-tight">
+          <h2 className="panel-title">{t("paymentHistory")}</h2>
+          <p className="muted">{t("paymentHistoryBody")}</p>
+        </div>
+        {payments.length === 0 ? <p className="muted">{t("paymentHistoryEmpty")}</p> : (
+          <ul className="artifact-list">
+            {payments.map((payment) => (
+              <li className="artifact-row" key={payment.id}>
+                <div className="server-meta">
+                  <span className="artifact-name">{payment.planId} · {outcomeLabel(payment.status)}</span>
+                  <span className="muted small">{methodLabel(payment.paymentMethod)} · {payment.id}</span>
+                </div>
+                <span className="small">{new Intl.NumberFormat(undefined, { style: "currency", currency: payment.currency }).format(payment.amountCents / 100)}</span>
+                {payment.status === "failed" ? <Button size="sm" variant="secondary" onPress={() => void retryPayment(payment)} isPending={pending} isDisabled={pending}>{t("retryPayment")}</Button> : <span />}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }
