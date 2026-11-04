@@ -33,6 +33,14 @@ export type BootstrapContext = {
   defaultTeamId: string;
 };
 
+export const TEAM_MANAGEMENT_DENIED = "Team management denied";
+
+export type TeamRecord = {
+  id: string;
+  spaceId: string;
+  name: string;
+};
+
 export type ProjectRecord = {
   id: string;
   spaceId: string;
@@ -380,12 +388,19 @@ export class AppStore {
   }
 
   async listProjects(userId: string, spaceId: string): Promise<ProjectRecord[]> {
+    // Visible = space owner/admin/viewer, or a team member / direct grant that is not blocked.
     const result = await this.pool.query(
       `SELECT p.id, t.space_id, p.team_id, p.name, p.created_by
        FROM mlbox_projects p
        JOIN mlbox_teams t ON t.id = p.team_id
        JOIN mlbox_space_memberships sm ON sm.space_id = t.space_id AND sm.user_id = $1 AND sm.status = 'active'
+       LEFT JOIN mlbox_team_members tm ON tm.team_id = t.id AND tm.user_id = $1
+       LEFT JOIN mlbox_project_access pa ON pa.project_id = p.id AND pa.user_id = $1
        WHERE t.space_id = $2
+         AND (
+           sm.role IN ('owner', 'admin', 'viewer')
+           OR (COALESCE(pa.role, '') <> 'blocked' AND (tm.user_id IS NOT NULL OR pa.role IS NOT NULL))
+         )
        ORDER BY p.name`,
       [userId, spaceId],
     );
@@ -714,12 +729,73 @@ export class AppStore {
        FROM mlbox_teams t
        JOIN mlbox_space_memberships sm ON sm.space_id = t.space_id AND sm.user_id = $1 AND sm.status = 'active'
        WHERE t.id = $3 AND t.space_id = $2
+         AND (
+           sm.role IN ('owner', 'admin')
+           OR (sm.role = 'member' AND EXISTS (
+             SELECT 1 FROM mlbox_team_members tm WHERE tm.team_id = t.id AND tm.user_id = $1
+           ))
+         )
        RETURNING id, team_id, name, created_by`,
       [userId, spaceId, teamId, name, randomUUID()],
     );
     const row = result.rows[0];
     if (!row) throw new Error("Project team access denied");
     return { id: String(row.id), spaceId, teamId: String(row.team_id), name: String(row.name), createdBy: String(row.created_by) };
+  }
+
+  async listTeams(userId: string, spaceId: string): Promise<TeamRecord[]> {
+    const result = await this.pool.query(
+      `SELECT t.id, t.space_id, t.name
+       FROM mlbox_teams t
+       JOIN mlbox_space_memberships sm ON sm.space_id = t.space_id AND sm.user_id = $1 AND sm.status = 'active'
+       WHERE t.space_id = $2
+       ORDER BY t.name`,
+      [userId, spaceId],
+    );
+    return result.rows.map((row) => ({ id: String(row.id), spaceId: String(row.space_id), name: String(row.name) }));
+  }
+
+  // Flat teams only: owners and admins of the Space manage teams and their members.
+  async createTeam(userId: string, spaceId: string, name: string): Promise<TeamRecord> {
+    const result = await this.pool.query(
+      `INSERT INTO mlbox_teams (id, space_id, name)
+       SELECT $3, sm.space_id, $4
+       FROM mlbox_space_memberships sm
+       WHERE sm.space_id = $2 AND sm.user_id = $1 AND sm.status = 'active' AND sm.role IN ('owner', 'admin')
+       RETURNING id, space_id, name`,
+      [userId, spaceId, randomUUID(), name],
+    );
+    const row = result.rows[0];
+    if (!row) throw new Error(TEAM_MANAGEMENT_DENIED);
+    return { id: String(row.id), spaceId: String(row.space_id), name: String(row.name) };
+  }
+
+  async addTeamMember(actorId: string, spaceId: string, teamId: string, targetUserId: string, role: TeamRole): Promise<void> {
+    const result = await this.pool.query(
+      `INSERT INTO mlbox_team_members (team_id, user_id, role)
+       SELECT t.id, $4, $5
+       FROM mlbox_teams t
+       JOIN mlbox_space_memberships actor ON actor.space_id = t.space_id AND actor.user_id = $1 AND actor.status = 'active' AND actor.role IN ('owner', 'admin')
+       JOIN mlbox_space_memberships target ON target.space_id = t.space_id AND target.user_id = $4 AND target.status = 'active'
+       WHERE t.id = $3 AND t.space_id = $2
+       ON CONFLICT (team_id, user_id) DO UPDATE SET role = EXCLUDED.role
+       RETURNING t.id`,
+      [actorId, spaceId, teamId, targetUserId, role],
+    );
+    if (!result.rows[0]) throw new Error(TEAM_MANAGEMENT_DENIED);
+  }
+
+  async removeTeamMember(actorId: string, spaceId: string, teamId: string, targetUserId: string): Promise<void> {
+    const result = await this.pool.query(
+      `DELETE FROM mlbox_team_members tm
+       USING mlbox_teams t, mlbox_space_memberships actor
+       WHERE tm.team_id = $3 AND tm.user_id = $4
+         AND t.id = tm.team_id AND t.space_id = $2
+         AND actor.space_id = $2 AND actor.user_id = $1 AND actor.status = 'active' AND actor.role IN ('owner', 'admin')
+       RETURNING tm.team_id`,
+      [actorId, spaceId, teamId, targetUserId],
+    );
+    if (!result.rows[0]) throw new Error(TEAM_MANAGEMENT_DENIED);
   }
 
   async close(): Promise<void> {

@@ -26,7 +26,7 @@ import {
   type UsageServer,
 } from "./usage.js";
 import { UsageStore } from "./usage-store.js";
-import { AppStore } from "./app-store.js";
+import { AppStore, TEAM_MANAGEMENT_DENIED } from "./app-store.js";
 import { verifyTurnstile } from "./turnstile.js";
 import {
   HubIdentityConflictError,
@@ -874,6 +874,81 @@ app.post<{ Body: ProjectBody }>("/v1/projects", async (request, reply) => {
   }
 });
 
+// Teams (flat, per Space). Owners/admins manage teams; members are added by Cognito sub for now.
+app.get<{ Params: { spaceId: string } }>("/v1/spaces/:spaceId/teams", async (request, reply) => {
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Team storage is not configured." });
+  try {
+    return { spaceId: request.params.spaceId, teams: await appStore.listTeams(session.subject, request.params.spaceId) };
+  } catch (error) {
+    request.log.error({ err: error }, "Team list failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Team storage is temporarily unavailable." });
+  }
+});
+
+app.post<{ Params: { spaceId: string }; Body: { name?: string } }>("/v1/spaces/:spaceId/teams", async (request, reply) => {
+  if (!requireCsrf(request, reply)) return;
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Team storage is not configured." });
+  const name = requiredString(request.body?.name);
+  if (!name) return reply.code(400).send({ error: "INVALID_INPUT", message: "Team name is required." });
+  try {
+    return reply.code(201).send({ team: await appStore.createTeam(session.subject, request.params.spaceId, name) });
+  } catch (error) {
+    if (error instanceof Error && error.message === TEAM_MANAGEMENT_DENIED) {
+      return reply.code(403).send({ error: "FORBIDDEN", message: "Bạn không có quyền quản lý Team trong Space này." });
+    }
+    request.log.error({ err: error }, "Team creation failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Team storage is temporarily unavailable." });
+  }
+});
+
+app.post<{ Params: { spaceId: string; teamId: string }; Body: { userId?: string; role?: string } }>(
+  "/v1/spaces/:spaceId/teams/:teamId/members",
+  async (request, reply) => {
+    if (!requireCsrf(request, reply)) return;
+    const session = await requireSession(request, reply);
+    if (!session) return;
+    if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Team storage is not configured." });
+    const userId = requiredString(request.body?.userId);
+    const role = request.body?.role ?? "member";
+    if (!userId) return reply.code(400).send({ error: "INVALID_INPUT", message: "User ID is required." });
+    if (role !== "lead" && role !== "member") return reply.code(400).send({ error: "INVALID_INPUT", message: "Team role is invalid." });
+    try {
+      await appStore.addTeamMember(session.subject, request.params.spaceId, request.params.teamId, userId, role);
+      return reply.code(201).send({ ok: true });
+    } catch (error) {
+      if (error instanceof Error && error.message === TEAM_MANAGEMENT_DENIED) {
+        return reply.code(403).send({ error: "FORBIDDEN", message: "Bạn không có quyền quản lý thành viên Team này." });
+      }
+      request.log.error({ err: error }, "Team member add failed");
+      return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Team storage is temporarily unavailable." });
+    }
+  },
+);
+
+app.delete<{ Params: { spaceId: string; teamId: string; userId: string } }>(
+  "/v1/spaces/:spaceId/teams/:teamId/members/:userId",
+  async (request, reply) => {
+    if (!requireCsrf(request, reply)) return;
+    const session = await requireSession(request, reply);
+    if (!session) return;
+    if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Team storage is not configured." });
+    try {
+      await appStore.removeTeamMember(session.subject, request.params.spaceId, request.params.teamId, request.params.userId);
+      return { ok: true };
+    } catch (error) {
+      if (error instanceof Error && error.message === TEAM_MANAGEMENT_DENIED) {
+        return reply.code(403).send({ error: "FORBIDDEN", message: "Bạn không có quyền quản lý thành viên Team này." });
+      }
+      request.log.error({ err: error }, "Team member removal failed");
+      return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Team storage is temporarily unavailable." });
+    }
+  },
+);
+
 app.get("/v1/sandboxes", async (request, reply) => {
   const session = await requireSession(request, reply);
   if (!session) return;
@@ -1073,7 +1148,7 @@ app.post<{ Params: { name: string } }>("/v1/sandboxes/:name/start", async (reque
     request.log.error({ err: error }, "JupyterHub sandbox start failed");
     if (handleHubIdentityError(reply, error)) return;
     if (shouldUseHubActivationFallback(hubUserExists, error)) {
-      reply.code(409).send({ error: "HUB_USER_UNKNOWN", activationUrl: hubActivationUrl(runtime.hubPublicUrl), message: "Tài khoản chưa được kích hoạt trên Hub. Đăng nhập vào notebook hub một lần để kích hoạt." });
+      reply.code(409).send({ error: "HUB_USER_UNKNOWN", activationUrl: hubActivationUrl(runtime.hubPublicUrl), message: "Workspace của bạn đang được chuẩn bị. Vui lòng thử lại sau ít phút." });
       return;
     }
     return handleHubError(reply, error);
