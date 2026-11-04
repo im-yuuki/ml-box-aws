@@ -204,3 +204,9 @@ test("server state is read from the user record, never from GET on the named-ser
   assert.equal(hubServerFromUserRecord({}, "proj-1"), null);
   assert.equal(hubServerFromUserRecord(null, "proj-1"), null);
 });
+
+test("a non-string Hub state object does not crash the state mapper", () => {
+  assert.equal(mapHubServerState({ state: { pending: null, ready: true }, ready: true, url: "/user/a/" }), "ready");
+  assert.equal(mapHubServerState({ state: { pending: "spawn" }, pending: "spawn" }), "starting");
+  assert.equal(mapHubServerState({ state: { pending: null }, ready: false, pending: null }), "stopped");
+});

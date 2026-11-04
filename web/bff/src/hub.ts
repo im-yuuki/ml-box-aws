@@ -16,9 +16,9 @@ export type HubRequest = (method: string, path: string, body?: unknown) => Promi
 export type HubLifecycleState = "starting" | "ready" | "stopped" | "failed";
 
 export type HubServerLike = {
-  state?: string | null;
+  state?: string | Record<string, unknown> | null;
   ready?: boolean;
-  pending?: boolean;
+  pending?: boolean | string | null;
   url?: string | null;
 };
 
@@ -32,8 +32,10 @@ export type HubLifecycleOptions = {
   sleep?: (ms: number) => Promise<void>;
 };
 
+// JupyterHub 5 can return `state` as an object (the spawner's internal state). Only a string is a
+// state name; anything else is ignored and the ready/pending flags decide.
 function normalizedState(server: HubServerLike): string {
-  return (server.state ?? "").toLowerCase();
+  return typeof server.state === "string" ? server.state.toLowerCase() : "";
 }
 
 export function mapHubServerState(server: HubServerLike | null): HubLifecycleState {
@@ -42,7 +44,7 @@ export function mapHubServerState(server: HubServerLike | null): HubLifecycleSta
   if (["failed", "error", "crashed"].includes(state)) return "failed";
   if (server.ready === true && Boolean(server.url)) return "ready";
   if (["ready", "running"].includes(state) && Boolean(server.url)) return "ready";
-  if (["pending", "spawning", "starting"].includes(state) || server.pending === true) return "starting";
+  if (["pending", "spawning", "starting"].includes(state) || Boolean(server.pending)) return "starting";
   if (["stopped", "inactive", ""].includes(state)) return "stopped";
   return "starting";
 }
