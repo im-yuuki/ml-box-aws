@@ -79,7 +79,8 @@
     "artifactsBody": "Artifact storage and browsing are not available in this release.",
     "artifactsComingSoon": "Artifacts coming soon",
     "openRuntimes": "Open runtimes",
-    "technicalDetails": "Technical details"
+    "technicalDetails": "Technical details",
+    "teamsLink": "Teams"
   },
   "theme": {
     "label": "Language",
@@ -308,5 +309,42 @@
     "billingOutcomePending": "Pending",
     "billingOutcomeFailed": "Failed",
     "billingOutcomeCancelled": "Cancelled"
+  },
+  "teams": {
+    "section": "02 / TEAMS",
+    "title": "Teams",
+    "subtitle": "Group people and projects in this Space. Owners and admins manage teams and members.",
+    "backToProjects": "Back to projects",
+    "createTeam": "Create team",
+    "teamName": "Team name",
+    "teamNamePlaceholder": "e.g. Data science",
+    "teamNameRequired": "Enter a team name of up to 60 characters.",
+    "teamCreateForbidden": "Only Space owners and admins can create teams.",
+    "teamCreateFailed": "Could not create the team. Try again.",
+    "teamList": "Teams",
+    "emptyTitle": "No teams yet",
+    "emptyBody": "Create a team to organise projects and members.",
+    "noMembers": "No members in this team yet.",
+    "memberList": "Team members",
+    "membersLoadFailed": "Could not load members.",
+    "memberId": "Member user ID",
+    "memberIdPlaceholder": "Member user ID",
+    "memberIdHint": "Enter the member's Cognito user ID. Invitations by email are not available yet.",
+    "memberIdRequired": "Enter a valid user ID.",
+    "memberForbidden": "You cannot manage members of this team.",
+    "memberAddFailed": "Could not add the member.",
+    "memberRemoveFailed": "Could not remove the member.",
+    "role": "Role",
+    "roleLead": "Lead",
+    "roleMember": "Member",
+    "addMember": "Add member",
+    "remove": "Remove",
+    "loading": "Loading teams...",
+    "authSection": "01 / SIGN IN",
+    "unauthenticatedTitle": "Sign in to manage teams",
+    "signIn": "Sign in",
+    "unauthorizedTitle": "You do not have access to teams",
+    "unavailableTitle": "Teams are temporarily unavailable",
+    "retry": "Retry"
   }
 }

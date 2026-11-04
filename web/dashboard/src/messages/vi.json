@@ -79,7 +79,8 @@
     "artifactsBody": "Lưu trữ và duyệt artifact chưa có trong phiên bản này.",
     "artifactsComingSoon": "Artifact sắp có",
     "openRuntimes": "Mở runtime",
-    "technicalDetails": "Chi tiết kỹ thuật"
+    "technicalDetails": "Chi tiết kỹ thuật",
+    "teamsLink": "Teams"
   },
   "theme": {
     "label": "Ngôn ngữ",
@@ -308,5 +309,42 @@
     "billingOutcomePending": "Đang chờ",
     "billingOutcomeFailed": "Thất bại",
     "billingOutcomeCancelled": "Đã hủy"
+  },
+  "teams": {
+    "section": "02 / TEAMS",
+    "title": "Teams",
+    "subtitle": "Nhóm người và project trong Space này. Chỉ owner và admin được quản lý team và thành viên.",
+    "backToProjects": "Quay lại projects",
+    "createTeam": "Tạo team",
+    "teamName": "Tên team",
+    "teamNamePlaceholder": "Ví dụ: Data science",
+    "teamNameRequired": "Nhập tên team tối đa 60 ký tự.",
+    "teamCreateForbidden": "Chỉ owner và admin của Space mới tạo được team.",
+    "teamCreateFailed": "Không tạo được team. Vui lòng thử lại.",
+    "teamList": "Teams",
+    "emptyTitle": "Chưa có team nào",
+    "emptyBody": "Tạo team để nhóm project và thành viên.",
+    "noMembers": "Team này chưa có thành viên.",
+    "memberList": "Thành viên team",
+    "membersLoadFailed": "Không tải được danh sách thành viên.",
+    "memberId": "User ID của thành viên",
+    "memberIdPlaceholder": "User ID của thành viên",
+    "memberIdHint": "Nhập Cognito user ID của thành viên. Mời qua email chưa có.",
+    "memberIdRequired": "Nhập user ID hợp lệ.",
+    "memberForbidden": "Bạn không có quyền quản lý thành viên của team này.",
+    "memberAddFailed": "Không thêm được thành viên.",
+    "memberRemoveFailed": "Không xóa được thành viên.",
+    "role": "Vai trò",
+    "roleLead": "Lead",
+    "roleMember": "Thành viên",
+    "addMember": "Thêm thành viên",
+    "remove": "Xóa",
+    "loading": "Đang tải teams...",
+    "authSection": "01 / ĐĂNG NHẬP",
+    "unauthenticatedTitle": "Đăng nhập để quản lý team",
+    "signIn": "Đăng nhập",
+    "unauthorizedTitle": "Bạn không có quyền truy cập teams",
+    "unavailableTitle": "Teams tạm thời không khả dụng",
+    "retry": "Thử lại"
   }
 }
