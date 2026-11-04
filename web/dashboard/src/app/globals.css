@@ -111,8 +111,10 @@ body {
 
 .workspace-space-context {
   display: flex;
-  align-items: center;
-  gap: 0.65rem;
+  min-width: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.45rem;
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
   padding: 1rem 0.25rem;
@@ -303,6 +305,7 @@ body {
 
 .workspace-project-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
@@ -319,7 +322,8 @@ body {
 }
 
 .workspace-search-field {
-  min-width: min(100%, 24rem);
+  min-width: 0;
+  flex: 1 1 14rem;
   color: var(--muted);
 }
 
