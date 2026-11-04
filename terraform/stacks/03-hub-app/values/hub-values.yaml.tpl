@@ -51,7 +51,9 @@ hub:
         - email
         - profile
       username_claim: email
-      enable_auth_state: true
+      # false: Hub does not store Cognito tokens; spawn is driven by the BFF (service token), so
+      # users do not have to visit JupyterHub to "activate" an account. Nothing in this stack reads auth_state.
+      enable_auth_state: false
   extraConfig:
     10-spawn-hook: |
       # Attach VRAM annotations + cost labels + do-not-disrupt to each user pod.
@@ -69,7 +71,8 @@ hub:
           # Profiles already set plan/do-not-disrupt via extra_labels/extra_annotations.
           pod.metadata.labels["user"] = _label_safe_username(spawner.user.name)
           limits = pod.spec.containers[0].resources.limits or {}
-          if "nvidia.com/gpu.shared" in limits: # VRAM balloon only applies to shared GPU pods
+          # VRAM balloon only applies to shared GPU pods (tier=shared nodes, time-sliced nvidia.com/gpu)
+          if (pod.spec.node_selector or {}).get("tier") == "shared" and "nvidia.com/gpu" in limits:
               pod.metadata.annotations["vram.example.com/commit-mib"] = "${vram_commit_mib}"
               pod.metadata.annotations["vram.example.com/ceiling-mib"] = "${vram_ceiling_mib}"
           return pod
@@ -155,7 +158,7 @@ singleuser:
         mem_limit: 16G
         mem_guarantee: 4G
         extra_resource_limits:
-          nvidia.com/gpu.shared: "1"
+          nvidia.com/gpu: "1"  # time-sliced replica on tier=shared nodes
         node_selector:
           tier: shared
           gpu-family: L4
