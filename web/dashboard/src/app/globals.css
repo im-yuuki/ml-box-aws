@@ -134,10 +134,9 @@ body {
 .workspace-eyebrow,
 .workspace-header-kicker {
   color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
 }
 
 .workspace-nav {
@@ -274,9 +273,9 @@ body {
 
 .workspace-page-heading h1 {
   margin-top: 0.55rem;
-  font-size: clamp(2rem, 5vw, 3.6rem);
-  font-weight: 650;
-  letter-spacing: -0.07em;
+  font-size: clamp(2rem, 4.5vw, 3rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
   line-height: 0.95;
 }
 
@@ -293,10 +292,9 @@ body {
 .workspace-count-label,
 .workspace-mono-label {
   color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 0.66rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
 }
 
 .workspace-count-label {
@@ -362,9 +360,10 @@ body {
   flex-direction: column;
   justify-content: space-between;
   gap: 2rem;
-  border: 1px solid var(--border);
-  border-radius: 0.25rem;
-  background: color-mix(in oklab, var(--surface) 88%, transparent);
+  border: 1px solid var(--separator);
+  border-radius: 1rem;
+  background: var(--surface);
+  box-shadow: var(--surface-shadow);
   padding: 1.25rem;
   box-shadow: none;
 }
@@ -446,10 +445,10 @@ body {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  border: 1px solid var(--border);
-  border-radius: 0.25rem;
-  background: color-mix(in oklab, var(--surface) 88%, transparent);
-  box-shadow: none;
+  border: 1px solid var(--separator);
+  border-radius: 1rem;
+  background: var(--surface);
+  box-shadow: var(--surface-shadow);
   padding: clamp(1.25rem, 3vw, 2rem);
 }
 
