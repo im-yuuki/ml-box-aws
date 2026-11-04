@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Button } from "@heroui/react";
 import { useTranslations } from "next-intl";
 import LocaleSwitcher from "@/components/LocaleSwitcher";
-import SpaceContext from "@/components/SpaceContext";
+import SpaceSwitcher from "@/components/SpaceSwitcher";
 import ThemeToggle from "@/components/ThemeToggle";
 import { bffFetch } from "@/lib/bffFetch";
 import { getWorkspaceNavigation } from "@/lib/workspace-nav";
@@ -71,7 +71,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <span>{tWorkspace("workspaceLabel")}</span>
           </span>
         </Link>
-        <SpaceContext />
+        <SpaceSwitcher />
         {navigation}
         <div className="workspace-rail-footer">
           <LocaleSwitcher />

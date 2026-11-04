@@ -80,7 +80,11 @@
     "artifactsComingSoon": "Artifacts coming soon",
     "openRuntimes": "Open runtimes",
     "technicalDetails": "Technical details",
-    "teamsLink": "Teams"
+    "teamsLink": "Teams",
+    "loadingSpaces": "Loading spaces...",
+    "spacesUnavailable": "Spaces unavailable",
+    "organizationSpace": "Organization",
+    "switchSpace": "Switch space"
   },
   "theme": {
     "label": "Language",
@@ -367,7 +371,9 @@
       "stopped": "Stopped",
       "failed": "Failed",
       "unknown": "Not started"
-    }
+    },
+    "usage": "Recorded runtime: {hours} h in the last {days} days",
+    "usageNote": "Measured from start/stop events seen by the dashboard; not billing data."
   },
   "projectArtifacts": {
     "section": "ARTIFACTS",
@@ -389,5 +395,27 @@
       "tooLarge": "The file is larger than 100 MB.",
       "name": "The file name is not valid."
     }
+  },
+  "invitations": {
+    "section": "MEMBERS",
+    "title": "Invite members",
+    "body": "Invitations are recorded in ML Box. Share the space name with the person; they will see the invitation after signing in with the same email.",
+    "email": "Email",
+    "emailPlaceholder": "name@example.com",
+    "emailInvalid": "Enter a valid email address.",
+    "role": "Role",
+    "roleMember": "Member",
+    "roleViewer": "Viewer",
+    "roleAdmin": "Admin",
+    "invite": "Invite",
+    "revoke": "Revoke",
+    "pendingList": "Pending invitations",
+    "incomingList": "Your invitations",
+    "incoming": "You are invited to join this space as {role}.",
+    "accept": "Accept",
+    "forbidden": "Only owners and admins can invite members.",
+    "inviteFailed": "Could not create the invitation.",
+    "revokeFailed": "Could not revoke the invitation.",
+    "acceptFailed": "Could not accept the invitation."
   }
 }

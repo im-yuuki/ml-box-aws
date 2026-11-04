@@ -5,7 +5,8 @@ import Link from "next/link";
 import { Button } from "@heroui/react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
-import type { ProjectListResponse } from "@/lib/projects";
+import { useActiveSpace } from "@/hooks/useActiveSpace";
+import InvitationsPanel from "@/components/InvitationsPanel";
 import {
   classifyTeamResponse,
   memberLabel,
@@ -21,7 +22,8 @@ import {
 
 export default function TeamBoard() {
   const t = useTranslations("teams");
-  const [spaceId, setSpaceId] = useState<string | null>(null);
+  const { activeSpace, loading: spacesLoading, failed: spacesFailed } = useActiveSpace();
+  const spaceId = activeSpace?.id ?? null;
   const [teams, setTeams] = useState<TeamRecord[]>([]);
   const [loadState, setLoadState] = useState<TeamLoadState | "loading">("loading");
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
@@ -46,21 +48,11 @@ export default function TeamBoard() {
     setMembers(Array.isArray(body.members) ? body.members : []);
   }, [t]);
 
-  const loadTeams = useCallback(async () => {
+  const loadTeams = useCallback(async (space: string) => {
     setLoadState("loading");
+    setSelectedTeamId(null);
+    setMembers([]);
     try {
-      const projectResponse = await bffFetch("/api/bff/projects", { cache: "no-store" });
-      if (!projectResponse.ok) {
-        setLoadState(classifyTeamResponse(projectResponse.status));
-        return;
-      }
-      const projectBody = await projectResponse.json() as ProjectListResponse;
-      const space = projectBody.spaceId ?? null;
-      setSpaceId(space);
-      if (!space) {
-        setLoadState("unavailable");
-        return;
-      }
       const response = await bffFetch(`/api/bff/spaces/${encodeURIComponent(space)}/teams`, { cache: "no-store" });
       setLoadState(classifyTeamResponse(response.status));
       if (!response.ok) return;
@@ -72,9 +64,10 @@ export default function TeamBoard() {
   }, []);
 
   useEffect(() => {
-    const task = window.setTimeout(() => void loadTeams(), 0);
+    if (!spaceId) return;
+    const task = window.setTimeout(() => void loadTeams(spaceId), 0);
     return () => window.clearTimeout(task);
-  }, [loadTeams]);
+  }, [spaceId, loadTeams]);
 
   const selectTeam = async (teamId: string) => {
     setSelectedTeamId(teamId);
@@ -102,7 +95,7 @@ export default function TeamBoard() {
         return;
       }
       setTeamName("");
-      await loadTeams();
+      await loadTeams(spaceId);
     } finally {
       setBusy(false);
     }
@@ -151,7 +144,11 @@ export default function TeamBoard() {
     }
   };
 
-  if (loadState === "loading") {
+  if (spacesFailed) {
+    return <section className="workspace-state-panel" aria-live="polite"><h2>{t("unavailableTitle")}</h2></section>;
+  }
+
+  if (loadState === "loading" || spacesLoading) {
     return <p className="workspace-muted-copy" role="status">{t("loading")}</p>;
   }
 
@@ -169,7 +166,7 @@ export default function TeamBoard() {
     return (
       <section className="workspace-state-panel" aria-live="polite">
         <h2>{loadState === "unauthorized" ? t("unauthorizedTitle") : t("unavailableTitle")}</h2>
-        <Button variant="secondary" onPress={() => void loadTeams()}>{t("retry")}</Button>
+        <Button variant="secondary" onPress={() => spaceId && void loadTeams(spaceId)}>{t("retry")}</Button>
       </section>
     );
   }
@@ -186,6 +183,8 @@ export default function TeamBoard() {
         </div>
         <Link href="/projects" className="workspace-count-label">{t("backToProjects")}</Link>
       </header>
+
+      {activeSpace ? <InvitationsPanel space={activeSpace} /> : null}
 
       <section className="workspace-project-toolbar" aria-label={t("createTeam")}>
         <form className="workspace-create-form" onSubmit={createTeam}>

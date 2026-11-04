@@ -18,6 +18,7 @@ export default function ProjectRuntimePanel({ projectId }: { projectId: string }
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [usage, setUsage] = useState<{ hours: number; sessions: number; openSession: boolean; windowDays: number } | null>(null);
 
   const base = `/api/bff/projects/${encodeURIComponent(projectId)}/sandbox`;
 
@@ -30,6 +31,11 @@ export default function ProjectRuntimePanel({ projectId }: { projectId: string }
         return;
       }
       setData(await response.json() as SandboxResponse);
+      const usageResponse = await bffFetch(`/api/bff/projects/${encodeURIComponent(projectId)}/usage`, { cache: "no-store" });
+      if (usageResponse.ok) {
+        const body = await usageResponse.json() as { usage?: { hours: number; sessions: number; openSession: boolean; windowDays: number } };
+        setUsage(body.usage ?? null);
+      }
       setError(null);
     } catch {
       setError(t("loadFailed"));
@@ -84,6 +90,8 @@ export default function ProjectRuntimePanel({ projectId }: { projectId: string }
         {data?.sandbox?.url ? <a className="workspace-count-label" href={data.sandbox.url} target="_blank" rel="noreferrer">{t("open")}</a> : null}
       </div>
       {data && !canOperate ? <p className="workspace-muted-copy">{t("readOnly")}</p> : null}
+      {usage ? <p className="workspace-muted-copy">{t("usage", { hours: usage.hours, days: usage.windowDays })}</p> : null}
+      {usage ? <p className="workspace-muted-copy">{t("usageNote")}</p> : null}
     </Card>
   );
 }

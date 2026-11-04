@@ -6,6 +6,7 @@ import { Button, Card } from "@heroui/react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 import { resolveProject, type ProjectListResponse, type ProjectRecord } from "@/lib/projects";
+import { useActiveSpace } from "@/hooks/useActiveSpace";
 import ProjectArtifactsPanel from "@/components/ProjectArtifactsPanel";
 import ProjectRuntimePanel from "@/components/ProjectRuntimePanel";
 
@@ -15,11 +16,15 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<"unauthorized" | "unavailable" | null>(null);
 
+  const { activeSpace } = useActiveSpace();
+  const activeSpaceId = activeSpace?.id ?? null;
+
   const loadProject = useCallback(async () => {
+    if (!activeSpaceId) return;
     setLoading(true);
     setError(null);
     try {
-      const response = await bffFetch("/api/bff/projects", { cache: "no-store" });
+      const response = await bffFetch(`/api/bff/projects?spaceId=${encodeURIComponent(activeSpaceId)}`, { cache: "no-store" });
       if (response.status === 401 || response.status === 403) {
         setError("unauthorized");
         return;
@@ -35,7 +40,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
     } finally {
       setLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, activeSpaceId]);
 
   useEffect(() => {
     const task = window.setTimeout(() => void loadProject(), 0);

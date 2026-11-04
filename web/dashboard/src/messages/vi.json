@@ -80,7 +80,11 @@
     "artifactsComingSoon": "Artifact sắp có",
     "openRuntimes": "Mở runtime",
     "technicalDetails": "Chi tiết kỹ thuật",
-    "teamsLink": "Teams"
+    "teamsLink": "Teams",
+    "loadingSpaces": "Đang tải spaces...",
+    "spacesUnavailable": "Không tải được spaces",
+    "organizationSpace": "Tổ chức",
+    "switchSpace": "Chuyển space"
   },
   "theme": {
     "label": "Ngôn ngữ",
@@ -367,7 +371,9 @@
       "stopped": "Đã dừng",
       "failed": "Lỗi",
       "unknown": "Chưa khởi động"
-    }
+    },
+    "usage": "Thời gian chạy đã ghi nhận: {hours} giờ trong {days} ngày gần nhất",
+    "usageNote": "Đo từ các lần khởi động/dừng qua dashboard; không phải dữ liệu thanh toán."
   },
   "projectArtifacts": {
     "section": "ARTIFACTS",
@@ -389,5 +395,27 @@
       "tooLarge": "Tệp lớn hơn 100 MB.",
       "name": "Tên tệp không hợp lệ."
     }
+  },
+  "invitations": {
+    "section": "THÀNH VIÊN",
+    "title": "Mời thành viên",
+    "body": "Lời mời được ghi trong ML Box. Hãy báo người đó tên space; họ sẽ thấy lời mời sau khi đăng nhập bằng đúng email.",
+    "email": "Email",
+    "emailPlaceholder": "ten@example.com",
+    "emailInvalid": "Nhập địa chỉ email hợp lệ.",
+    "role": "Vai trò",
+    "roleMember": "Thành viên",
+    "roleViewer": "Chỉ xem",
+    "roleAdmin": "Admin",
+    "invite": "Mời",
+    "revoke": "Thu hồi",
+    "pendingList": "Lời mời đang chờ",
+    "incomingList": "Lời mời của bạn",
+    "incoming": "Bạn được mời tham gia space này với vai trò {role}.",
+    "accept": "Chấp nhận",
+    "forbidden": "Chỉ owner và admin mới được mời thành viên.",
+    "inviteFailed": "Không tạo được lời mời.",
+    "revokeFailed": "Không thu hồi được lời mời.",
+    "acceptFailed": "Không chấp nhận được lời mời."
   }
 }
