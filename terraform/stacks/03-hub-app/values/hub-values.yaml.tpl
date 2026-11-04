@@ -39,6 +39,9 @@ hub:
     # one-time code; the Hub never shows its own login page. Cognito is not used by the Hub.
     Authenticator:
       enable_auth_state: false # Hub stores no tokens; spawn is driven by the BFF (service token)
+      # The BFF has already checked the dashboard session and issued the one-time code; without this
+      # JupyterHub rejects every authenticated name as "unknown user" (no allowlist is configured).
+      allow_all: true
   extraConfig:
     10-spawn-hook: |
       # Attach VRAM annotations + cost labels + do-not-disrupt to each user pod.
