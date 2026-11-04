@@ -385,3 +385,48 @@ resource "aws_lb_listener_certificate" "apex" {
   listener_arn    = data.terraform_remote_state.hub_app.outputs.https_listener_arn
   certificate_arn = data.terraform_remote_state.platform.outputs.apex_certificate_arn
 }
+
+# The BFF reads the resource requests/limits of notebook pods to report the realtime footprint.
+# Read-only, scoped to the hub namespace: pods get and list, nothing else.
+resource "kubectl_manifest" "bff_pod_reader_role" {
+  count = var.deploy_dashboard ? 1 : 0
+
+  yaml_body = yamlencode({
+    apiVersion = "rbac.authorization.k8s.io/v1"
+    kind       = "Role"
+    metadata = {
+      name      = "bff-pod-reader"
+      namespace = "hub"
+    }
+    rules = [{
+      apiGroups = [""]
+      resources = ["pods"]
+      verbs     = ["get", "list"]
+    }]
+  })
+}
+
+resource "kubectl_manifest" "bff_pod_reader_binding" {
+  count = var.deploy_dashboard ? 1 : 0
+
+  yaml_body = yamlencode({
+    apiVersion = "rbac.authorization.k8s.io/v1"
+    kind       = "RoleBinding"
+    metadata = {
+      name      = "bff-pod-reader"
+      namespace = "hub"
+    }
+    roleRef = {
+      apiGroup = "rbac.authorization.k8s.io"
+      kind     = "Role"
+      name     = "bff-pod-reader"
+    }
+    subjects = [{
+      kind      = "ServiceAccount"
+      name      = "bff"
+      namespace = "dashboard"
+    }]
+  })
+
+  depends_on = [kubectl_manifest.bff_pod_reader_role]
+}

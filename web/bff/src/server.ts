@@ -28,6 +28,7 @@ import {
   type UsageServer,
 } from "./usage.js";
 import { UsageStore } from "./usage-store.js";
+import { listSingleuserPods, resourcesByServer } from "./pod-resources.js";
 import { AppStore, INVITATION_NOT_AVAILABLE, LAST_TEAM_LEAD, PROJECT_RUNTIME_OWNER_NOT_READY, TEAM_MANAGEMENT_DENIED, type InvitationRole } from "./app-store.js";
 import { ArtifactStorage } from "./artifact-storage.js";
 import { buildArtifactObjectKey, sanitizeArtifactName, validateArtifactSize } from "./artifacts.js";
@@ -421,6 +422,23 @@ async function readHubServer(runtime: RuntimeConfig, username: string, name: str
 
 function serverPath(username: string, name: string): string {
   return sandboxPath(username, name);
+}
+
+// The Hub record has no resource figures, so running servers take CPU and RAM from their pod spec.
+// A failed lookup leaves the figures unknown (shown as "—") rather than failing the usage page.
+async function fillPodResources(servers: UsageServer[], username: string, log: { warn: (obj: unknown, msg: string) => void }): Promise<void> {
+  if (!servers.some((server) => server.state === "running" && (server.cpuCoresAllocated == null || server.ramGbAllocated == null))) return;
+  try {
+    const byServer = resourcesByServer(await listSingleuserPods(username));
+    for (const server of servers) {
+      const figures = byServer.get(server.name || "default");
+      if (!figures) continue;
+      server.cpuCoresAllocated ??= figures.cpuCores;
+      server.ramGbAllocated ??= figures.ramGb;
+    }
+  } catch (error) {
+    log.warn({ err: error instanceof Error ? error.message : "pod_lookup_failed" }, "Pod resource lookup unavailable");
+  }
 }
 
 function usageServer(key: string, server: HubServer): UsageServer {
@@ -1435,6 +1453,7 @@ app.get("/v1/usage", async (request, reply) => {
       throw error;
     }
     const servers = Object.entries(user.servers ?? {}).map(([key, server]) => usageServer(key, server));
+    await fillPodResources(servers, hubUsername, request.log);
     const result = buildUsageResponse(servers, quotas);
     if (usageStore) {
       try {
