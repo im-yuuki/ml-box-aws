@@ -1,6 +1,6 @@
 # NodePool shared L4: g6 single-GPU, time-slicing replicas=3 @ 8GB commit.
 # Taint tier=shared so dedicated pods don't leak in. Consolidation won't remove nodes with sessions:
-# user pods must carry the annotation karpenter.sh/do-not-disrupt=true (hub hook, handoff doc §5).
+# user pods must carry the annotation karpenter.sh/do-not-disrupt=true (hub hook).
 # expireAfter: set long/turned off for the GPU user pool — verify against the Karpenter release.
 apiVersion: karpenter.sh/v1
 kind: NodePool

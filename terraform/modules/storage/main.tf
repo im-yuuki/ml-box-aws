@@ -1,4 +1,4 @@
-# S3 workspace: pod ephemeral + sync prefix users/<id>/ (handoff doc §7).
+# S3 workspace: pod ephemeral + sync prefix users/<id>/.
 # Isolates the execution prefix at runtime (hub AssumeRole with a per-user session policy);
 # the workspace role here grants bucket-wide access so the session policy narrows it at assume time.
 

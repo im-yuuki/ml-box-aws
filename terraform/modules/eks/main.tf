@@ -18,7 +18,7 @@ module "eks" {
     "karpenter.sh/discovery" = var.cluster_name
   }
 
-  # IP prefix delegation: mandatory when scaling to thousands of pods (handoff doc §4).
+  # IP prefix delegation: mandatory when scaling to thousands of pods.
   # Field names must be cross-checked against the current EKS/VPC-CNI docs for the cluster_version.
   cluster_addons = {
     coredns    = { most_recent = true }

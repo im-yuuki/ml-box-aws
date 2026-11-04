@@ -22,7 +22,7 @@ LABEL org.opencontainers.image.title="mlbox-jhub-gpu" \
       org.opencontainers.image.source="https://github.com/mlbox/ml-box-aws" \
       org.opencontainers.image.licenses="MIT"
 
-# GPU runtime knobs (handoff doc §8): let TensorFlow grow the VRAM it needs
+# GPU runtime knobs: let TensorFlow grow the VRAM it needs
 # instead of pre-allocating everything, and do not pre-allocate XLA memory.
 ENV TF_FORCE_GPU_ALLOW_GROWTH=true \
     XLA_PYTHON_CLIENT_PREALLOCATE=false

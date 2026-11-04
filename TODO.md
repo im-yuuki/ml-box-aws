@@ -42,7 +42,7 @@ Target sản phẩm và thứ tự phase: [`docs/multi-tenant-product-plan.md`](
 - ☐ Kiểm tra hook VRAM balloon trên pod thật (chưa có pod nào spawn qua profile GPU).
 - ☐ Bật `serviceMonitor` của dcgm-exporter khi cluster có Prometheus CRD; kiểm tra metric thật.
 - ⚠️ **State `01-foundation` lệch cluster:** plan muốn destroy fck-NAT, tạo NAT gateway, thay IAM. Label `nvidia.com/device-plugin.config=any` trên NodePool `gpu-shared-l4` đã được patch tay. Cần reconcile trước khi apply `01` lại.
-- ☐ Đồng bộ handoff: `renameByDefault=false` là quyết định mới; cập nhật tài liệu thiết kế nếu cần.
+- ☐ Cập nhật tài liệu thiết kế GPU: `renameByDefault=false` là quyết định mới (xem `terraform/modules/gpu-stack`).
 
 ## Dashboard và BFF (còn thiếu)
 
@@ -90,5 +90,5 @@ Target sản phẩm và thứ tự phase: [`docs/multi-tenant-product-plan.md`](
 
 ## Tài liệu
 
-- ✅ Đã xóa các tài liệu đã hoàn thành hoặc đã bị thay thế (brief handoff ban đầu, plan/spec superpowers 29/10, plan hub-provisioning-adapter). Lịch sử vẫn có trong git.
+- ✅ Đã xóa các tài liệu đã hoàn thành hoặc đã bị thay thế (brief ban đầu, plan/spec 29/10, plan hub-provisioning-adapter). Lịch sử vẫn có trong git.
 - ☐ Cập nhật tài liệu sau mỗi thay đổi public URL, stack output, image tag hoặc auth flow.

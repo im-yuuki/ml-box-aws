@@ -224,7 +224,7 @@ Có thể tách UI/design asset thành công việc độc lập, nhưng không 
 - Thu tiền thật, invoice/tax, Stripe/AWS Marketplace.
 - Tuyên bố CPU/GPU/storage billing chính xác trước khi usage source và ledger được triển khai, kiểm chứng.
 
-## Handoff cho agent tiếp theo
+## Quy tắc cho agent tiếp theo
 
 1. Đọc tài liệu này, [`TODO.md`](../TODO.md), [`dashboard-architecture.md`](dashboard-architecture.md), README và mọi `AGENTS.md` liên quan.
 2. Trước khi code, kiểm tra `git status`, code hiện tại và tests; coi source là mô tả hành vi hiện tại, không coi các mục target là đã làm.

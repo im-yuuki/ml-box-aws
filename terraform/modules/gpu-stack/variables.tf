@@ -14,7 +14,7 @@ variable "dcgm_exporter_chart_version" {
 }
 
 variable "enable_dcgm_exporter" {
-  description = "Enable the DCGM exporter to track Xid errors + GPU metrics (handoff doc §9)."
+  description = "Enable the DCGM exporter to track Xid errors + GPU metrics."
   type        = bool
   default     = true
 }

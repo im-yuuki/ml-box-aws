@@ -1,7 +1,7 @@
 # GPU stack shared L4 — NO MIG (temporary decision).
 # Time-slicing scoped by node label so the dedicated pool is unaffected.
-# The values/ConfigMap field names MUST be cross-checked against the device-plugin chart in use (handoff doc §12),
-# don't infer from this file. Handoff suggested format:
+# The values/ConfigMap field names MUST be cross-checked against the device-plugin chart in use;
+# don't infer from this file. Config format:
 #   version: v1 / sharing.timeSlicing.renameByDefault / failRequestsGreaterThanOne / resources[replicas]
 
 resource "kubectl_manifest" "timeslicing_config" {
