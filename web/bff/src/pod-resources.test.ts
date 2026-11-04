@@ -28,3 +28,10 @@ test("servers are keyed by the Z2JH server label, with the default server as \"d
   assert.deepEqual(byServer.get("default"), { cpuCores: 1, ramGb: 2 });
   assert.deepEqual(byServer.get("proj-1"), { cpuCores: 4, ramGb: 16 });
 });
+
+test("memory reported as a plain byte count is converted to GiB", () => {
+  assert.deepEqual(
+    podResources({ spec: { containers: [{ resources: { limits: { cpu: "2", memory: "4294967296" } } }] } }),
+    { cpuCores: 2, ramGb: 4 },
+  );
+});
