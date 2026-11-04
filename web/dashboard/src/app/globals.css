@@ -1179,3 +1179,23 @@ body {
     padding: 1.5rem;
   }
 }
+
+/* Top bar on phones: the actions row takes its own full-width line and wraps. */
+@media (max-width: 760px) {
+  .workspace-topbar-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .workspace-topbar-actions .workspace-space-context {
+    min-width: 0;
+    flex: 1 1 10rem;
+  }
+
+  .workspace-topbar-actions .workspace-space-context select {
+    max-width: 100%;
+    width: 100%;
+  }
+}
