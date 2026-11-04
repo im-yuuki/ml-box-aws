@@ -105,7 +105,7 @@ export default function ProjectRuntimePanel({ projectId }: { projectId: string }
       {loading ? <p className="workspace-muted-copy" role="status">{t("loading")}</p> : null}
       {data ? <p className="workspace-status workspace-status-muted" aria-live="polite">{t(`state.${stateKey}`)}</p> : null}
       {error ? <p className="workspace-form-error" role="alert">{error}</p> : null}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button variant="primary" size="sm" isDisabled={busy || loading || !canOperate || stateKey === "running" || stateKey === "starting"} onPress={() => void act("start")}>
           {t("start")}
         </Button>
