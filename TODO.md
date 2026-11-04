@@ -16,7 +16,7 @@ Target sản phẩm và thứ tự phase: [`docs/multi-tenant-product-plan.md`](
 
 ## Cần người dùng
 
-- ⚠️ **E2E trên trình duyệt với tài khoản thật:** đã kiểm: đăng nhập dashboard, tạo Project, start sandbox, bấm "Mở notebook" qua handoff → JupyterLab (không qua UI Hub). Chưa kiểm: đăng xuất rồi vào lại, mã handoff dùng lại (phải bị từ chối), team/lời mời/artifact/usage trên giao diện thật.
+- ⚠️ **E2E trên trình duyệt với tài khoản thật:** đã kiểm: đăng nhập dashboard, tạo Project, start sandbox, bấm "Mở notebook" qua handoff → JupyterLab (không qua UI Hub). Đã kiểm: mã handoff dùng lại bị từ chối (quay về đăng nhập dashboard). Chưa kiểm: đăng xuất rồi vào lại, team/lời mời/artifact/usage trên giao diện thật.
 - ☐ **Logo và brand pack (phase 8):** người dùng chọn concept logo.
 - ☐ **Mở PR cho các commit chưa merge** trên `feat/dashboard-team-management` (sau khi có xác nhận).
 
