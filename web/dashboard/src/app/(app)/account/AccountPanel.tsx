@@ -1,7 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Alert, Button, Card, Description, Form, Input, Label, TextField } from "@heroui/react";
+import {
+  Alert,
+  Button,
+  Card,
+  Description,
+  Form,
+  Input,
+  Label,
+  TextField,
+} from "@heroui/react";
 import { KeyRound, RotateCcw } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
@@ -24,9 +33,11 @@ export default function AccountPanel() {
     setLoading(true);
     setLoadError(false);
     try {
-      const response = await bffFetch("/api/bff/auth/session", { cache: "no-store" });
+      const response = await bffFetch("/api/bff/auth/session", {
+        cache: "no-store",
+      });
       if (!response.ok) throw new Error("session");
-      const body = await response.json() as SessionResponse;
+      const body = (await response.json()) as SessionResponse;
       if (!body.user?.email) throw new Error("session");
       setEmail(body.user.email);
     } catch {
@@ -37,7 +48,9 @@ export default function AccountPanel() {
   }, []);
 
   useEffect(() => {
-    const task = window.setTimeout(() => { void loadSession(); }, 0);
+    const task = window.setTimeout(() => {
+      void loadSession();
+    }, 0);
     return () => window.clearTimeout(task);
   }, [loadSession]);
 
@@ -65,8 +78,16 @@ export default function AccountPanel() {
         body: JSON.stringify({ currentPassword, newPassword }),
       });
       if (!response.ok) {
-        const body = await response.json().catch(() => ({})) as { error?: string };
-        throw new Error(["NotAuthorizedException", "InvalidPasswordException"].includes(body.error ?? "") ? "invalidPassword" : "requestFailed");
+        const body = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(
+          ["NotAuthorizedException", "InvalidPasswordException"].includes(
+            body.error ?? "",
+          )
+            ? "invalidPassword"
+            : "requestFailed",
+        );
       }
       setCurrentPassword("");
       setNewPassword("");
@@ -83,31 +104,84 @@ export default function AccountPanel() {
     <div className="flex flex-col gap-6">
       <Card className="flex flex-col gap-3 p-5">
         <h2 className="text-base font-medium">{t("emailHeading")}</h2>
-        {loading ? <p className="text-sm" style={{ color: "var(--muted)" }}>{t("loading")}</p>
-          : loadError ? <div className="flex flex-wrap items-center gap-3"><Alert status="danger"><Alert.Content><Alert.Description>{t("loadFailed")}</Alert.Description></Alert.Content></Alert><Button size="sm" variant="secondary" onPress={() => void loadSession()}><RotateCcw aria-hidden="true" size={14} />{t("retry")}</Button></div>
-            : <p className="text-sm">{email}</p>}
+        {loading ? (
+          <p className="text-sm" style={{ color: "var(--muted)" }}>
+            {t("loading")}
+          </p>
+        ) : loadError ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <Alert status="danger">
+              <Alert.Content>
+                <Alert.Description>{t("loadFailed")}</Alert.Description>
+              </Alert.Content>
+            </Alert>
+            <Button
+              size="sm"
+              variant="secondary"
+              onPress={() => void loadSession()}>
+              <RotateCcw aria-hidden="true" size={14} />
+              {t("retry")}
+            </Button>
+          </div>
+        ) : (
+          <p className="text-sm">{email}</p>
+        )}
       </Card>
       <Card className="flex flex-col gap-4 p-5">
         <div className="flex flex-col gap-1">
           <h2 className="text-base font-medium">{t("passwordHeading")}</h2>
         </div>
-        <Form className="flex max-w-md flex-col gap-4" onSubmit={changePassword}>
-          <TextField type="password" value={currentPassword} onChange={setCurrentPassword} autoComplete="current-password">
+        <Form
+          className="flex max-w-md flex-col gap-4"
+          onSubmit={changePassword}>
+          <TextField
+            type="password"
+            value={currentPassword}
+            onChange={setCurrentPassword}
+            autoComplete="current-password">
             <Label>{t("currentPasswordLabel")}</Label>
             <Input variant="secondary" fullWidth />
           </TextField>
-          <TextField type="password" value={newPassword} onChange={setNewPassword} autoComplete="new-password">
+          <TextField
+            type="password"
+            value={newPassword}
+            onChange={setNewPassword}
+            autoComplete="new-password">
             <Label>{t("newPasswordLabel")}</Label>
             <Input variant="secondary" fullWidth />
             <Description>{t("passwordHint")}</Description>
           </TextField>
-          <TextField type="password" value={confirmPassword} onChange={setConfirmPassword} autoComplete="new-password">
+          <TextField
+            type="password"
+            value={confirmPassword}
+            onChange={setConfirmPassword}
+            autoComplete="new-password">
             <Label>{t("confirmPasswordLabel")}</Label>
             <Input variant="secondary" fullWidth />
           </TextField>
-          {formError ? <Alert status="danger"><Alert.Content><Alert.Description>{formError}</Alert.Description></Alert.Content></Alert> : null}
-          {message ? <Alert status="success"><Alert.Content><Alert.Description>{message}</Alert.Description></Alert.Content></Alert> : null}
-          <Button type="submit" variant="primary" isPending={pending} isDisabled={pending}><KeyRound aria-hidden="true" size={16} />{t("changePassword")}</Button>
+          {formError ? (
+            <Alert status="danger">
+              <Alert.Content>
+                <Alert.Description>{formError}</Alert.Description>
+              </Alert.Content>
+            </Alert>
+          ) : null}
+          {message ? (
+            <Alert status="success">
+              <Alert.Content>
+                <Alert.Description>{message}</Alert.Description>
+              </Alert.Content>
+            </Alert>
+          ) : null}
+          <Button
+            type="submit"
+            variant="primary"
+            isPending={pending}
+            isDisabled={pending}
+            fullWidth>
+            <KeyRound aria-hidden="true" size={16} />
+            {t("changePassword")}
+          </Button>
         </Form>
       </Card>
     </div>

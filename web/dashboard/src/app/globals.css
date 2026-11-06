@@ -6,6 +6,8 @@
  * so every HeroUI component picks up MLBox's brand colours/radius/motion.
  * ==========================================================================*/
 
+ /* TODO: remove manually defined CSS properties here as much as possile, let elements rendered with default values (no manual overrides), or use tailwindcss if needed  */
+
 @import "tailwindcss";
 @import "@heroui/styles";
 @import "../styles/heroui-tokens.css";
@@ -23,10 +25,8 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
-    Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
-    "Liberation Mono", monospace;
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --radius: 0.5rem;
 }
 
@@ -799,7 +799,7 @@ body {
 
 .workspace-meter-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
   font-size: 0.9rem;

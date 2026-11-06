@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Alert, Button, Card } from "@heroui/react";
-import { Ban, Circle, CircleCheck, RotateCcw } from "lucide-react";
+import { Ban, Circle, CircleCheck, CreditCard, RotateCcw } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 
@@ -42,7 +42,11 @@ type Details = {
   spaceId: string;
   spaceType: SpaceType;
   subscription: Subscription | null;
-  entitlements: Array<{ resource: string; limitValue: number | null; sourcePlan: string }>;
+  entitlements: Array<{
+    resource: string;
+    limitValue: number | null;
+    sourcePlan: string;
+  }>;
 };
 
 type Payment = {
@@ -77,19 +81,27 @@ export default function BillingPanel() {
     setLoading(true);
     setError(null);
     try {
-      const [plansResponse, detailsResponse, paymentsResponse] = await Promise.all([
-        bffFetch("/api/bff/subscriptions/plans", { cache: "no-store" }),
-        bffFetch("/api/bff/subscription", { cache: "no-store" }),
-        bffFetch("/api/bff/payments", { cache: "no-store" }),
-      ]);
-      if (!plansResponse.ok || !detailsResponse.ok || !paymentsResponse.ok) throw new Error("loadFailed");
-      const planBody = await plansResponse.json() as { plans: Plan[] };
-      const detailsBody = await detailsResponse.json() as Details;
-      const paymentsBody = await paymentsResponse.json() as { payments: Payment[] };
+      const [plansResponse, detailsResponse, paymentsResponse] =
+        await Promise.all([
+          bffFetch("/api/bff/subscriptions/plans", { cache: "no-store" }),
+          bffFetch("/api/bff/subscription", { cache: "no-store" }),
+          bffFetch("/api/bff/payments", { cache: "no-store" }),
+        ]);
+      if (!plansResponse.ok || !detailsResponse.ok || !paymentsResponse.ok)
+        throw new Error("loadFailed");
+      const planBody = (await plansResponse.json()) as { plans: Plan[] };
+      const detailsBody = (await detailsResponse.json()) as Details;
+      const paymentsBody = (await paymentsResponse.json()) as {
+        payments: Payment[];
+      };
       setPlans(planBody.plans);
       setDetails(detailsBody);
       setPayments(paymentsBody.payments);
-      setSelectedPlanId((current) => current && planBody.plans.some((plan) => plan.id === current) ? current : planBody.plans.find((plan) => plan.status === "active")?.id ?? "");
+      setSelectedPlanId((current) =>
+        current && planBody.plans.some((plan) => plan.id === current)
+          ? current
+          : (planBody.plans.find((plan) => plan.status === "active")?.id ?? ""),
+      );
     } catch {
       setError(t("billingLoadFailed"));
     } finally {
@@ -98,7 +110,9 @@ export default function BillingPanel() {
   }, [t]);
 
   useEffect(() => {
-    const task = window.setTimeout(() => { void loadBilling(); }, 0);
+    const task = window.setTimeout(() => {
+      void loadBilling();
+    }, 0);
     return () => window.clearTimeout(task);
   }, [loadBilling]);
 
@@ -106,17 +120,29 @@ export default function BillingPanel() {
   useEffect(() => {
     if (!result) return;
     const task = window.setTimeout(() => {
-      setMessage(result === "succeeded" ? t("resultSucceeded") : t("resultFailed"));
+      setMessage(
+        result === "succeeded" ? t("resultSucceeded") : t("resultFailed"),
+      );
       router.replace("/account/subscription");
     }, 0);
     return () => window.clearTimeout(task);
   }, [result, router, t]);
 
-  const selectedPlan = useMemo(() => plans.find((plan) => plan.id === selectedPlanId), [plans, selectedPlanId]);
-  const visiblePlans = plans.filter((plan) => !details || plan.spaceType === details.spaceType);
+  const selectedPlan = useMemo(
+    () => plans.find((plan) => plan.id === selectedPlanId),
+    [plans, selectedPlanId],
+  );
+  const visiblePlans = plans.filter(
+    (plan) => !details || plan.spaceType === details.spaceType,
+  );
   const activePlans = visiblePlans.filter((plan) => plan.status === "active");
-  const upcomingPlans = visiblePlans.filter((plan) => plan.status === "coming_soon");
-  const alreadySubscribed = !!selectedPlan && details?.subscription?.plan === selectedPlan.name && ["active", "pending"].includes(details.subscription.status);
+  const upcomingPlans = visiblePlans.filter(
+    (plan) => plan.status === "coming_soon",
+  );
+  const alreadySubscribed =
+    !!selectedPlan &&
+    details?.subscription?.plan === selectedPlan.name &&
+    ["active", "pending"].includes(details.subscription.status);
 
   const cancelSubscription = async () => {
     setPending(true);
@@ -129,7 +155,7 @@ export default function BillingPanel() {
         body: "{}",
       });
       if (!response.ok) {
-        const body = await response.json().catch(() => ({})) as ErrorBody;
+        const body = (await response.json().catch(() => ({}))) as ErrorBody;
         throw new Error(body.error ?? "billingRequestFailed");
       }
       setMessage(t("billingUpdated"));
@@ -141,15 +167,36 @@ export default function BillingPanel() {
     }
   };
 
-  const formatPrice = (plan: Plan) => plan.amountCents === 0
-    ? t("billingFree")
-    : new Intl.NumberFormat(undefined, { style: "currency", currency: plan.currency }).format(plan.amountCents / 100) + (plan.id === "org_growth" ? t("billingPerMember") : t("billingPerMonth"));
+  const formatPrice = (plan: Plan) =>
+    plan.amountCents === 0
+      ? t("billingFree")
+      : new Intl.NumberFormat(undefined, {
+          style: "currency",
+          currency: plan.currency,
+        }).format(plan.amountCents / 100) +
+        (plan.id === "org_growth"
+          ? t("billingPerMember")
+          : t("billingPerMonth"));
 
-  const formatQuota = (value: number | null, unit: string) => value === null ? t("billingUnlimited") : `${value} ${unit}`;
-  const statusLabel = (status: string) => t(`billingStatus${status.charAt(0).toUpperCase()}${status.slice(1)}` as "billingStatusActive");
-  const outcomeLabel = (value: PaymentOutcome) => t(`billingOutcome${value.charAt(0).toUpperCase()}${value.slice(1)}` as "billingOutcomeSucceeded");
+  const formatQuota = (value: number | null, unit: string) =>
+    value === null ? t("billingUnlimited") : `${value} ${unit}`;
+  const statusLabel = (status: string) =>
+    t(
+      `billingStatus${status.charAt(0).toUpperCase()}${status.slice(1)}` as "billingStatusActive",
+    );
+  const outcomeLabel = (value: PaymentOutcome) =>
+    t(
+      `billingOutcome${value.charAt(0).toUpperCase()}${value.slice(1)}` as "billingOutcomeSucceeded",
+    );
   const quotaLabel = (resource: string) => {
-    const labels: Record<string, "billingQuotaProjects" | "billingQuotaStorageGb" | "billingQuotaCpuHours" | "billingQuotaGpuHours" | "billingQuotaMembers"> = {
+    const labels: Record<
+      string,
+      | "billingQuotaProjects"
+      | "billingQuotaStorageGb"
+      | "billingQuotaCpuHours"
+      | "billingQuotaGpuHours"
+      | "billingQuotaMembers"
+    > = {
       projects: "billingQuotaProjects",
       storage_gb: "billingQuotaStorageGb",
       cpu_hours: "billingQuotaCpuHours",
@@ -161,13 +208,31 @@ export default function BillingPanel() {
   };
 
   if (loading) {
-    return <Card className="p-5"><p className="text-sm" style={{ color: "var(--muted)" }}>{t("billingLoading")}</p></Card>;
+    return (
+      <Card className="p-5">
+        <p className="text-sm" style={{ color: "var(--muted)" }}>
+          {t("billingLoading")}
+        </p>
+      </Card>
+    );
   }
 
   return (
     <div id="billing" className="flex scroll-mt-24 flex-col gap-6">
-      {error ? <Alert status="danger"><Alert.Content><Alert.Description>{error}</Alert.Description></Alert.Content></Alert> : null}
-      {message ? <Alert status="success"><Alert.Content><Alert.Description>{message}</Alert.Description></Alert.Content></Alert> : null}
+      {error ? (
+        <Alert status="danger">
+          <Alert.Content>
+            <Alert.Description>{error}</Alert.Description>
+          </Alert.Content>
+        </Alert>
+      ) : null}
+      {message ? (
+        <Alert status="success">
+          <Alert.Content>
+            <Alert.Description>{message}</Alert.Description>
+          </Alert.Content>
+        </Alert>
+      ) : null}
 
       <Card>
         <Card.Header>
@@ -175,11 +240,58 @@ export default function BillingPanel() {
         </Card.Header>
         <Card.Content className="flex flex-col gap-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <p className="text-sm" style={{ color: "var(--muted)" }}>{details?.subscription ? details.subscription.plan : t("noSubscription")}</p>
-            {details?.subscription ? <span className="rounded-full border px-3 py-1 text-xs" style={{ borderColor: "var(--border)" }}>{statusLabel(details.subscription.status)}</span> : null}
+            <p className="text-sm" style={{ color: "var(--muted)" }}>
+              {details?.subscription
+                ? details.subscription.plan
+                : t("noSubscription")}
+            </p>
+            {details?.subscription ? (
+              <span
+                className="rounded-full border px-3 py-1 text-xs"
+                style={{ borderColor: "var(--border)" }}>
+                {statusLabel(details.subscription.status)}
+              </span>
+            ) : null}
           </div>
-          {details?.subscription && ["active", "pending", "past_due"].includes(details.subscription.status) ? <Button size="sm" variant="secondary" onPress={() => void cancelSubscription()} isPending={pending} isDisabled={pending} className="w-fit"><Ban aria-hidden="true" size={16} />{t("cancelSubscription")}</Button> : null}
-          {details?.entitlements.length ? <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{details.entitlements.map((entitlement) => <div className="rounded-md border p-3" style={{ borderColor: "var(--border)" }} key={entitlement.resource}><p className="text-xs" style={{ color: "var(--muted)" }}>{quotaLabel(entitlement.resource)}</p><p className="text-sm font-medium">{formatQuota(entitlement.limitValue, entitlement.resource === "storage_gb" ? t("billingGb") : entitlement.resource === "members" ? t("billingMembers") : t("billingHours"))}</p></div>)}</div> : null}
+          {details?.entitlements.length ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {details.entitlements.map((entitlement) => (
+                <div
+                  className="rounded-md border p-3"
+                  style={{ borderColor: "var(--border)" }}
+                  key={entitlement.resource}>
+                  <p className="text-xs" style={{ color: "var(--muted)" }}>
+                    {quotaLabel(entitlement.resource)}
+                  </p>
+                  <p className="text-sm font-medium">
+                    {formatQuota(
+                      entitlement.limitValue,
+                      entitlement.resource === "storage_gb"
+                        ? t("billingGb")
+                        : entitlement.resource === "members"
+                          ? t("billingMembers")
+                          : t("billingHours"),
+                    )}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {details?.subscription &&
+          ["active", "pending", "past_due"].includes(
+            details.subscription.status,
+          ) ? (
+            <Button
+              size="sm"
+              variant="danger"
+              onPress={() => void cancelSubscription()}
+              isPending={pending}
+              isDisabled={pending}
+              fullWidth>
+              <Ban aria-hidden="true" size={16} />
+              {t("cancelSubscription")}
+            </Button>
+          ) : null}
         </Card.Content>
       </Card>
 
@@ -189,15 +301,84 @@ export default function BillingPanel() {
         </Card.Header>
         <Card.Content className="flex flex-col gap-4">
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {activePlans.map((plan) => <button className="flex flex-col gap-3 rounded-lg border p-4 text-left transition hover:border-[var(--accent)]" style={{ borderColor: selectedPlanId === plan.id ? "var(--accent)" : "var(--border)", background: "var(--surface)" }} type="button" key={plan.id} onClick={() => setSelectedPlanId(plan.id)} aria-pressed={selectedPlanId === plan.id}>
-              <div className="flex items-start justify-between gap-2"><span className="flex items-center gap-2 font-medium">{selectedPlanId === plan.id ? <CircleCheck aria-hidden="true" size={16} /> : <Circle aria-hidden="true" size={16} />}{plan.name}</span><span className="text-sm">{formatPrice(plan)}</span></div>
-              <div className="grid grid-cols-2 gap-1 text-xs" style={{ color: "var(--muted)" }}><span>{formatQuota(plan.quotas.projects, t("billingProjects"))}</span><span>{formatQuota(plan.quotas.storageGb, t("billingGb"))}</span><span>{formatQuota(plan.quotas.cpuHours, t("billingHours"))}</span><span>{formatQuota(plan.quotas.gpuHours, t("billingGpuHours"))}</span></div>
-            </button>)}
+            {activePlans.map((plan) => (
+              <button
+                className="flex flex-col gap-3 rounded-lg border p-4 text-left transition hover:border-accent"
+                style={{
+                  borderColor:
+                    selectedPlanId === plan.id
+                      ? "var(--accent)"
+                      : "var(--border)",
+                  background: "var(--surface)",
+                }}
+                type="button"
+                key={plan.id}
+                onClick={() => setSelectedPlanId(plan.id)}
+                aria-pressed={selectedPlanId === plan.id}>
+                <div className="flex items-start justify-between gap-2">
+                  <span className="flex items-center gap-2 font-medium">
+                    {selectedPlanId === plan.id ? (
+                      <CircleCheck aria-hidden="true" size={16} />
+                    ) : (
+                      <Circle aria-hidden="true" size={16} />
+                    )}
+                    {plan.name}
+                  </span>
+                  <span className="text-sm">{formatPrice(plan)}</span>
+                </div>
+                <div
+                  className="grid grid-cols-2 gap-1 text-xs"
+                  style={{ color: "var(--muted)" }}>
+                  <span>
+                    {formatQuota(plan.quotas.projects, t("billingProjects"))}
+                  </span>
+                  <span>
+                    {formatQuota(plan.quotas.storageGb, t("billingGb"))}
+                  </span>
+                  <span>
+                    {formatQuota(plan.quotas.cpuHours, t("billingHours"))}
+                  </span>
+                  <span>
+                    {formatQuota(plan.quotas.gpuHours, t("billingGpuHours"))}
+                  </span>
+                </div>
+              </button>
+            ))}
           </div>
-          {upcomingPlans.length ? <div><p className="mb-2 text-xs font-medium" style={{ color: "var(--muted)" }}>{t("comingSoon")}</p><div className="flex flex-wrap gap-2">{upcomingPlans.map((plan) => <span className="rounded-full border px-3 py-1 text-xs" style={{ borderColor: "var(--border)", color: "var(--muted)" }} key={plan.id}>{plan.name} · {t("comingSoon")}</span>)}</div></div> : null}
+          {upcomingPlans.length ? (
+            <div>
+              <p
+                className="mb-2 text-xs font-medium"
+                style={{ color: "var(--muted)" }}>
+                {t("comingSoon")}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {upcomingPlans.map((plan) => (
+                  <span
+                    className="rounded-full border px-3 py-1 text-xs"
+                    style={{
+                      borderColor: "var(--border)",
+                      color: "var(--muted)",
+                    }}
+                    key={plan.id}>
+                    {plan.name} · {t("comingSoon")}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
           <div>
             {selectedPlan && !alreadySubscribed ? (
-              <Button variant="primary" onPress={() => router.push(`/payment/checkout?plan=${encodeURIComponent(selectedPlan.id)}`)} isDisabled={pending}>
+              <Button
+                variant="primary"
+                onPress={() =>
+                  router.push(
+                    `/payment/checkout?plan=${encodeURIComponent(selectedPlan.id)}`,
+                  )
+                }
+                isDisabled={pending}
+                fullWidth>
+                <CreditCard aria-hidden="true" size={16} />
                 {t("payPlan", { plan: selectedPlan.name })}
               </Button>
             ) : null}
@@ -210,7 +391,46 @@ export default function BillingPanel() {
           <Card.Title>{t("paymentHistory")}</Card.Title>
         </Card.Header>
         <Card.Content className="flex flex-col gap-4">
-          {payments.length === 0 ? <p className="text-sm" style={{ color: "var(--muted)" }}>{t("paymentHistoryEmpty")}</p> : <div className="flex flex-col gap-3">{payments.map((payment) => <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3" style={{ borderColor: "var(--border)" }} key={payment.id}><div><p className="text-sm font-medium">{payment.planId} · {outcomeLabel(payment.status)}</p><p className="text-xs" style={{ color: "var(--muted)" }}>{payment.id}</p></div><div className="flex items-center gap-3"><span className="text-sm">{new Intl.NumberFormat(undefined, { style: "currency", currency: payment.currency }).format(payment.amountCents / 100)}</span>{payment.status === "failed" ? <Link href={`/payment/checkout?payment=${encodeURIComponent(payment.id)}`}><Button size="sm" variant="secondary"><RotateCcw aria-hidden="true" size={14} />{t("retryPayment")}</Button></Link> : null}</div></div>)}</div>}
+          {payments.length === 0 ? (
+            <p className="text-sm" style={{ color: "var(--muted)" }}>
+              {t("paymentHistoryEmpty")}
+            </p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {payments.map((payment) => (
+                <div
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3"
+                  style={{ borderColor: "var(--border)" }}
+                  key={payment.id}>
+                  <div>
+                    <p className="text-sm font-medium">
+                      {payment.planId} · {outcomeLabel(payment.status)}
+                    </p>
+                    <p className="text-xs" style={{ color: "var(--muted)" }}>
+                      {payment.id}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm">
+                      {new Intl.NumberFormat(undefined, {
+                        style: "currency",
+                        currency: payment.currency,
+                      }).format(payment.amountCents / 100)}
+                    </span>
+                    {payment.status === "failed" ? (
+                      <Link
+                        href={`/payment/checkout?payment=${encodeURIComponent(payment.id)}`}>
+                        <Button size="sm" variant="tertiary">
+                          <RotateCcw aria-hidden="true" size={14} />
+                          {t("retryPayment")}
+                        </Button>
+                      </Link>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </Card.Content>
       </Card>
     </div>

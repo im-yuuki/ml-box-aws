@@ -6,7 +6,11 @@ import { Alert, Button, Form, Input, Label, TextField } from "@heroui/react";
 import { ArrowLeft, KeyRound, Mail } from "lucide-react";
 import { bffFetch } from "@/lib/bffFetch";
 
-export default function PasswordRecoveryForm({ mode }: { mode: "forgot" | "reset" }) {
+export default function PasswordRecoveryForm({
+  mode,
+}: {
+  mode: "forgot" | "reset";
+}) {
   const t = useTranslations("forgotPassword");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -16,34 +20,117 @@ export default function PasswordRecoveryForm({ mode }: { mode: "forgot" | "reset
     event.preventDefault();
     setError(null);
     const values = new FormData(event.currentTarget);
-    const email = String(values.get("email") ?? "").trim().toLowerCase();
-    const payload = mode === "forgot"
-      ? { email }
-      : { email, code: String(values.get("code") ?? "").trim(), newPassword: String(values.get("password") ?? "") };
-    if (!email || (mode === "reset" && (!payload.code || !payload.newPassword))) {
+    const email = String(values.get("email") ?? "")
+      .trim()
+      .toLowerCase();
+    const payload =
+      mode === "forgot"
+        ? { email }
+        : {
+            email,
+            code: String(values.get("code") ?? "").trim(),
+            newPassword: String(values.get("password") ?? ""),
+          };
+    if (
+      !email ||
+      (mode === "reset" && (!payload.code || !payload.newPassword))
+    ) {
       setError(t("missingFields"));
       return;
     }
     setPending(true);
     try {
-      const response = await bffFetch(`/api/bff/auth/${mode === "forgot" ? "forgot-password" : "reset-password"}`, {
-        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload),
-      });
+      const response = await bffFetch(
+        `/api/bff/auth/${mode === "forgot" ? "forgot-password" : "reset-password"}`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
       if (!response.ok) {
-        const body = (await response.json().catch(() => ({}))) as { message?: string };
+        const body = (await response.json().catch(() => ({}))) as {
+          message?: string;
+        };
         setError(body.message ?? t("requestFailed"));
       } else setSuccess(true);
-    } catch { setError(t("requestFailed")); }
-    finally { setPending(false); }
+    } catch {
+      setError(t("requestFailed"));
+    } finally {
+      setPending(false);
+    }
   }
 
-  return <Form onSubmit={onSubmit} className="flex flex-col gap-4">
-    {success ? <p className="text-sm" role="status" style={{ color: "var(--muted)" }}>{t(mode === "forgot" ? "sent" : "resetComplete")}</p> : <>
-      <TextField isRequired><Label>{t("emailLabel")}</Label><Input name="email" type="email" autoComplete="email" variant="secondary" fullWidth /></TextField>
-      {mode === "reset" ? <><TextField isRequired><Label>{t("codeLabel")}</Label><Input name="code" autoComplete="one-time-code" variant="secondary" fullWidth /></TextField><TextField isRequired><Label>{t("newPasswordLabel")}</Label><Input name="password" type="password" autoComplete="new-password" variant="secondary" fullWidth /></TextField></> : null}
-      {error ? <Alert status="danger"><Alert.Content><Alert.Description>{error}</Alert.Description></Alert.Content></Alert> : null}
-      <Button type="submit" variant="primary" size="lg" isPending={pending} isDisabled={pending}>{mode === "forgot" ? <Mail aria-hidden="true" size={16} /> : <KeyRound aria-hidden="true" size={16} />}{t(mode === "forgot" ? "send" : "reset")}</Button>
-    </>}
-    <p className="text-sm text-center"><a className="inline-flex items-center gap-1.5 underline" href="/login"><ArrowLeft aria-hidden="true" size={14} />{t("backToLogin")}</a></p>
-  </Form>;
+  return (
+    <Form onSubmit={onSubmit} className="flex flex-col gap-4">
+      {success ? (
+        <p className="text-sm" role="status" style={{ color: "var(--muted)" }}>
+          {t(mode === "forgot" ? "sent" : "resetComplete")}
+        </p>
+      ) : (
+        <>
+          <TextField isRequired>
+            <Label>{t("emailLabel")}</Label>
+            <Input
+              name="email"
+              type="email"
+              autoComplete="email"
+              variant="secondary"
+              fullWidth
+            />
+          </TextField>
+          {mode === "reset" ? (
+            <>
+              <TextField isRequired>
+                <Label>{t("codeLabel")}</Label>
+                <Input
+                  name="code"
+                  autoComplete="one-time-code"
+                  variant="secondary"
+                  fullWidth
+                />
+              </TextField>
+              <TextField isRequired>
+                <Label>{t("newPasswordLabel")}</Label>
+                <Input
+                  name="password"
+                  type="password"
+                  autoComplete="new-password"
+                  variant="secondary"
+                  fullWidth
+                />
+              </TextField>
+            </>
+          ) : null}
+          {error ? (
+            <Alert status="danger">
+              <Alert.Content>
+                <Alert.Description>{error}</Alert.Description>
+              </Alert.Content>
+            </Alert>
+          ) : null}
+          <Button
+            type="submit"
+            variant="primary"
+            size="lg"
+            isPending={pending}
+            isDisabled={pending}
+            fullWidth>
+            {mode === "forgot" ? (
+              <Mail aria-hidden="true" size={16} />
+            ) : (
+              <KeyRound aria-hidden="true" size={16} />
+            )}
+            {t(mode === "forgot" ? "send" : "reset")}
+          </Button>
+        </>
+      )}
+      <p className="text-sm text-center">
+        <a className="inline-flex items-center gap-1.5 underline" href="/login">
+          <ArrowLeft aria-hidden="true" size={14} />
+          {t("backToLogin")}
+        </a>
+      </p>
+    </Form>
+  );
 }

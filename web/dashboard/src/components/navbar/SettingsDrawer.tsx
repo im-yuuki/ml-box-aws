@@ -40,7 +40,7 @@ export default function SettingsDrawer() {
       >
         <SlidersHorizontal aria-hidden="true" size={18} />
       </Drawer.Trigger>
-      <Drawer.Backdrop>
+      <Drawer.Backdrop isDismissable={false} variant="blur">
         <Drawer.Content placement="right">
           <Drawer.Dialog aria-label={t("settingsTitle")}>
             {({ close }) => (

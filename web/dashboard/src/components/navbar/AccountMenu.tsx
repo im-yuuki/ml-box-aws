@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Avatar, Dropdown } from "@heroui/react";
+import { Avatar, Dropdown, Label, Separator } from "@heroui/react";
 import { CreditCard, Gauge, LogOut, UserPen, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
@@ -74,27 +74,36 @@ export default function AccountMenu() {
       </Dropdown.Trigger>
       <Dropdown.Popover placement="bottom end">
         {email ? <div className="workspace-account-email">{email}</div> : null}
+        <Separator />
         <Dropdown.Menu aria-label={t("accountMenu")} onAction={onAction}>
-          <Dropdown.Item id="profile" textValue={t("editProfile")}>
-            <UserPen aria-hidden="true" size={16} />
-            <span>{t("editProfile")}</span>
+          <Dropdown.Section>
+            <Dropdown.Item id="profile" textValue={t("editProfile")}>
+              <UserPen aria-hidden="true" size={16} className="shrink-0 text-muted" />
+              <Label className="leading-none">{t("editProfile")}</Label>
+            </Dropdown.Item>
+            <Dropdown.Item id="teams" textValue={t("teams")}>
+              <Users aria-hidden="true" size={16} className="shrink-0 text-muted" />
+              <Label className="leading-none">{t("teams")}</Label>
+            </Dropdown.Item>
+          </Dropdown.Section>
+          <Separator />
+          <Dropdown.Section>
+            <Dropdown.Item id="subscription" textValue={t("subscription")}>
+              <CreditCard aria-hidden="true" size={16} className="shrink-0 text-muted" />
+              <Label className="leading-none">{t("subscription")}</Label>
+            </Dropdown.Item>
+            <Dropdown.Item id="quota" textValue={t("quota")}>
+              <Gauge aria-hidden="true" size={16} className="shrink-0 text-muted" />
+              <Label className="leading-none">{t("quota")}</Label>
+            </Dropdown.Item>
+          </Dropdown.Section>
+          <Separator />
+          <Dropdown.Section>
+            <Dropdown.Item id="signout" textValue={tWorkspace("signOut")} variant="danger">
+              <LogOut aria-hidden="true" size={16} className="shrink-0 text-danger" />
+              <Label className="leading-none">{tWorkspace("signOut")}</Label>
           </Dropdown.Item>
-          <Dropdown.Item id="teams" textValue={t("teams")}>
-            <Users aria-hidden="true" size={16} />
-            <span>{t("teams")}</span>
-          </Dropdown.Item>
-          <Dropdown.Item id="subscription" textValue={t("subscription")}>
-            <CreditCard aria-hidden="true" size={16} />
-            <span>{t("subscription")}</span>
-          </Dropdown.Item>
-          <Dropdown.Item id="quota" textValue={t("quota")}>
-            <Gauge aria-hidden="true" size={16} />
-            <span>{t("quota")}</span>
-          </Dropdown.Item>
-          <Dropdown.Item id="signout" textValue={tWorkspace("signOut")} variant="danger">
-            <LogOut aria-hidden="true" size={16} />
-            <span>{tWorkspace("signOut")}</span>
-          </Dropdown.Item>
+          </Dropdown.Section>
         </Dropdown.Menu>
       </Dropdown.Popover>
     </Dropdown>

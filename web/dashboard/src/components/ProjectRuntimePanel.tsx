@@ -49,6 +49,7 @@ export default function ProjectRuntimePanel({ projectId }: { projectId: string }
           <Select
             selectedKey={profile}
             onSelectionChange={(key) => key && setProfile(String(key))}
+            variant="secondary"
             isDisabled={busy || loading || !canOperate || stateKey === "starting"}
           >
             <Label>{t("profileLabel")}</Label>
@@ -73,15 +74,15 @@ export default function ProjectRuntimePanel({ projectId }: { projectId: string }
         ) : null}
         <div className="flex flex-wrap gap-2">
           {running && url ? (
-            <Button variant="primary" size="sm" onPress={() => window.open(url, "_blank", "noopener")}><ExternalLink aria-hidden="true" size={14} />{t("open")}</Button>
+            <Button variant="secondary" size="sm" onPress={() => window.open(url, "_blank", "noopener")} fullWidth><ExternalLink aria-hidden="true" size={14} />{t("open")}</Button>
           ) : (
-            <Button variant="primary" size="sm" isDisabled={busy || loading || !canOperate || stateKey === "starting"} onPress={() => void act("start", profile)}>
+            <Button variant="primary" size="sm" isDisabled={busy || loading || !canOperate || stateKey === "starting"} onPress={() => void act("start", profile)} fullWidth>
               <Play aria-hidden="true" size={14} />
               {t("start")}
             </Button>
           )}
           {running ? (
-            <Button variant="secondary" size="sm" isDisabled={busy || loading || !canOperate} onPress={() => void act("stop")}>
+            <Button variant="danger-soft" size="sm" isDisabled={busy || loading || !canOperate} onPress={() => void act("stop")} fullWidth>
               <Square aria-hidden="true" size={14} />
               {t("stop")}
             </Button>

@@ -1,5 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import PasswordRecoveryForm from "./PasswordRecoveryForm";
+import AuthShell from "@/components/AuthShell";
+import { Suspense } from "react";
 
 export async function generateMetadata() {
   const t = await getTranslations("forgotPassword");
@@ -8,8 +10,16 @@ export async function generateMetadata() {
 
 export default async function ForgotPasswordPage() {
   const t = await getTranslations("forgotPassword");
-  return <main className="flex flex-1 items-center justify-center px-6 py-16"><div className="w-full max-w-sm flex flex-col gap-6">
-    <header className="flex flex-col items-center gap-2 text-center"><h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1></header>
-    <PasswordRecoveryForm mode="forgot" />
-  </div></main>;
+  const tCommon = await getTranslations("common");
+
+  return (
+    <AuthShell
+      title={t("title")}
+      appName={tCommon("appName")}
+      homeLabel={tCommon("homeLabel")}>
+      <Suspense fallback={null}>
+        <PasswordRecoveryForm mode="forgot" />
+      </Suspense>
+    </AuthShell>
+  );
 }

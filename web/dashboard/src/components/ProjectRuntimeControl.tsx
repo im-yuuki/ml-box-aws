@@ -22,7 +22,7 @@ export default function ProjectRuntimeControl({ projectId }: { projectId: string
     <div className="workspace-runtime">
       <Chip size="sm" variant="soft" color={runtimeChipColor(stateKey)} aria-live="polite">{label}</Chip>
       {running && url ? (
-        <Button size="sm" variant="primary" onPress={() => window.open(url, "_blank", "noopener")}>
+        <Button size="sm" variant="secondary" onPress={() => window.open(url, "_blank", "noopener")}>
           <ExternalLink aria-hidden="true" size={14} />
           {t("open")}
         </Button>
@@ -40,7 +40,7 @@ export default function ProjectRuntimeControl({ projectId }: { projectId: string
       {running ? (
         <Button
           size="sm"
-          variant="secondary"
+          variant="danger-soft"
           isDisabled={busy || loading || !canOperate}
           onPress={() => void act("stop")}
         >

@@ -9,7 +9,12 @@ import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 
 type Plan = { id: string; name: string; amountCents: number; currency: string };
-type Payment = { id: string; planId: string; amountCents: number; currency: string };
+type Payment = {
+  id: string;
+  planId: string;
+  amountCents: number;
+  currency: string;
+};
 type Outcome = "succeeded" | "failed";
 
 /**
@@ -22,7 +27,11 @@ export default function PaymentCheckout() {
   const params = useSearchParams();
   const planId = params.get("plan");
   const paymentId = params.get("payment");
-  const [order, setOrder] = useState<{ title: string; amountCents: number; currency: string } | null>(null);
+  const [order, setOrder] = useState<{
+    title: string;
+    amountCents: number;
+    currency: string;
+  } | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,19 +40,31 @@ export default function PaymentCheckout() {
     const task = window.setTimeout(async () => {
       try {
         if (planId) {
-          const response = await bffFetch("/api/bff/subscriptions/plans", { cache: "no-store" });
+          const response = await bffFetch("/api/bff/subscriptions/plans", {
+            cache: "no-store",
+          });
           if (!response.ok) throw new Error("load");
-          const body = await response.json() as { plans: Plan[] };
+          const body = (await response.json()) as { plans: Plan[] };
           const plan = body.plans.find((item) => item.id === planId);
           if (!plan) throw new Error("load");
-          setOrder({ title: plan.name, amountCents: plan.amountCents, currency: plan.currency });
+          setOrder({
+            title: plan.name,
+            amountCents: plan.amountCents,
+            currency: plan.currency,
+          });
         } else if (paymentId) {
-          const response = await bffFetch("/api/bff/payments", { cache: "no-store" });
+          const response = await bffFetch("/api/bff/payments", {
+            cache: "no-store",
+          });
           if (!response.ok) throw new Error("load");
-          const body = await response.json() as { payments: Payment[] };
+          const body = (await response.json()) as { payments: Payment[] };
           const payment = body.payments.find((item) => item.id === paymentId);
           if (!payment) throw new Error("load");
-          setOrder({ title: payment.planId, amountCents: payment.amountCents, currency: payment.currency });
+          setOrder({
+            title: payment.planId,
+            amountCents: payment.amountCents,
+            currency: payment.currency,
+          });
         } else {
           throw new Error("load");
         }
@@ -65,15 +86,18 @@ export default function PaymentCheckout() {
       };
       const response = planId
         ? await bffFetch("/api/bff/subscriptions/mock/checkout", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ planId, ...body }),
-        })
-        : await bffFetch(`/api/bff/payments/mock/${encodeURIComponent(paymentId ?? "")}/retry`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(body),
-        });
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ planId, ...body }),
+          })
+        : await bffFetch(
+            `/api/bff/payments/mock/${encodeURIComponent(paymentId ?? "")}/retry`,
+            {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify(body),
+            },
+          );
       if (!response.ok) throw new Error("request");
       router.replace(`/account/subscription?result=${outcome}`);
     } catch {
@@ -84,15 +108,22 @@ export default function PaymentCheckout() {
   };
 
   const amount = order
-    ? new Intl.NumberFormat(undefined, { style: "currency", currency: order.currency }).format(order.amountCents / 100)
+    ? new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency: order.currency,
+      }).format(order.amountCents / 100)
     : "";
 
   return (
     <div className="public-frame">
       <header className="public-header">
         <span className="workspace-brand" aria-hidden="true">
-          <span className="workspace-brand-mark"><Boxes size={18} strokeWidth={2} /></span>
-          <span className="workspace-brand-copy"><strong>MLBox</strong></span>
+          <span className="workspace-brand-mark">
+            <Boxes size={18} strokeWidth={2} />
+          </span>
+          <span className="workspace-brand-copy">
+            <strong>MLBox</strong>
+          </span>
         </span>
       </header>
       <main className="public-main">
@@ -102,9 +133,18 @@ export default function PaymentCheckout() {
           </Card.Header>
           <Card.Content className="flex flex-col gap-5">
             {loadError ? (
-              <Alert status="danger"><Alert.Content><Alert.Description>{t("loadFailed")}</Alert.Description></Alert.Content></Alert>
+              <Alert status="danger">
+                <Alert.Content>
+                  <Alert.Description>{t("loadFailed")}</Alert.Description>
+                </Alert.Content>
+              </Alert>
             ) : !order ? (
-              <p className="text-sm" style={{ color: "var(--muted)" }} role="status">{t("loading")}</p>
+              <p
+                className="text-sm"
+                style={{ color: "var(--muted)" }}
+                role="status">
+                {t("loading")}
+              </p>
             ) : (
               <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 text-sm">
                 <dt style={{ color: "var(--muted)" }}>{t("plan")}</dt>
@@ -118,11 +158,20 @@ export default function PaymentCheckout() {
               <>
                 <p className="text-sm font-medium">{t("chooseResult")}</p>
                 <div className="flex flex-col gap-2">
-                  <Button variant="primary" onPress={() => void pay("succeeded")} isPending={busy} isDisabled={busy}>
+                  <Button
+                    variant="primary"
+                    onPress={() => void pay("succeeded")}
+                    isPending={busy}
+                    isDisabled={busy}
+                    fullWidth>
                     <CheckCircle2 aria-hidden="true" size={16} />
                     {t("succeeded")}
                   </Button>
-                  <Button variant="secondary" onPress={() => void pay("failed")} isDisabled={busy}>
+                  <Button
+                    variant="secondary"
+                    onPress={() => void pay("failed")}
+                    isDisabled={busy}
+                    fullWidth>
                     <XCircle aria-hidden="true" size={16} />
                     {t("failed")}
                   </Button>
@@ -130,9 +179,20 @@ export default function PaymentCheckout() {
               </>
             ) : null}
 
-            {error ? <Alert status="danger"><Alert.Content><Alert.Description>{error}</Alert.Description></Alert.Content></Alert> : null}
+            {error ? (
+              <Alert status="danger">
+                <Alert.Content>
+                  <Alert.Description>{error}</Alert.Description>
+                </Alert.Content>
+              </Alert>
+            ) : null}
 
-            <Link href="/account/subscription" className="text-center text-sm" style={{ color: "var(--muted)" }}>{t("back")}</Link>
+            <Link
+              href="/account/subscription"
+              className="text-center text-sm"
+              style={{ color: "var(--muted)" }}>
+              {t("back")}
+            </Link>
           </Card.Content>
         </Card>
       </main>
