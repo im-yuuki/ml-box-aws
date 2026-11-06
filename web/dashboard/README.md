@@ -45,6 +45,23 @@ Authentication requests are sent to the same-origin BFF proxy. The public Cognit
 identifiers are still build-time metadata for the dashboard image; passwords and
 session tokens are handled server-side by the BFF.
 
+### UI-only development mode
+
+When `npm run dev` is used without `BFF_INTERNAL_URL`, the dashboard automatically
+serves an in-memory mock BFF. This makes all dashboard pages available locally
+without Cognito, Postgres, JupyterHub or AWS. The mock includes sample projects,
+teams, runtime states, usage, subscription and payment data; changes last only
+until the dev server restarts.
+
+```bash
+cd web/dashboard
+npm run dev
+# open http://localhost:3000/projects
+```
+
+To use a real BFF locally, set `BFF_INTERNAL_URL` and restart the dev server. A
+configured `BFF_INTERNAL_URL` always takes precedence over the mock.
+
 ## Build the image
 
 ```bash

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { mockBff } from "@/lib/bffMock";
 
 type ProxyOptions = {
   method?: string;
@@ -12,6 +13,11 @@ export async function proxyBff(
 ) {
   const baseUrl = process.env.BFF_INTERNAL_URL?.replace(/\/$/, "");
   if (!baseUrl) {
+    // Keep production fail-closed, while allowing every dashboard screen to be
+    // inspected locally without Cognito, Postgres, JupyterHub or AWS.
+    if (process.env.NODE_ENV === "development" || process.env.DASHBOARD_MOCK_MODE === "true") {
+      return mockBff(request, path, options.method ?? request.method, options.body);
+    }
     return NextResponse.json(
       { error: "BFF_NOT_CONFIGURED", message: "BFF_INTERNAL_URL is not configured." },
       { status: 503 },
