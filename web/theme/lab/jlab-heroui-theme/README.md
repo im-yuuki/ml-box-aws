@@ -1,7 +1,7 @@
 # @mlbox/jlab-heroui-theme
 
 Prebuilt **JupyterLab 4 / Notebook 7 theme extension** implementing the
-[HeroUI](https://heroui.com) v3 design language for **ML Box**.
+[HeroUI](https://heroui.com) v3 design language for **MLBox**.
 CSS-only — it registers two ThemeManager themes and never touches Lumino DOM.
 
 | Theme (Settings → Theme) | Plugin ID | isLight |

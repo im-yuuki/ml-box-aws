@@ -1,7 +1,7 @@
-# ML Box — GPU single-user notebook image (JupyterHub on EKS).
+# MLBox — GPU single-user notebook image (JupyterHub on EKS).
 #
 # Base: quay.io/jupyter/pytorch-notebook:cuda12-latest (CUDA 12 + PyTorch,
-# non-root user `jovyan`). Adds the ML Box JupyterLab theme
+# non-root user `jovyan`). Adds the MLBox JupyterLab theme
 # (@mlbox/jlab-heroui-theme) as a prebuilt labextension, installed offline from
 # the wheel vendored in this repository.
 #
@@ -18,7 +18,7 @@ ARG BASE_IMAGE=quay.io/jupyter/pytorch-notebook:cuda12-latest
 FROM ${BASE_IMAGE}
 
 LABEL org.opencontainers.image.title="mlbox-jhub-gpu" \
-      org.opencontainers.image.description="GPU single-user notebook image for the ML Box JupyterHub on EKS, with the HeroUI JupyterLab theme" \
+      org.opencontainers.image.description="GPU single-user notebook image for the MLBox JupyterHub on EKS, with the HeroUI JupyterLab theme" \
       org.opencontainers.image.source="https://github.com/mlbox/ml-box-aws" \
       org.opencontainers.image.licenses="MIT"
 

@@ -4,7 +4,7 @@ import PaymentCheckout from "./PaymentCheckout";
 
 export async function generateMetadata() {
   const t = await getTranslations("checkout");
-  return { title: `${t("title")} · ML Box` };
+  return { title: `${t("title")} · MLBox` };
 }
 
 export default function CheckoutPage() {

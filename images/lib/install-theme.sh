@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ML Box — install the prebuilt HeroUI JupyterLab theme extension into a
+# MLBox — install the prebuilt HeroUI JupyterLab theme extension into a
 # single-user notebook image (shared by images/cpu and images/gpu).
 #
 # Called from the Dockerfiles, never on a developer machine:
@@ -81,7 +81,7 @@ else
   pip install --no-cache-dir "jupyterhub==${JUPYTERHUB_VERSION}"
 fi
 
-# Make the ML Box themes the fleet defaults. Without this override JupyterLab
+# Make the MLBox themes the fleet defaults. Without this override JupyterLab
 # starts with its stock theme even though the HeroUI themes are installed.
 JUPYTERLAB_APP_DIR="${JUPYTERLAB_DIR:-$(jupyter lab path | sed -n 's/^Application directory:[[:space:]]*//p')}"
 if [[ -z "${JUPYTERLAB_APP_DIR}" ]]; then

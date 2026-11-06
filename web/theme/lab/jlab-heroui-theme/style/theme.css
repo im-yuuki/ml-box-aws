@@ -1,5 +1,5 @@
 /* ============================================================================
- * ML Box — HeroUI theme, build entry stylesheet for @jupyterlab/builder.
+ * MLBox — HeroUI theme, build entry stylesheet for @jupyterlab/builder.
  *
  * package.json → "jupyterlab": { "themePath": "style/theme.css" }
  * The builder extracts this file (with its @imports inlined by css-loader)

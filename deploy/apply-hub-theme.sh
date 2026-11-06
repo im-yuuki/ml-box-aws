@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy the ML Box theme into the running JupyterHub.
+# Deploy the MLBox theme into the running JupyterHub.
 #
 # Creates/updates the two ConfigMaps the hub Deployment mounts (see
 # terraform/stacks/03-hub-app/values/hub-values.yaml.tpl -> hub.extraVolumes):

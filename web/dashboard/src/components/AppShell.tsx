@@ -21,7 +21,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <Link href="/projects" className="workspace-brand" aria-label={tWorkspace("homeLink")}>
           <span className="workspace-brand-mark" aria-hidden="true"><Boxes size={18} strokeWidth={2} /></span>
           <span className="workspace-brand-copy">
-            <strong>ML Box</strong>
+            <strong>MLBox</strong>
           </span>
         </Link>
         <SpaceSwitcher />

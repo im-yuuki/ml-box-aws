@@ -1,10 +1,10 @@
 {
   "common": {
-    "appName": "ML Box",
+    "appName": "MLBox",
     "start": "Start",
     "stop": "Stop",
     "comingSoon": "Coming soon",
-    "homeLabel": "Go to ML Box home",
+    "homeLabel": "Go to MLBox home",
     "notFoundTitle": "Page not found",
     "notFoundBody": "The page you are looking for does not exist or has moved.",
     "backHome": "Back to home"
@@ -39,7 +39,7 @@
   "workspace": {
     "personalSpace": "Personal Space",
     "spaceType": "Personal workspace",
-    "homeLink": "Go to ML Box home",
+    "homeLink": "Go to MLBox home",
     "menu": "Open workspace menu",
     "signOut": "Sign out",
     "projectsTitle": "Projects",
@@ -190,7 +190,7 @@
   },
   "account": {
     "title": "Account",
-    "subtitle": "Manage how you sign in to ML Box.",
+    "subtitle": "Manage how you sign in to MLBox.",
     "emailHeading": "Email",
     "loading": "Loading account…",
     "loadFailed": "Could not load your account details.",
@@ -334,7 +334,7 @@
   },
   "invitations": {
     "title": "Invite members",
-    "body": "Invitations are recorded in ML Box. Share the space name with the person; they will see the invitation after signing in with the same email.",
+    "body": "Invitations are recorded in MLBox. Share the space name with the person; they will see the invitation after signing in with the same email.",
     "email": "Email",
     "emailPlaceholder": "name@example.com",
     "emailInvalid": "Enter a valid email address.",

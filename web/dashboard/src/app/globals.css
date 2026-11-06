@@ -1,9 +1,9 @@
 /* ============================================================================
- * ML Box — Dashboard global stylesheet.
+ * MLBox — Dashboard global stylesheet.
  *
  * Tailwind v4 + HeroUI v3 stylesheets come first (order matters per HeroUI).
  * Then we layer the repo's design tokens (web/theme/tokens/heroui-tokens.css)
- * so every HeroUI component picks up ML Box's brand colours/radius/motion.
+ * so every HeroUI component picks up MLBox's brand colours/radius/motion.
  * ==========================================================================*/
 
 @import "tailwindcss";

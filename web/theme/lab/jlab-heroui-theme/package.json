@@ -1,10 +1,10 @@
 {
   "name": "@mlbox/jlab-heroui-theme",
   "version": "0.1.0",
-  "description": "ML Box — HeroUI design language theme for JupyterLab 4 / Notebook 7 (light + dark, CSS only)",
+  "description": "MLBox — HeroUI design language theme for JupyterLab 4 / Notebook 7 (light + dark, CSS only)",
   "homepage": "https://github.com/mlbox/ml-box-aws/tree/main/web/theme/lab/jlab-heroui-theme",
   "license": "MIT",
-  "author": "ML Box Team",
+  "author": "MLBox Team",
   "keywords": [
     "jupyter",
     "jupyterlab",

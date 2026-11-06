@@ -1,14 +1,14 @@
-{# ML Box — page.html theme override
+{# MLBox — page.html theme override
    Extends the UPSTREAM page.html ("templates/page.html" resolves to the stock
    template through JupyterHub's PrefixLoader — extending the bare
    "page.html" here would recurse into this very file), and only injects
    brand chrome: the HeroUI stylesheet + vendored Motion script in <head>,
-   the ML Box logo and tagline. All other blocks stay upstream so Z2JH
+   the MLBox logo and tagline. All other blocks stay upstream so Z2JH
    upgrades stay safe. Child pages (login/home/spawn_pending) extend bare
    "page.html", which resolves to this themed version. #}
 {% extends "templates/page.html" %}
 
-{% block title %}ML Box{% endblock title %}
+{% block title %}MLBox{% endblock title %}
 
 {# heroui.css is served from the extra static dir at /hub/static/heroui/ #}
 {% block stylesheet %}
@@ -91,16 +91,16 @@
   <span id="jupyterhub-logo" class="navbar-brand">
     <a href="{{ logo_url or base_url }}">
       <img src="{{ base_url }}static/heroui/logo.svg"
-           alt="ML Box"
+           alt="MLBox"
            class="mlb-logo"
-           title="ML Box — GPU notebooks for teams" />
+           title="MLBox — GPU notebooks for teams" />
     </a>
   </span>
 {% endblock logo %}
 
 {% block footer %}
   <div class="container text-center mlb-muted mb-4 mt-5">
-    <small>ML Box — GPU notebooks for teams</small>
+    <small>MLBox — GPU notebooks for teams</small>
   </div>
 {% endblock footer %}
 

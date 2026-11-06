@@ -1,10 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 64" role="img" aria-label="ML Box — GPU notebooks for teams">
-  <!-- ML Box wordmark: the rounded-square mark plus a vector wordmark -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 64" role="img" aria-label="MLBox — GPU notebooks for teams">
+  <!-- MLBox wordmark: the rounded-square mark plus a vector wordmark -->
   <rect x="2" y="2" width="60" height="60" rx="12" ry="12" fill="#c95d33"/>
   <path d="M15 43V21h5.4l3.8 11.6L28 21h5.4v22h-4.6V29.8l-3 10h-4.6l-3-10V43Z"
         fill="#ffffff"/>
   <path d="M38 43V21h4.8v17.4H52V43Z" fill="#ffffff" opacity="0.94"/>
-  <!-- wordmark "ML Box" drawn as paths so no font is required -->
+  <!-- wordmark "MLBox" drawn as paths so no font is required -->
   <g fill="currentColor">
     <!-- M -->
     <path d="M78 44V20h6l5 12.2L94.1 20h6.1v24h-5.2V28.8L90.6 41h-3.4l-4.4-12.2V44Z"/>

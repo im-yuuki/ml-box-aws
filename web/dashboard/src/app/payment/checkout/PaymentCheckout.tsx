@@ -92,7 +92,7 @@ export default function PaymentCheckout() {
       <header className="public-header">
         <span className="workspace-brand" aria-hidden="true">
           <span className="workspace-brand-mark"><Boxes size={18} strokeWidth={2} /></span>
-          <span className="workspace-brand-copy"><strong>ML Box</strong></span>
+          <span className="workspace-brand-copy"><strong>MLBox</strong></span>
         </span>
       </header>
       <main className="public-main">

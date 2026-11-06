@@ -41,10 +41,10 @@ curl -sS "$BASE/messages/<MESSAGE_ID>" \
 
 Use a polling interval of at least 2 seconds when waiting for an email. Keep the token and password in environment variables or a local ignored file; never commit them or paste them into logs.
 
-## Manual ML Box test flow
+## Manual MLBox test flow
 
 1. Fetch a Mail.tm domain and create a unique inbox.
-2. Register the inbox on the ML Box dev/demo site.
+2. Register the inbox on the MLBox dev/demo site.
 3. Poll `GET /messages` until `Your verification code` arrives.
 4. Read that message and enter the code on `/verify`.
 5. Sign in and use `/account` to exercise mock billing.

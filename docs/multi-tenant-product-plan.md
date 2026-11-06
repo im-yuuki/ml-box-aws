@@ -1,4 +1,4 @@
-# ML Box WebUI — product và multi-tenant implementation plan
+# MLBox WebUI — product và multi-tenant implementation plan
 
 > **Trạng thái (2026-11-04):** kế hoạch này là target design. Phần đã triển khai: phase 1–5 ở mức MVP (Space/Team/Project, lời mời không gửi email, sandbox theo Project, artifact qua presigned URL, usage từ sự kiện BFF). Còn thiếu: E2E trình duyệt, logo/brand pack, quota enforcement, Turnstile test đầy đủ, phase 9. Chi tiết trong [`TODO.md`](../TODO.md).
 
@@ -45,7 +45,7 @@ Space là ranh giới của quota và dữ liệu; Project luôn thuộc một T
 
 ### Logo pack cần bàn giao
 
-- Wordmark ngang ML Box, symbol độc lập, phiên bản compact cho navbar, favicon/app icon.
+- Wordmark ngang MLBox, symbol độc lập, phiên bản compact cho navbar, favicon/app icon.
 - Bản màu, đơn sắc và đảo màu; SVG nguồn và export raster cần thiết.
 - Quy định clear space, kích thước nhỏ nhất, nền được phép và cách dùng sai cần tránh.
 - Logo trong ứng dụng ưu tiên dễ đọc ở kích thước nhỏ; không dùng tagline để thay cho tên sản phẩm.

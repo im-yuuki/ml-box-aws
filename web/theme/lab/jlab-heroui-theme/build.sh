@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ML Box — build script for @mlbox/jlab-heroui-theme (Linux/macOS, e.g. the
+# MLBox — build script for @mlbox/jlab-heroui-theme (Linux/macOS, e.g. the
 # cpu/gpu image build). Mirrors build.ps1:
 #   npm install → ensure jupyterlab>=4 → npm run build:labextension (needs the
 #   pip jupyterlab staging dir as webpack --core-path)

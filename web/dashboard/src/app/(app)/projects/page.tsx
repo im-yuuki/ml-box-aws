@@ -3,7 +3,7 @@ import ProjectBoard from "@/components/ProjectBoard";
 
 export async function generateMetadata() {
   const t = await getTranslations("workspace");
-  return { title: `${t("projectsTitle")} · ML Box` };
+  return { title: `${t("projectsTitle")} · MLBox` };
 }
 
 export default function ProjectsPage() {

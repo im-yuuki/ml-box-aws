@@ -3,7 +3,7 @@ import PasswordRecoveryForm from "./PasswordRecoveryForm";
 
 export async function generateMetadata() {
   const t = await getTranslations("forgotPassword");
-  return { title: `${t("title")} · ML Box` };
+  return { title: `${t("title")} · MLBox` };
 }
 
 export default async function ForgotPasswordPage() {

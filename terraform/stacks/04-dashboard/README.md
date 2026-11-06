@@ -1,6 +1,6 @@
 # 04-dashboard — dashboard application stack
 
-Stack này triển khai dashboard ML Box tại apex domain và BFF nội bộ để xử lý
+Stack này triển khai dashboard MLBox tại apex domain và BFF nội bộ để xử lý
 Cognito session và JupyterHub API. Đây là stack ứng dụng, không tạo VPC, EKS,
 RDS, Cognito hoặc ALB mới.
 

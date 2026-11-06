@@ -5,7 +5,7 @@ import LoginForm from "./LoginForm";
 
 export async function generateMetadata() {
   const t = await getTranslations("login");
-  return { title: `${t("title")} · ML Box` };
+  return { title: `${t("title")} · MLBox` };
 }
 
 export default async function LoginPage() {

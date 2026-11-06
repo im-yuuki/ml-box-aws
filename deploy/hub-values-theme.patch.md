@@ -1,6 +1,6 @@
-# Deploy — ML Box web theme · JupyterHub (Z2JH 4.4.2) values patch
+# Deploy — MLBox web theme · JupyterHub (Z2JH 4.4.2) values patch
 
-> Tài liệu **hướng dẫn áp dụng theme** ML Box vào stack `terraform/stacks/03-hub-app/`
+> Tài liệu **hướng dẫn áp dụng theme** MLBox vào stack `terraform/stacks/03-hub-app/`
 > (helm_release `jupyterhub`, chart Z2JH 4.4.2, JupyterHub app **5.5.2** — xác nhận qua
 > `Chart.yaml` appVersion của tag `4.4.2`).
 >
@@ -53,7 +53,7 @@ Vì extraFiles 4.4.2 = 1-file-per-key + content inline (không mount dir, không
 hub:
   # ... (giữ nguyên db/serviceAccount/config/extraConfig.10-spawn-hook hiện có) ...
   extraConfig:
-    # --- ML Box theme (Branding) ---
+    # --- MLBox theme (Branding) ---
     theming: |
       # Overrides có ưu tiên cao hơn template mặc định (ChoiceLoader: custom dir đứng trước).
       c.JupyterHub.template_paths = ["/etc/jupyterhub/custom/templates"]
@@ -65,7 +65,7 @@ hub:
       # built-in; 'hub_title'/'hub_subtitle'/'page_logo' là biến tùy chọn cho các
       # template override của web/theme/hub/templates (chúng tự đọc var này trong Jinja).
       c.JupyterHub.template_vars = {
-          "hub_title": "ML Box",
+          "hub_title": "MLBox",
           "hub_subtitle": "GPU notebooks for teams",
           "page_logo": "hub/static/heroui/logo.svg",  # template dùng: {{ base_url }}{{ page_logo }}
           "announcement": "",  # để trống; chỉ hiện khi template render {{ announcement }}
@@ -291,8 +291,8 @@ kubectl -n $ns logs deploy/hub -c hub --tail=100 | grep -iE "error|traitlet"
 | # | Kiểm | URL / thao tác | Kỳ vọng |
 |---|---|---|---|
 | 1 | Login page render | `/hub/login` | Template override chỉ thay block (heading/button), CTA "Sign in with AWS Cognito" hoạt động |
-| 2 | CSS + logo nạp | devtools Network | `200` cho `/hub/static/heroui/heroui.css`, `/hub/static/heroui/motion.js`; `/hub/logo` trả SVG ML Box |
-| 3 | Home | `/hub/home` | Title/tagline "ML Box / GPU notebooks for teams" do template override |
+| 2 | CSS + logo nạp | devtools Network | `200` cho `/hub/static/heroui/heroui.css`, `/hub/static/heroui/motion.js`; `/hub/logo` trả SVG MLBox |
+| 3 | Home | `/hub/home` | Title/tagline "MLBox / GPU notebooks for teams" do template override |
 | 4 | Spawn | bấm "Start my server" | `spawn_pending.html`: progress + shimmer Motion; và trang vẫn dùng được khi JS fail (progressive enhancement) |
 | 5 | Light/Dark hub | bật dark mode (nút `dark-theme-toggle` sẵn có) + toggle `prefers-color-scheme` trong devtools | CSS override đúng nhánh `[data-theme="dark"]`/media query theo đặc tả web/theme |
 | 6 | Reduced motion | OS "reduce motion" ON | Không còn animation entrance/shimmer |

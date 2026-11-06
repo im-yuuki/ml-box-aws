@@ -1,4 +1,4 @@
-# Agent context: ML Box UI/theme direction
+# Agent context: MLBox UI/theme direction
 
 Summary of the UI/theme direction (2026-10-20). It is a concise brief, not a
 replacement for the current implementation contract. Read
@@ -8,13 +8,13 @@ note is abbreviated.
 
 ## User intent
 
-- The UI is the user-experience layer of the ML Box GPU notebook product, not
+- The UI is the user-experience layer of the MLBox GPU notebook product, not
   merely cosmetic JupyterHub styling.
 - The long-term product may add a launcher, account management, quota and
   subscription management, and multi-user collaboration on a notebook.
 - The first requested increment is the theme for JupyterHub and the notebook
   workspace, using HeroUI's native design language and the shared HeroUI tokens.
-- Product brand: **ML Box**; tagline: “GPU notebooks for teams”.
+- Product brand: **MLBox**; tagline: “GPU notebooks for teams”.
 
 ## Current implementation boundaries
 

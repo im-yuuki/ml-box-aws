@@ -3,7 +3,7 @@ import UsagePanel from "@/components/UsagePanel";
 
 export async function generateMetadata() {
   const t = await getTranslations("account");
-  return { title: `${t("tabs.quota")} · ML Box` };
+  return { title: `${t("tabs.quota")} · MLBox` };
 }
 
 /** Quota: limits, current footprint and recorded usage. */

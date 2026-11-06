@@ -3,7 +3,7 @@ import TeamBoard from "@/components/TeamBoard";
 
 export async function generateMetadata() {
   const t = await getTranslations("teams");
-  return { title: `${t("title")} · ML Box` };
+  return { title: `${t("title")} · MLBox` };
 }
 
 export default function TeamsPage() {

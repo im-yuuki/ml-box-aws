@@ -118,7 +118,7 @@ hub:
 
       c.JupyterHub.authenticator_class = MlBoxBffAuthenticator
 
-    # --- ML Box theme (Branding) — see deploy/hub-values-theme.patch.md ---
+    # --- MLBox theme (Branding) — see deploy/hub-values-theme.patch.md ---
     # Templates override chỉ thay block; ChoiceLoader custom dir đứng trước,
     # JupyterHub tự nối default dir vào cuối nên {% extends "page.html" %}
     # vẫn resolve đúng template gốc.
@@ -132,13 +132,13 @@ hub:
       # 'hub_title'/'hub_subtitle'/'page_logo' là biến cho template override
       # của web/theme/hub/templates (chúng tự đọc trong Jinja).
       c.JupyterHub.template_vars = {
-          "hub_title": "ML Box",
+          "hub_title": "MLBox",
           "hub_subtitle": "GPU notebooks for teams",
           "page_logo": "hub/static/heroui/logo.svg",
           "announcement": "",
       }
 
-  # --- ML Box theme mounts (ConfigMap tạo out-of-band, xem deploy/hub-values-theme.patch.md §3) ---
+  # --- MLBox theme mounts (ConfigMap tạo out-of-band, xem deploy/hub-values-theme.patch.md §3) ---
   extraVolumes:
     - name: hub-theme-templates
       configMap:

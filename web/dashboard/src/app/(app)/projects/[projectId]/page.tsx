@@ -3,7 +3,7 @@ import ProjectDetail from "@/components/ProjectDetail";
 
 export async function generateMetadata() {
   const t = await getTranslations("workspace");
-  return { title: `${t("projectOverview")} · ML Box` };
+  return { title: `${t("projectOverview")} · MLBox` };
 }
 
 export default async function ProjectDetailPage({ params }: PageProps<"/projects/[projectId]">) {

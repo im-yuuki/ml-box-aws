@@ -4,7 +4,7 @@ import VerifyForm from "./VerifyForm";
 
 export async function generateMetadata() {
   const t = await getTranslations("verify");
-  return { title: `${t("title")} · ML Box` };
+  return { title: `${t("title")} · MLBox` };
 }
 
 export default async function VerifyPage() {

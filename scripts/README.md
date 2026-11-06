@@ -8,7 +8,7 @@ The JupyterHub single-user pods run two images:
 | GPU | `quay.io/jupyter/pytorch-notebook:cuda12-latest` | `jhub-gpu-sandbox/gpu` |
 
 Both are built from `images/cpu/Dockerfile` and `images/gpu/Dockerfile` and both
-carry the ML Box JupyterLab theme (`@mlbox/jlab-heroui-theme`) as a prebuilt
+carry the MLBox JupyterLab theme (`@mlbox/jlab-heroui-theme`) as a prebuilt
 labextension, installed **offline** from the wheel vendored in the repository
 (`web/theme/lab/jlab-heroui-theme/dist/`). No secrets are baked into the images
 and the runtime user stays non-root (`jovyan`, uid 1000).

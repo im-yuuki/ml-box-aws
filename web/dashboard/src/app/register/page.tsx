@@ -5,7 +5,7 @@ import RegisterForm from "./RegisterForm";
 
 export async function generateMetadata() {
   const t = await getTranslations("register");
-  return { title: `${t("title")} · ML Box` };
+  return { title: `${t("title")} · MLBox` };
 }
 
 export default async function RegisterPage() {

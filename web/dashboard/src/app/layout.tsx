@@ -9,8 +9,8 @@ const geistSans = Geist({ subsets: ["latin", "vietnamese"], variable: "--font-ge
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "ML Box — Dashboard",
-  description: "ML Box dashboard: sandboxes, usage, account",
+  title: "MLBox — Dashboard",
+  description: "MLBox dashboard: sandboxes, usage, account",
 };
 
 /** Apply [data-theme] before paint so HeroUI + the token file line up. */

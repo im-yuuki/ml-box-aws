@@ -42,7 +42,7 @@ terraform/
     storage/ hub-db/ auth/ ecr/ ingress-dns/
 images/              # Dockerfile CPU/GPU + script build/push lên ECR
 scripts/             # build-images.sh (đóng gói theme JupyterLab vào image)
-web/theme/           # nguồn theme ML Box (Hub templates + Lab extension)
+web/theme/           # nguồn theme MLBox (Hub templates + Lab extension)
 deploy/              # apply-hub-theme.sh, DNS-CLOUDFLARE.md
 docs/
   regions.md          # bảng CIDR/AZ 3 region SEA + quy trình apply từng region

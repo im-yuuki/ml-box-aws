@@ -1,4 +1,4 @@
-# ML Box — Dashboard
+# MLBox — Dashboard
 
 Next.js + HeroUI v3 web app that replaces the JupyterHub hub pages.
 The dashboard is intended for `https://mlbox.june8th.me`; the hub remains

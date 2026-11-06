@@ -1,5 +1,5 @@
 /* ============================================================================
- * ML Box — HeroUI theme for JupyterLab 4 / Notebook 7
+ * MLBox — HeroUI theme for JupyterLab 4 / Notebook 7
  *
  * Registers TWO theme plugins:
  *   - "@mlbox/jlab-heroui-theme:heroui-light" → "HeroUI Light" (isLight: true)
@@ -47,7 +47,7 @@ const THEME_CSS = '@mlbox/jlab-heroui-theme/index.css';
  */
 const herouiLight = {
   id: '@mlbox/jlab-heroui-theme:heroui-light',
-  description: 'ML Box HeroUI light theme.',
+  description: 'MLBox HeroUI light theme.',
   requires: [IThemeManager],
   autoStart: true,
   activate: (_app, manager) => {
@@ -67,7 +67,7 @@ const herouiLight = {
  */
 const herouiDark = {
   id: '@mlbox/jlab-heroui-theme:heroui-dark',
-  description: 'ML Box HeroUI dark theme.',
+  description: 'MLBox HeroUI dark theme.',
   requires: [IThemeManager],
   autoStart: true,
   activate: (_app, manager) => {

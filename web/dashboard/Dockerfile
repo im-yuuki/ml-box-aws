@@ -1,4 +1,4 @@
-# ML Box — Dashboard (Next.js) image.
+# MLBox — Dashboard (Next.js) image.
 #
 # Multi-stage: build with `npm run build`, then copy the standalone output
 # into a slim runtime image.  The Next.js image is fronted by the same ALB

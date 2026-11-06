@@ -1,4 +1,4 @@
-# ML Box Dashboard — kiến trúc hiện tại (2026-11-04)
+# MLBox Dashboard — kiến trúc hiện tại (2026-11-04)
 
 Dashboard hiện là web app cho đăng nhập/đăng ký, tài khoản, sandbox và usage/quota.
 JupyterHub lùi về vai trò **API-only** (spawn/stop/status qua REST API).

@@ -1,4 +1,4 @@
-# ML Box — JupyterHub hub-pages theme
+# MLBox — JupyterHub hub-pages theme
 
 HeroUI-styled overrides for the JupyterHub 5 hub UI (Z2JH chart 4.4.2,
 JupyterHub 5.x, Bootstrap 5.3). All colors/radius/motion come from

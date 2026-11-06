@@ -1,10 +1,10 @@
 {
   "common": {
-    "appName": "ML Box",
+    "appName": "MLBox",
     "start": "Khởi động",
     "stop": "Dừng",
     "comingSoon": "Sắp có",
-    "homeLabel": "Về trang chủ ML Box",
+    "homeLabel": "Về trang chủ MLBox",
     "notFoundTitle": "Không tìm thấy trang",
     "notFoundBody": "Trang bạn tìm không tồn tại hoặc đã được chuyển đi.",
     "backHome": "Về trang chính"
@@ -39,7 +39,7 @@
   "workspace": {
     "personalSpace": "Cá nhân",
     "spaceType": "Không gian cá nhân",
-    "homeLink": "Về trang chủ ML Box",
+    "homeLink": "Về trang chủ MLBox",
     "menu": "Mở menu không gian làm việc",
     "signOut": "Đăng xuất",
     "projectsTitle": "Dự án",
@@ -190,7 +190,7 @@
   },
   "account": {
     "title": "Tài khoản",
-    "subtitle": "Quản lý cách bạn đăng nhập vào ML Box.",
+    "subtitle": "Quản lý cách bạn đăng nhập vào MLBox.",
     "emailHeading": "Email",
     "loading": "Đang tải thông tin tài khoản…",
     "loadFailed": "Không thể tải thông tin tài khoản.",
@@ -334,7 +334,7 @@
   },
   "invitations": {
     "title": "Mời thành viên",
-    "body": "Lời mời được lưu trong ML Box. Hãy báo người được mời tên không gian; họ sẽ thấy lời mời sau khi đăng nhập bằng đúng email.",
+    "body": "Lời mời được lưu trong MLBox. Hãy báo người được mời tên không gian; họ sẽ thấy lời mời sau khi đăng nhập bằng đúng email.",
     "email": "Email",
     "emailPlaceholder": "ten@example.com",
     "emailInvalid": "Nhập địa chỉ email hợp lệ.",

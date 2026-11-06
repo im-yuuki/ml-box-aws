@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# ML Box — build (and optionally push) the CPU / GPU single-user notebook
-# images that carry the ML Box JupyterLab theme (@mlbox/jlab-heroui-theme).
+# MLBox — build (and optionally push) the CPU / GPU single-user notebook
+# images that carry the MLBox JupyterLab theme (@mlbox/jlab-heroui-theme).
 #
 # Usage:
 #   ./scripts/build-images.sh                     # build both, load into local Docker

@@ -1,4 +1,4 @@
-# ML Box — build script for @mlbox/jlab-heroui-theme (Windows)
+# MLBox — build script for @mlbox/jlab-heroui-theme (Windows)
 #
 # 1. npm install            (extension JS/CSS deps; needs node + npm)
 # 2. ensure jupyterlab>=4   (pip; scripts/build.js probes its staging dir for

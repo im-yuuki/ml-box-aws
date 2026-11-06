@@ -90,7 +90,7 @@ ECR through the node role, so the image must be pushed before the first spawn.
 ## Follow-up steps after `terraform apply`
 
 ```bash
-# 1. ML Box theme (two ConfigMaps the hub Deployment mounts)
+# 1. MLBox theme (two ConfigMaps the hub Deployment mounts)
 ./deploy/apply-hub-theme.sh
 
 # 2. Verify
@@ -102,7 +102,7 @@ kubectl logs -n hub deploy/hub -c hub --tail=50
 # 3. Browser
 #    https://notebook.<domain>/hub/login   -> Cognito hosted UI
 #    https://notebook.<domain>/hub/home    -> JupyterHub
-#    https://notebook.<domain>/hub/logo    -> ML Box logo
+#    https://notebook.<domain>/hub/logo    -> MLBox logo
 ```
 
 The `target_service_name` / `target_service_port` variables feed the

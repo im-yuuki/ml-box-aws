@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="ML Box">
-  <!-- ML Box mark, light variant (for dark surfaces): white rounded square,
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="MLBox">
+  <!-- MLBox mark, light variant (for dark surfaces): white rounded square,
        ML monogram in the HeroUI accent. -->
   <!-- accent token oklch(0.6204 0.195 253.83) ≈ #c95d33 in sRGB -->
   <rect x="2" y="2" width="60" height="60" rx="12" ry="12" fill="#ffffff"/>

@@ -1,4 +1,4 @@
-# ML Box — Deployment Runbook
+# MLBox — Deployment Runbook
 
 > Cập nhật 2026-11-04. Trạng thái chi tiết và backlog: [`TODO.md`](../TODO.md).
 
@@ -14,7 +14,7 @@ Tài liệu này là quy trình triển khai hiện tại cho một region. Quy 
 | `02-platform` | ✅ Đã apply | RDS, Cognito, ECR, ALB, Route53 aliases, Load Balancer Controller |
 | DNS / ACM | ✅ Hoàn tất | Cloudflare delegate `mlbox` sang Route53; cả hai certificate đều `ISSUED` |
 | `03-hub-app` | ✅ Đã apply | JupyterHub tại `notebook.mlbox.june8th.me`, có BFF service token |
-| Hub theme | ✅ Đã apply | ConfigMap theme ML Box và rollout Hub |
+| Hub theme | ✅ Đã apply | ConfigMap theme MLBox và rollout Hub |
 | `04-dashboard` | ✅ Đã apply | Dashboard + BFF, apex listener rule và healthy target |
 | `99-unverified-gpu` | ✅ Đã apply | Device plugin (time-slicing `nvidia.com/gpu`) và dcgm-exporter; GPU quota On-Demand G/VT = 8 vCPU |
 | GPU profile trong hub | ⚠️ Đã bật | Đã kiểm chứng trên g4dn (T4); shared L4 (g6) phụ thuộc capacity AWS |

@@ -1,4 +1,4 @@
-# ML Box — HeroUI theme for JupyterLab 4 / Notebook 7 (prebuilt extension)
+# MLBox — HeroUI theme for JupyterLab 4 / Notebook 7 (prebuilt extension)
 #
 # Prebuilt ("federated") labextension packaged as a pip wheel:
 #   - build-system requires jupyterlab>=4 (it provides agnostic deps detection;
@@ -20,11 +20,11 @@ build-backend = "hatchling.build"
 [project]
 name = "jlab-heroui-theme"
 version = "0.1.0"
-description = "ML Box — HeroUI design language theme for JupyterLab 4 / Notebook 7 (prebuilt, light + dark)"
+description = "MLBox — HeroUI design language theme for JupyterLab 4 / Notebook 7 (prebuilt, light + dark)"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.9"
-authors = [{ name = "ML Box Team" }]
+authors = [{ name = "MLBox Team" }]
 keywords = ["jupyter", "jupyterlab", "jupyterlab-extension", "notebook", "theme"]
 classifiers = [
   "Framework :: Jupyter",

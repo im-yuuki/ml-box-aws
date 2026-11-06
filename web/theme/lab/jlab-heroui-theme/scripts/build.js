@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* ML Box — build the prebuilt labextension bundle for @mlbox/jlab-heroui-theme.
+/* MLBox — build the prebuilt labextension bundle for @mlbox/jlab-heroui-theme.
  *
  * Equivalent to `jupyter labextension build .`:
  *   1. locates a JupyterLab "core" path (either $JLAB_CORE_PATH, or the

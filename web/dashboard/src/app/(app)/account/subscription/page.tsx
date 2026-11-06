@@ -3,7 +3,7 @@ import BillingPanel from "../BillingPanel";
 
 export async function generateMetadata() {
   const t = await getTranslations("account");
-  return { title: `${t("tabs.subscription")} · ML Box` };
+  return { title: `${t("tabs.subscription")} · MLBox` };
 }
 
 /** Subscription: current plan, plan selection and payment history. */

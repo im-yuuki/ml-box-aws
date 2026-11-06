@@ -1,6 +1,6 @@
-# ML Box — Operations Runbook
+# MLBox — Operations Runbook
 
-Tài liệu này mô tả các thao tác vận hành thường ngày cho ML Box trên AWS EKS. Quy trình hiện tại
+Tài liệu này mô tả các thao tác vận hành thường ngày cho MLBox trên AWS EKS. Quy trình hiện tại
 mặc định dùng account `451058046864`, region `ap-southeast-2` và cluster
 `jhub-gpu-sandbox-dev-apse2`.
 

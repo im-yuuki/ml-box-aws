@@ -1,4 +1,4 @@
-# ML Box Web Theme — HeroUI design layer
+# MLBox Web Theme — HeroUI design layer
 
 Đây là tầng 1 (Branding) của lộ trình UX: theme cho **JupyterHub hub pages** và
 **JupyterLab workspace**, dùng design tokens của HeroUI v3.
@@ -38,7 +38,7 @@ deploy/
 - Chi tiết đầy đủ (Patch A trong `deploy/hub-values-theme.patch.md`).
 
 ### Branding
-- Tên sản phẩm: **ML Box**. Tagline gợi ý: "GPU notebooks for teams".
+- Tên sản phẩm: **MLBox**. Tagline gợi ý: "GPU notebooks for teams".
 - Accent duy nhất: `var(--accent)` (xanh HeroUI). Không thêm màu thương hiệu mới.
 - Typography: hệ font stack của HeroUI (Inter/ui-sans fallback system-ui).
 

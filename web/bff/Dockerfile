@@ -1,4 +1,4 @@
-# ML Box BFF — Cognito session and JupyterHub API proxy.
+# MLBox BFF — Cognito session and JupyterHub API proxy.
 # Build context: repository root.
 
 ARG NODE_IMAGE=node:22-bookworm-slim

@@ -1,7 +1,7 @@
-# ML Box — CPU single-user notebook image (JupyterHub on EKS).
+# MLBox — CPU single-user notebook image (JupyterHub on EKS).
 #
 # Base: jupyter/base-notebook:latest (JupyterLab 4.x, non-root user `jovyan`).
-# Adds the ML Box JupyterLab theme (@mlbox/jlab-heroui-theme) as a prebuilt
+# Adds the MLBox JupyterLab theme (@mlbox/jlab-heroui-theme) as a prebuilt
 # labextension, installed offline from the wheel vendored in this repository.
 #
 # Build context = repository root (the wheel lives under web/theme/...):
@@ -17,7 +17,7 @@ ARG BASE_IMAGE=jupyter/base-notebook:latest
 FROM ${BASE_IMAGE}
 
 LABEL org.opencontainers.image.title="mlbox-jhub-cpu" \
-      org.opencontainers.image.description="CPU single-user notebook image for the ML Box JupyterHub on EKS, with the HeroUI JupyterLab theme" \
+      org.opencontainers.image.description="CPU single-user notebook image for the MLBox JupyterHub on EKS, with the HeroUI JupyterLab theme" \
       org.opencontainers.image.source="https://github.com/mlbox/ml-box-aws" \
       org.opencontainers.image.licenses="MIT"
 

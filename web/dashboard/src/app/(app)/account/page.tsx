@@ -3,7 +3,7 @@ import AccountPanel from "./AccountPanel";
 
 export async function generateMetadata() {
   const t = await getTranslations("account");
-  return { title: `${t("title")} · ML Box` };
+  return { title: `${t("title")} · MLBox` };
 }
 
 /** Profile and sign-in security: email and password. */
