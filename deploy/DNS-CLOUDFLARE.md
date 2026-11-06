@@ -10,7 +10,7 @@ Bố cục deploy sau khi tách stack:
 03-hub-app       JupyterHub (Z2JH) + TargetGroupBinding + listener + profile CPU
 04-dashboard     Dashboard + BFF + apex listener rule
 
-99-unverified-gpu device plugin + DCGM + L4 shared [TÙY CHỌN - chỉ apply khi có GPU quota]
+05-gpu (tên cũ 99-unverified-gpu) device plugin + DCGM + L4 shared [TÙY CHỌN - đã apply 2026-11-07]
 ```
 
 ## Vì sao phải có khoảng nghỉ
@@ -54,7 +54,7 @@ bản ghi NS delegation ở parent zone.
    ```
 5. Kiểm tra trình duyệt: `https://notebook.<domain>/hub/login` → đăng nhập Cognito → `/hub/home` → spawn profile "CPU only"; dashboard ở `https://mlbox.<domain>`.
 
-`99-unverified-gpu` không nằm trong luồng bắt buộc. Chỉ apply stack này sau khi AWS cấp GPU quota, rồi mới bật GPU profile trong `03-hub-app`.
+`05-gpu` (trước đây là `99-unverified-gpu`) không nằm trong luồng bắt buộc và đã được apply. Chỉ apply lại stack này sau khi kiểm tra GPU device plugin, rồi mới bật GPU profile trong `03-hub-app`.
 
 ## Lưu ý khi cần làm lại cert
 

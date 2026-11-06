@@ -16,7 +16,7 @@ Tài liệu này là quy trình triển khai hiện tại cho một region. Quy 
 | `03-hub-app` | ✅ Đã apply | JupyterHub tại `notebook.mlbox.june8th.me`, có BFF service token |
 | Hub theme | ✅ Đã apply | ConfigMap theme MLBox và rollout Hub |
 | `04-dashboard` | ✅ Đã apply | Dashboard + BFF, apex listener rule và healthy target |
-| `99-unverified-gpu` | ✅ Đã apply | Device plugin (time-slicing `nvidia.com/gpu`) và dcgm-exporter; GPU quota On-Demand G/VT = 8 vCPU |
+| `05-gpu` (tên cũ `99-unverified-gpu`) | ✅ Đã apply | Device plugin (time-slicing `nvidia.com/gpu`) và dcgm-exporter; GPU quota On-Demand G/VT = 8 vCPU |
 | GPU profile trong hub | ⚠️ Đã bật | Đã kiểm chứng trên g4dn (T4); shared L4 (g6) phụ thuộc capacity AWS |
 | BFF / dashboard | ✅ Đã deploy, ⚠️ chưa E2E | Health 200; route Project/Team/lời mời/artifact đã có; luồng trình duyệt với tài khoản thật chưa kiểm chứng |
 
@@ -27,8 +27,8 @@ Tài liệu này là quy trình triển khai hiện tại cho một region. Quy 
              → 03-hub-app → apply hub theme → 04-dashboard
 ```
 
-`99-unverified-gpu` nằm ngoài luồng bắt buộc nhưng đã được apply. Chỉ apply lại sau khi kiểm tra
-GPU device plugin, và không apply `01-foundation` cho đến khi reconcile state (xem TODO).
+`05-gpu` (trước đây là `99-unverified-gpu`) nằm ngoài luồng bắt buộc nhưng đã được apply. Chỉ apply lại
+sau khi kiểm tra GPU device plugin, và không apply `01-foundation` cho đến khi reconcile state (xem TODO).
 
 ## Prerequisites
 
@@ -63,7 +63,7 @@ Stack này tạo state bucket/lock table và sinh `backend.hcl` cho:
 - `02-platform`
 - `03-hub-app`
 - `04-dashboard`
-- `99-unverified-gpu`
+- `05-gpu`
 
 `00-bootstrap` giữ state local; bảo vệ file state và không xóa bucket nếu chưa có bản backup.
 
@@ -193,7 +193,7 @@ Chỉ đánh dấu dashboard hoàn tất end-to-end sau khi môi trường AWS m
 Chỉ chạy sau khi AWS cấp quota cho instance GPU và đã xác nhận image GPU:
 
 ```bash
-cd terraform/stacks/99-unverified-gpu
+cd terraform/stacks/05-gpu
 terraform init -reconfigure -backend-config=backend.hcl
 terraform plan
 terraform apply
@@ -218,7 +218,7 @@ Tên stack đã đổi từ cấu trúc cũ sang:
 03-platform  → 02-platform
 04-hub-app   → 03-hub-app
 05-dashboard → 04-dashboard
-02-gpu       → 99-unverified-gpu
+02-gpu       → 99-unverified-gpu → 05-gpu (2026-11-07, sau lần apply đầu)
 ```
 
 Việc đổi tên thư mục cũng đổi backend key. State cũ có thể vẫn nằm ở các key:
@@ -227,7 +227,12 @@ Việc đổi tên thư mục cũng đổi backend key. State cũ có thể vẫ
 03-platform.tfstate → 02-platform.tfstate
 04-hub-app.tfstate  → 03-hub-app.tfstate
 05-dashboard.tfstate → 04-dashboard.tfstate
+99-unverified-gpu.tfstate → 05-gpu.tfstate (state cũ giữ lại trên S3 làm backup)
 ```
+
+Migration `02-gpu → 99-unverified-gpu` không kèm migrate state (stack chưa apply lúc đó).
+Migration `99-unverified-gpu → 05-gpu` đã chạy `terraform init -migrate-state` với
+backend key `dev/ap-southeast-2/05-gpu.tfstate`; object cũ được giữ nguyên làm backup.
 
 Trước lần init đầu tiên sau rename, kiểm tra S3 và backup/versioning. Dùng Terraform migration,
 không tự ý xóa state:

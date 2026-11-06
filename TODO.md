@@ -8,7 +8,7 @@ Target sản phẩm và thứ tự phase: [`docs/multi-tenant-product-plan.md`](
 
 ## Trạng thái hiện tại
 
-- **Hạ tầng (region `ap-southeast-2`, account `451058046864`):** stack `00`–`04` và `99-unverified-gpu` đã apply. Stack `01-foundation` **chưa** được apply lại (state lệch với cluster, xem mục GPU).
+- **Hạ tầng (region `ap-southeast-2`, account `451058046864`):** stack `00`–`04` và `05-gpu` (tên cũ `99-unverified-gpu`) đã apply. Stack `01-foundation` **chưa** được apply lại (state lệch với cluster, xem mục GPU).
 - **Image đang chạy:** BFF `dev-pgfix-1104`, dashboard `dev-p6-1104`, CPU `dev-8d0469b`, GPU `dev-3f1cd93`.
 - **Hub:** `enable_auth_state=false` (user không cần vào JupyterHub để kích hoạt). Cognito client của Hub đã xoay; client cũ đã xóa.
 - **Git:** PR #3 đã merge vào `master` lúc 2026-11-04 16:37Z. Các commit sau đó trên `feat/dashboard-team-management` (lời mời, usage, sửa RETURNING, test tích hợp, docs) **chưa** nằm trên `master`.

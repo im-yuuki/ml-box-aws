@@ -13,7 +13,7 @@ mặc định dùng account `451058046864`, region `ap-southeast-2` và cluster
 - Dashboard production đã được xác nhận qua ALB: `/` và `/login` trả `200`, target healthy,
   không còn lỗi `DYNAMIC_SERVER_USAGE`. BFF readiness nội bộ `/v1/health` trả `200`.
 - Authenticated Cognito và sandbox lifecycle chưa được test end-to-end trên trình duyệt với tài khoản thật.
-- GPU: stack `99-unverified-gpu` đã apply; profile GPU trong hub đã bật. Shared L4 (g6) phụ thuộc
+- GPU: stack `05-gpu` (tên cũ `99-unverified-gpu`) đã apply; profile GPU trong hub đã bật. Shared L4 (g6) phụ thuộc
   capacity AWS; đã kiểm chứng time-slicing trên g4dn (T4). Không apply `01-foundation` khi chưa reconcile state.
 - Luôn pin image bằng tag immutable, ví dụ `dev-<git-short-sha>`. Không dùng `latest` cho rollout.
 - Không sửa hoặc xóa state Terraform, secret, backend config hay resource production thủ công nếu
@@ -180,8 +180,8 @@ curl -sS -o /dev/null -w '%{http_code}\n' \
 kubectl -n hub get targetgroupbinding
 ```
 
-Hub hiện bật CPU profile; GPU profiles vẫn tắt (`enable_gpu_profiles=false`). Không bật profile GPU
-trước khi stack `99-unverified-gpu` và image GPU sẵn sàng.
+Hub đã bật GPU profiles (`enable_gpu_profiles=true`); stack `05-gpu` (tên cũ `99-unverified-gpu`)
+và image GPU phải giữ trạng thái applied. Shared L4 (g6) phụ thuộc capacity AWS.
 
 ## Dashboard operations
 
@@ -296,5 +296,5 @@ Luôn chạy `terraform plan` trước destroy và lưu plan/output phục vụ 
 ## Giới hạn đã biết
 
 - Login/register/confirm/logout và sandbox list/start/stop đã có code thật, nhưng chưa end-to-end với Cognito/JupyterHub vì chưa có test user.
-- GPU quota chưa được cấp; GPU stack và GPU profiles chưa bật.
+- GPU: quota On-Demand G/VT = 8 vCPU; stack `05-gpu` (tên cũ `99-unverified-gpu`) đã apply và hub đã bật GPU profiles; chưa spawn được session GPU qua L4 (g6) — capacity từng thiếu ở các AZ đã thử (xem TODO).
 - Chưa có monitoring/alerting/CI-CD/backup automation hoàn chỉnh.

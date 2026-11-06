@@ -36,7 +36,7 @@ terraform/
     02-platform/    # S3 workspace + RDS + Cognito + ECR + LB controller + ALB/TG + Route53 aliases
     03-hub-app/     # JupyterHub (Z2JH) + TargetGroupBinding + listener + profile CPU
     04-dashboard/   # Dashboard + BFF + apex listener rule
-    99-unverified-gpu/ # optional GPU device plugin + DCGM exporter (chờ quota)
+    05-gpu/          # device plugin NVIDIA + DCGM exporter (đã apply; verify L4 còn chờ capacity g6)
   modules/
     network/ eks/ karpenter/ gpu-stack/
     storage/ hub-db/ auth/ ecr/ ingress-dns/
@@ -56,7 +56,7 @@ docs/
 - Route53 subdomain đã được Cloudflare delegate; cả hai ACM certificate đều `ISSUED`, và notebook/dashboard đang phục vụ qua HTTPS.
 - Hub, dashboard và BFF đều Running; ALB targets healthy. Fix production `DYNAMIC_SERVER_USAGE` đã được xác nhận qua ALB với `/` và `/login` trả `200`.
 - BFF readiness `/v1/health` trả `200`; các API không xác thực trả `401` đúng kỳ vọng. Cognito login và sandbox lifecycle thật vẫn cần một test user.
-- `99-unverified-gpu` là stack tùy chọn, chờ GPU quota.
+- `05-gpu` (tên cũ `99-unverified-gpu`) — device plugin + DCGM exporter — đã được apply; time-slicing đã kiểm chứng trên g4dn (T4), còn chờ capacity g6/L4.
 
 Tài liệu vận hành:
 
@@ -72,7 +72,7 @@ Tài liệu vận hành:
 source .private/aws-env.sh        # nạp credentials từ phiên `aws login`
 
 cd terraform/stacks/00-bootstrap
-terraform init; terraform apply   # 1 lần/account; tự sinh backend.hcl cho 01/02/03/04 và 99-unverified-gpu
+terraform init; terraform apply   # 1 lần/account; tự sinh backend.hcl cho 01/02/03/04 và 05-gpu
 
 cd ../01-foundation
 terraform init -reconfigure -backend-config=backend.hcl
@@ -97,13 +97,13 @@ terraform plan; terraform apply   # dashboard apex + BFF
 
 # CPU-only chạy được ngay sau `04-dashboard` (NodePool `cpu-user` không cần quota GPU).
 
-# Chỉ khi quota GPU đã được cấp:
-cd ../99-unverified-gpu
+# Chỉ khi quota GPU đã được cấp (đã apply ngày 07/11/2026):
+cd ../05-gpu
 terraform init -reconfigure -backend-config=backend.hcl
 terraform plan; terraform apply   # rồi bật profile GPU trong 03-hub-app
 ```
 
-Profile GPU chỉ bật khi `enable_gpu_profiles = true` và stack `99-unverified-gpu` đã apply.
+Profile GPU chỉ bật khi `enable_gpu_profiles = true` và stack `05-gpu` đã apply.
 
 Verify: `aws eks update-kubeconfig --name jhub-gpu-sandbox-dev-apse2 --region ap-southeast-2`,
 rồi `kubectl get nodes/nodepools/ec2nodeclasses`.
