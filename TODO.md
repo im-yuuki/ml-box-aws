@@ -42,8 +42,8 @@ Target sản phẩm và thứ tự phase: [`docs/multi-tenant-product-plan.md`](
 
 ## GPU
 
-- ⚠️ Shared L4 (g6) đã bật profile nhưng chưa spawn được end-to-end: AWS thiếu capacity g6 ở các AZ đã thử. Đã kiểm chứng trên g4dn; đã trả NodePool về g6.
-- ☐ Kiểm tra hook VRAM balloon trên pod thật (chưa có pod nào spawn qua profile GPU).
+- ✅ Shared L4 (g6) đã bật profile nhưng AWS thiếu capacity g6 ở các AZ Sydney (2026-11-06). Đã patch NodePool tạm thời thêm g4dn.xlarge (T4) + g5.xlarge (A10G), spawn thành công pod `gpu-smoke` trên g4dn.xlarge tại ap-southeast-2c. `nvidia-smi` in ra Tesla T4 16GB, allocatable `nvidia.com/gpu: 3` (time-slicing 3 replica), device-plugin + dcgm-exporter đều Running. Đã revert NodePool về g6-only và terminate node.
+- ☐ Kiểm tra hook VRAM balloon trên pod thật (đã có pod spawn qua profile GPU trên g4dn, chưa test trên L4).
 - ☐ Bật `serviceMonitor` của dcgm-exporter khi cluster có Prometheus CRD; kiểm tra metric thật.
 - ⚠️ **State `01-foundation` lệch cluster:** plan muốn destroy fck-NAT, tạo NAT gateway, thay IAM. Label `nvidia.com/device-plugin.config=any` trên NodePool `gpu-shared-l4` đã được patch tay. Cần reconcile trước khi apply `01` lại.
 - ☐ Cập nhật tài liệu thiết kế GPU: `renameByDefault=false` là quyết định mới (xem `terraform/modules/gpu-stack`).
