@@ -253,6 +253,7 @@ resource "kubectl_manifest" "bff_deployment" {
               { name = "HUB_PUBLIC_URL", value = "https://notebook.mlbox.june8th.me" },
               { name = "WORKSPACE_BUCKET", value = data.terraform_remote_state.platform.outputs.workspace_bucket },
               { name = "SECURE_COOKIES", value = tostring(var.bff_secure_cookies) },
+              { name = "SANDBOX_GPU_PROFILES", value = tostring(var.sandbox_gpu_profiles) },
               { name = "CPU_QUOTA_HOURS", value = tostring(var.cpu_quota_hours) },
               { name = "RAM_QUOTA_GB", value = tostring(var.ram_quota_gb) },
               { name = "STORAGE_QUOTA_GB", value = tostring(var.storage_quota_gb) },
