@@ -35,25 +35,13 @@ hub:
         - admin:users
         - admin:servers
   config:
-    JupyterHub:
-      authenticator_class: generic-oauth
-    GenericOAuthenticator:
-      login_service: AWS Cognito
-      allow_all: true # lab: every newly registered user gets access (prod locks down via allowlist/groups)
-      client_id: ${cognito_client_id}
-      client_secret: ${cognito_client_secret}
-      oauth_callback_url: https://${hub_host}/hub/oauth_callback
-      authorize_url: ${cognito_authorize_url}
-      token_url: ${cognito_token_url}
-      userdata_url: ${cognito_userdata_url}
-      scope:
-        - openid
-        - email
-        - profile
-      username_claim: email
-      # false: Hub does not store Cognito tokens; spawn is driven by the BFF (service token), so
-      # users do not have to visit JupyterHub to "activate" an account. Nothing in this stack reads auth_state.
-      enable_auth_state: false
+    # The authenticator class is set in extraConfig (20-bff-login). Users arrive from the dashboard with a
+    # one-time code; the Hub never shows its own login page. Cognito is not used by the Hub.
+    Authenticator:
+      enable_auth_state: false # Hub stores no tokens; spawn is driven by the BFF (service token)
+      # The BFF has already checked the dashboard session and issued the one-time code; without this
+      # JupyterHub rejects every authenticated name as "unknown user" (no allowlist is configured).
+      allow_all: true
   extraConfig:
     10-spawn-hook: |
       # Attach VRAM annotations + cost labels + do-not-disrupt to each user pod.
@@ -77,6 +65,58 @@ hub:
               pod.metadata.annotations["vram.example.com/ceiling-mib"] = "${vram_ceiling_mib}"
           return pod
       c.KubeSpawner.modify_pod_hook = augment_pod
+
+    # --- Dashboard -> Hub login (no Hub UI) ---
+    # /hub/mlbox/login?code=...&next=... is reached from the dashboard. The code is one-time and
+    # 60 s long; the Hub redeems it with the BFF over the cluster network (bridge token, never a browser cookie).
+    20-bff-login: |
+      import json as _json
+      from jupyterhub.auth import Authenticator as _Authenticator
+      from jupyterhub.handlers import BaseHandler as _BaseHandler
+      from tornado.httpclient import AsyncHTTPClient as _HTTPClient, HTTPRequest as _HTTPRequest
+
+      _BFF_REDEEM_URL = "${bff_internal_url}/internal/v1/hub/handoff/redeem"
+      _BFF_BRIDGE_TOKEN = "${hub_auth_bridge_token}"
+      _DASHBOARD_LOGIN_URL = "${dashboard_login_url}"
+
+      class MlBoxLoginHandler(_BaseHandler):
+          async def get(self):
+              user = await self.login_user()
+              if user is None:
+                  # Missing, reused or expired code: the user signs in on the dashboard instead.
+                  self.redirect(_DASHBOARD_LOGIN_URL)
+                  return
+              self.redirect(getattr(self, "mlbox_next", None) or "/hub/")
+
+      class MlBoxBffAuthenticator(_Authenticator):
+          auto_login = True
+
+          def login_url(self, base_url):
+              return base_url + "mlbox/login"
+
+          def get_handlers(self, app):
+              return [(r"/mlbox/login", MlBoxLoginHandler)]
+
+          async def authenticate(self, handler, data=None):
+              code = handler.get_argument("code", "")
+              if not code or len(code) > 128:
+                  return None
+              request = _HTTPRequest(
+                  _BFF_REDEEM_URL,
+                  method="POST",
+                  headers={"Authorization": "Bearer " + _BFF_BRIDGE_TOKEN, "Content-Type": "application/json"},
+                  body=_json.dumps({"code": code}),
+                  request_timeout=5,
+              )
+              response = await _HTTPClient().fetch(request, raise_error=False)
+              if response.code != 200 or not response.body:
+                  return None
+              redeemed = _json.loads(response.body)
+              # next is validated by the BFF (only /user/... paths); keep it for the redirect after login.
+              handler.mlbox_next = redeemed.get("nextPath") or "/hub/"
+              return redeemed.get("hubUsername") or None
+
+      c.JupyterHub.authenticator_class = MlBoxBffAuthenticator
 
     # --- ML Box theme (Branding) — see deploy/hub-values-theme.patch.md ---
     # Templates override chỉ thay block; ChoiceLoader custom dir đứng trước,

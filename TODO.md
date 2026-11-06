@@ -1,6 +1,6 @@
 # ML Box — Backlog
 
-Cập nhật: 2026-11-04
+Cập nhật: 2026-11-05
 
 Ký hiệu: ✅ xong và đã kiểm chứng · ⚠️ đã làm nhưng còn thiếu kiểm chứng hoặc còn phụ thuộc · ☐ chưa làm
 
@@ -16,7 +16,8 @@ Target sản phẩm và thứ tự phase: [`docs/multi-tenant-product-plan.md`](
 
 ## Cần người dùng
 
-- ☐ **E2E trên trình duyệt với tài khoản thật:** đăng ký → xác nhận email → đăng nhập notebook → spawn profile → sandbox/artifact/team/lời mời/Space. Chưa thực hiện.
+- ⚠️ **E2E trên trình duyệt với tài khoản thật:** đã kiểm: đăng nhập dashboard, tạo Project, start sandbox, bấm "Mở notebook" qua handoff → JupyterLab (không qua UI Hub). Đã kiểm: mã handoff dùng lại bị từ chối; tạo team; upload và tải artifact (nội dung khớp); trang Usage hiển thị số sandbox đang chạy. Sửa trong lượt này: đăng xuất dashboard nay cũng chuyển qua `/hub/logout` (đã kiểm: sau `/hub/logout` notebook không mở được). Chưa kiểm: nút đăng xuất trên UI (cần đăng nhập lại), lời mời được chấp nhận bởi người khác (cần tài khoản thứ hai).
+- ✅ Usage: CPU và RAM đã cấp phát đọc từ pod spec (BFF có Role đọc pod trong namespace `hub`). Đã kiểm: sandbox 2 cores, 4 GB.
 - ☐ **Logo và brand pack (phase 8):** người dùng chọn concept logo.
 - ☐ **Mở PR cho các commit chưa merge** trên `feat/dashboard-team-management` (sau khi có xác nhận).
 
@@ -26,6 +27,9 @@ Target sản phẩm và thứ tự phase: [`docs/multi-tenant-product-plan.md`](
 - ✅ Auth Cognito qua BFF (register, confirm, login, logout, refresh, forgot/reset, change password), CSRF, session cookie.
 - ✅ Turnstile cho register và checkout, bật theo cấu hình.
 - ✅ Hub spawn không cần auth state (BFF làm việc spawn).
+- ✅ Mở notebook qua mã handoff một lần (60 giây, chỉ lưu hash, chỉ dùng được một lần); người dùng không vào UI Hub. Hub dùng `MlBoxBffAuthenticator`, BFF là cổng kiểm soát (`allow_all`).
+- ✅ Trạng thái sandbox đọc từ `GET /users/<u>` vì JupyterHub 5 trả 405 với GET named server; `state` có thể là object.
+- ✅ Điều hướng: Projects, Teams, Usage, Account; `/sandboxes` chuyển về `/projects`.
 - ✅ Personal Space và default Team cho mỗi user; Space switcher trên dashboard.
 - ✅ Project: list/create theo Space, phân quyền theo team và direct grant (blocked, manager, contributor, viewer).
 - ✅ Team phẳng: tạo, liệt kê, thêm/xóa thành viên, chặn xóa lead cuối cùng.
@@ -53,6 +57,8 @@ Target sản phẩm và thứ tự phase: [`docs/multi-tenant-product-plan.md`](
 - ☐ Xóa artifact; phân trang danh sách.
 - ☐ Enforce quota CPU/RAM/storage/GPU. Chỉ làm khi nguồn usage đủ tin cậy.
 - ☐ Thanh toán thật: không trong phạm vi hiện tại.
+- ✅ Đã xoay secret lộ trong output plan: client Cognito `jupyterhub` (thay mới), `HUB_AUTH_BRIDGE_TOKEN`, `BFF_SESSION_SECRET` (mọi phiên cũ mất hiệu lực).
+- ⚠️ Redesign giao diện: đã đổi token sáng sang tông kem ấm (accent đất nung) và copy trang chủ. Còn lại: shell (rail, header), các màn Projects/Project/Teams/Usage/Account, auth, Hub; chụp trước/sau ở mobile, tablet, desktop, sáng/tối, en/vi.
 - ☐ Turnstile: test đầy đủ disabled/enabled/token sai/hết hạn/replay/Siteverify lỗi.
 - ☐ Form `/verify` và các màn hình còn mock; kiểm tra a11y, responsive, en/vi cho các màn mới.
 
