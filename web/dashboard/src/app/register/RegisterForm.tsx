@@ -14,6 +14,7 @@ import {
   TextField,
 } from "@heroui/react";
 import { UserPlus } from "lucide-react";
+import { VERIFICATION_EMAIL_STORAGE_KEY } from "@/lib/verification";
 
 async function responseMessage(
   response: Response,
@@ -59,7 +60,15 @@ export default function RegisterForm() {
         setError(await responseMessage(response, t("requestFailed")));
         return;
       }
-      router.replace(`/verify?email=${encodeURIComponent(nextEmail)}`);
+      try {
+        window.sessionStorage.setItem(
+          VERIFICATION_EMAIL_STORAGE_KEY,
+          nextEmail,
+        );
+      } catch {
+        // Continue to the verification screen even when storage is unavailable.
+      }
+      router.replace("/verify");
     } catch {
       setError(t("requestFailed"));
     } finally {

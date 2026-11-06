@@ -3,26 +3,57 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Alert, Button, Form, Input, InputOTP, Label, TextField } from "@heroui/react";
-import { RefreshCw, ShieldCheck } from "lucide-react";
+import { Alert, Button, Form, InputOTP, Label } from "@heroui/react";
+import { Check, RefreshCw } from "lucide-react";
 import { bffFetch } from "@/lib/bffFetch";
+import { VERIFICATION_EMAIL_STORAGE_KEY } from "@/lib/verification";
 
 export default function VerifyForm() {
   const t = useTranslations("verify");
   const router = useRouter();
   const params = useSearchParams();
+  const queryEmail = (params.get("email") ?? "").trim().toLowerCase();
+  const [code, setCode] = useState(() => params.get("code") ?? "");
+  const [email, setEmail] = useState("");
   const [pending, setPending] = useState(false);
   const [resendSeconds, setResendSeconds] = useState(0);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let storedEmail = "";
+    try {
+      storedEmail = (
+        window.sessionStorage.getItem(VERIFICATION_EMAIL_STORAGE_KEY) ?? ""
+      )
+        .trim()
+        .toLowerCase();
+    } catch {
+      // Fall back to the legacy query parameter below.
+    }
+
+    const nextEmail = storedEmail || queryEmail;
+    const task = window.setTimeout(() => setEmail(nextEmail), 0);
+
+    if (!storedEmail && queryEmail) {
+      try {
+        window.sessionStorage.setItem(
+          VERIFICATION_EMAIL_STORAGE_KEY,
+          queryEmail,
+        );
+      } catch {
+        // Storage may be unavailable in private browsing.
+      }
+    }
+
+    if (queryEmail) router.replace("/verify");
+    return () => window.clearTimeout(task);
+  }, [queryEmail, router]);
+
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-    const values = new FormData(event.currentTarget);
-    const email = String(values.get("email") ?? "")
-      .trim()
-      .toLowerCase();
-    const code = String(values.get("code") ?? "").trim();
-    if (!email || !code) {
+    const trimmedCode = code.trim();
+    if (!email || !trimmedCode) {
       setError(t("missingFields"));
       return;
     }
@@ -31,14 +62,21 @@ export default function VerifyForm() {
       const response = await bffFetch("/api/bff/auth/confirm", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, code }),
+        body: JSON.stringify({ email, code: trimmedCode }),
       });
       if (!response.ok) {
         const body = (await response.json().catch(() => ({}))) as {
           message?: string;
         };
         setError(body.message ?? t("requestFailed"));
-      } else router.replace(`/login?email=${encodeURIComponent(email)}`);
+      } else {
+        try {
+          window.sessionStorage.removeItem(VERIFICATION_EMAIL_STORAGE_KEY);
+        } catch {
+          // Storage may be unavailable in private browsing.
+        }
+        router.replace("/login");
+      }
     } catch {
       setError(t("requestFailed"));
     } finally {
@@ -54,7 +92,6 @@ export default function VerifyForm() {
     return () => window.clearTimeout(timer);
   }, [resendSeconds]);
   async function resend() {
-    const email = (params.get("email") ?? "").trim().toLowerCase();
     if (!email) return;
     setError(null);
     try {
@@ -75,38 +112,35 @@ export default function VerifyForm() {
   }
   return (
     <Form onSubmit={onSubmit} className="flex flex-col gap-4">
-      <TextField isRequired>
-        <Label>{t("emailLabel")}</Label>
-        <Input
-          name="email"
-          type="email"
-          autoComplete="email"
-          defaultValue={params.get("email") ?? ""}
-          variant="secondary"
-          fullWidth
-        />
-      </TextField>
-      {/* <TextField isRequired>
+      <p className="text-sm" style={{ color: "var(--muted)" }}>
+        {email || t("emailLabel")}
+      </p>
+      <div className="flex flex-col gap-2">
         <Label>{t("codeLabel")}</Label>
-        <Input
+        <InputOTP
           name="code"
           autoComplete="one-time-code"
-          defaultValue={params.get("code") ?? ""}
-          variant="secondary"
-          fullWidth
-        />
-      </TextField> */}
-      <InputOTP maxLength={6}>
-        <InputOTP.Group>
-          <InputOTP.Slot index={0} />
-          <InputOTP.Slot index={1} />
-          <InputOTP.Slot index={2} />
-          <InputOTP.Slot index={3} />
-          <InputOTP.Slot index={4} />
-          <InputOTP.Slot index={5} />
-        </InputOTP.Group>
-      </InputOTP>
-      {/* should replace the old TextField */}
+          value={code}
+          onChange={setCode}
+          inputMode="numeric"
+          pattern="[0-9]*"
+          maxLength={6}
+          aria-label={t("codeLabel")}
+          isInvalid={Boolean(error)}
+          variant="secondary">
+          <InputOTP.Group>
+            <InputOTP.Slot index={0} />
+            <InputOTP.Slot index={1} />
+            <InputOTP.Slot index={2} />
+          </InputOTP.Group>
+          <InputOTP.Separator />
+          <InputOTP.Group>
+            <InputOTP.Slot index={3} />
+            <InputOTP.Slot index={4} />
+            <InputOTP.Slot index={5} />
+          </InputOTP.Group>
+        </InputOTP>
+      </div>
       {error ? (
         <Alert status="danger">
           <Alert.Content>
@@ -117,17 +151,18 @@ export default function VerifyForm() {
       <Button
         type="submit"
         variant="primary"
-        size="lg"
         isPending={pending}
-        isDisabled={pending}>
-        <ShieldCheck aria-hidden="true" size={16} />
+        isDisabled={pending}
+        fullWidth>
+        <Check aria-hidden="true" size={16} />
         {t("confirm")}
       </Button>
       <Button
         type="button"
         variant="tertiary"
-        isDisabled={pending || resendSeconds > 0 || !params.get("email")}
-        onPress={resend}>
+        isDisabled={pending || resendSeconds > 0 || !email}
+        onPress={resend}
+        fullWidth>
         <RefreshCw aria-hidden="true" size={14} />
         {resendSeconds > 0
           ? t("resendCooldown", { seconds: resendSeconds })
