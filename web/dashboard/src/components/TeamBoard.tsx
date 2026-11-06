@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { Button } from "@heroui/react";
+import { Alert, Button, Card, Form, Input, ListBox, Select, Spinner, TextField } from "@heroui/react";
+import { ArrowLeft, LogIn, Plus, RotateCcw, UserMinus, UserPlus, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 import { useActiveSpace } from "@/hooks/useActiveSpace";
@@ -145,29 +146,28 @@ export default function TeamBoard() {
   };
 
   if (spacesFailed) {
-    return <section className="workspace-state-panel" aria-live="polite"><h2>{t("unavailableTitle")}</h2></section>;
+    return <Card className="p-6" aria-live="polite"><h2>{t("unavailableTitle")}</h2></Card>;
   }
 
   if (loadState === "loading" || spacesLoading) {
-    return <p className="workspace-muted-copy" role="status">{t("loading")}</p>;
+    return <div className="flex items-center gap-2 text-sm" role="status"><Spinner size="sm" /><span>{t("loading")}</span></div>;
   }
 
   if (loadState === "unauthenticated") {
     return (
-      <section className="workspace-state-panel" aria-labelledby="teams-auth-title">
-        <span className="workspace-section-index">{t("authSection")}</span>
+      <Card className="p-6" aria-labelledby="teams-auth-title">
         <h2 id="teams-auth-title">{t("unauthenticatedTitle")}</h2>
-        <Link href="/login"><Button variant="primary">{t("signIn")}</Button></Link>
-      </section>
+        <Link href="/login"><Button variant="primary"><LogIn aria-hidden="true" size={16} />{t("signIn")}</Button></Link>
+      </Card>
     );
   }
 
   if (loadState === "unauthorized" || loadState === "unavailable") {
     return (
-      <section className="workspace-state-panel" aria-live="polite">
+      <Card className="p-6" aria-live="polite">
         <h2>{loadState === "unauthorized" ? t("unauthorizedTitle") : t("unavailableTitle")}</h2>
-        <Button variant="secondary" onPress={() => spaceId && void loadTeams(spaceId)}>{t("retry")}</Button>
-      </section>
+        <Button variant="secondary" onPress={() => spaceId && void loadTeams(spaceId)}><RotateCcw aria-hidden="true" size={16} />{t("retry")}</Button>
+      </Card>
     );
   }
 
@@ -177,35 +177,34 @@ export default function TeamBoard() {
     <div className="flex flex-col gap-8">
       <header className="workspace-page-heading">
         <div>
-          <span className="workspace-section-index">{t("section")}</span>
           <h1>{t("title")}</h1>
-          <p>{t("subtitle")}</p>
         </div>
-        <Link href="/projects" className="workspace-count-label">{t("backToProjects")}</Link>
+        <Link href="/projects" className="workspace-count-label inline-flex items-center gap-1.5"><ArrowLeft aria-hidden="true" size={13} />{t("backToProjects")}</Link>
       </header>
 
       {activeSpace ? <InvitationsPanel space={activeSpace} /> : null}
 
       <section className="workspace-project-toolbar" aria-label={t("createTeam")}>
-        <form className="workspace-create-form" onSubmit={createTeam}>
-          <label className="sr-only" htmlFor="new-team-name">{t("teamName")}</label>
-          <input id="new-team-name" value={teamName} onChange={(event) => setTeamName(event.target.value)} placeholder={t("teamNamePlaceholder")} />
-          <Button type="submit" variant="primary" isPending={busy} isDisabled={busy}>{t("createTeam")}</Button>
-        </form>
+        <Form className="flex flex-wrap items-end gap-3" onSubmit={createTeam}>
+          <TextField value={teamName} onChange={setTeamName} aria-label={t("teamName")} className="min-w-64">
+            <Input placeholder={t("teamNamePlaceholder")} variant="secondary" fullWidth />
+          </TextField>
+          <Button type="submit" variant="primary" isPending={busy} isDisabled={busy}><Plus aria-hidden="true" size={16} />{t("createTeam")}</Button>
+        </Form>
       </section>
-      {teamError ? <p className="workspace-form-error" role="alert">{teamError}</p> : null}
+      {teamError ? <Alert status="danger"><Alert.Content><Alert.Description>{teamError}</Alert.Description></Alert.Content></Alert> : null}
 
       {teams.length === 0 ? (
-        <section className="workspace-state-panel">
+        <Card className="p-6">
           <h2>{t("emptyTitle")}</h2>
-          <p>{t("emptyBody")}</p>
-        </section>
+        </Card>
       ) : (
         <div className="flex flex-col gap-4">
           <ul aria-label={t("teamList")} className="flex flex-wrap gap-2">
             {teams.map((team) => (
               <li key={team.id}>
                 <Button variant={team.id === selectedTeamId ? "primary" : "secondary"} onPress={() => void selectTeam(team.id)}>
+                  <Users aria-hidden="true" size={16} />
                   {team.name}
                 </Button>
               </li>
@@ -213,32 +212,39 @@ export default function TeamBoard() {
           </ul>
 
           {selectedTeam ? (
-            <section className="workspace-state-panel" aria-labelledby="team-detail-title">
+            <Card className="p-6" aria-labelledby="team-detail-title">
               <h2 id="team-detail-title">{selectedTeam.name}</h2>
-              {membersError ? <p className="workspace-form-error" role="alert">{membersError}</p> : null}
+              {membersError ? <Alert status="danger"><Alert.Content><Alert.Description>{membersError}</Alert.Description></Alert.Content></Alert> : null}
               {members.length === 0 && !membersError ? <p>{t("noMembers")}</p> : null}
               <ul aria-label={t("memberList")} className="flex flex-col gap-2">
                 {members.map((member) => (
                   <li key={member.userId} className="flex items-center justify-between gap-4">
                     <span>{memberLabel(member)} · {member.role === "lead" ? t("roleLead") : t("roleMember")}</span>
-                    <Button variant="secondary" isDisabled={busy} onPress={() => void removeMember(member.userId)}>{t("remove")}</Button>
+                    <Button variant="secondary" isDisabled={busy} onPress={() => void removeMember(member.userId)}><UserMinus aria-hidden="true" size={16} />{t("remove")}</Button>
                   </li>
                 ))}
               </ul>
 
-              <form className="workspace-create-form" onSubmit={addMember}>
-                <label className="sr-only" htmlFor="member-id">{t("memberId")}</label>
-                <input id="member-id" value={memberId} onChange={(event) => setMemberId(event.target.value)} placeholder={t("memberIdPlaceholder")} />
-                <label className="sr-only" htmlFor="member-role">{t("role")}</label>
-                <select id="member-role" value={memberRole} onChange={(event) => setMemberRole(event.target.value)}>
-                  <option value="member">{t("roleMember")}</option>
-                  <option value="lead">{t("roleLead")}</option>
-                </select>
-                <Button type="submit" variant="primary" isPending={busy} isDisabled={busy}>{t("addMember")}</Button>
-              </form>
-              <p className="workspace-muted-copy">{t("memberIdHint")}</p>
-              {memberError ? <p className="workspace-form-error" role="alert">{memberError}</p> : null}
-            </section>
+              <Form className="flex flex-wrap items-end gap-3" onSubmit={addMember}>
+                <TextField value={memberId} onChange={setMemberId} aria-label={t("memberId")} className="min-w-64">
+                  <Input placeholder={t("memberIdPlaceholder")} variant="secondary" fullWidth />
+                </TextField>
+                <Select selectedKey={memberRole} onSelectionChange={(key) => key && setMemberRole(String(key))} aria-label={t("role")} className="w-40">
+                  <Select.Trigger>
+                    <Select.Value />
+                    <Select.Indicator />
+                  </Select.Trigger>
+                  <Select.Popover>
+                    <ListBox>
+                      <ListBox.Item id="member" textValue={t("roleMember")}>{t("roleMember")}<ListBox.ItemIndicator /></ListBox.Item>
+                      <ListBox.Item id="lead" textValue={t("roleLead")}>{t("roleLead")}<ListBox.ItemIndicator /></ListBox.Item>
+                    </ListBox>
+                  </Select.Popover>
+                </Select>
+                <Button type="submit" variant="primary" isPending={busy} isDisabled={busy}><UserPlus aria-hidden="true" size={16} />{t("addMember")}</Button>
+              </Form>
+              {memberError ? <Alert status="danger"><Alert.Content><Alert.Description>{memberError}</Alert.Description></Alert.Content></Alert> : null}
+            </Card>
           ) : null}
         </div>
       )}

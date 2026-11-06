@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Button, Form, Input, Label, TextField } from "@heroui/react";
+import { Alert, Button, Form, Input, Label, TextField } from "@heroui/react";
+import { ArrowLeft, KeyRound, Mail } from "lucide-react";
 import { bffFetch } from "@/lib/bffFetch";
 
 export default function PasswordRecoveryForm({ mode }: { mode: "forgot" | "reset" }) {
@@ -40,9 +41,9 @@ export default function PasswordRecoveryForm({ mode }: { mode: "forgot" | "reset
     {success ? <p className="text-sm" role="status" style={{ color: "var(--muted)" }}>{t(mode === "forgot" ? "sent" : "resetComplete")}</p> : <>
       <TextField isRequired><Label>{t("emailLabel")}</Label><Input name="email" type="email" autoComplete="email" variant="secondary" fullWidth /></TextField>
       {mode === "reset" ? <><TextField isRequired><Label>{t("codeLabel")}</Label><Input name="code" autoComplete="one-time-code" variant="secondary" fullWidth /></TextField><TextField isRequired><Label>{t("newPasswordLabel")}</Label><Input name="password" type="password" autoComplete="new-password" variant="secondary" fullWidth /></TextField></> : null}
-      {error ? <p className="text-sm" role="alert" style={{ color: "var(--danger)" }}>{error}</p> : null}
-      <Button type="submit" variant="primary" size="lg" isPending={pending} isDisabled={pending}>{t(mode === "forgot" ? "send" : "reset")}</Button>
+      {error ? <Alert status="danger"><Alert.Content><Alert.Description>{error}</Alert.Description></Alert.Content></Alert> : null}
+      <Button type="submit" variant="primary" size="lg" isPending={pending} isDisabled={pending}>{mode === "forgot" ? <Mail aria-hidden="true" size={16} /> : <KeyRound aria-hidden="true" size={16} />}{t(mode === "forgot" ? "send" : "reset")}</Button>
     </>}
-    <p className="text-sm text-center"><a className="underline" href="/login">{t("backToLogin")}</a></p>
+    <p className="text-sm text-center"><a className="inline-flex items-center gap-1.5 underline" href="/login"><ArrowLeft aria-hidden="true" size={14} />{t("backToLogin")}</a></p>
   </Form>;
 }

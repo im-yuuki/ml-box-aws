@@ -37,3 +37,11 @@ test("artifact sizes must be positive safe integers within the limit", () => {
   assert.equal(validateArtifactSize("10"), null);
   assert.equal(validateArtifactSize(ARTIFACT_MAX_BYTES + 1), null);
 });
+
+test("personal Space ids with a type prefix produce valid artifact keys", () => {
+  const spaceId = "personal:d9ce4478-00c1-70ae-b4d5-f90a34e3ed0a";
+  const key = buildArtifactObjectKey(spaceId, "5fabd252-b6be-4216-93ea-32512370087b", "a-1", "e2e-note.txt");
+  assert.equal(key, "spaces/personal:d9ce4478-00c1-70ae-b4d5-f90a34e3ed0a/projects/5fabd252-b6be-4216-93ea-32512370087b/artifacts/a-1/e2e-note.txt");
+  assert.throws(() => buildArtifactObjectKey("personal:../x", "p1", "a1", "f.txt"), /Invalid identifier/);
+  assert.throws(() => buildArtifactObjectKey("personal:a/b", "p1", "a1", "f.txt"), /Invalid identifier/);
+});

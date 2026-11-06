@@ -1,97 +1,95 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Button, Card } from "@heroui/react";
+import { useEffect, useState } from "react";
+import { Alert, Button, Card, Chip, Label, ListBox, Select, Spinner } from "@heroui/react";
+import { ExternalLink, Play, Square } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
-import { runtimeStateKey } from "@/lib/artifacts";
+import { useProjectSandbox } from "@/hooks/useProjectSandbox";
+import { runtimeChipColor } from "@/lib/artifacts";
 
-type SandboxResponse = {
-  projectId: string;
-  canOperate: boolean;
-  sandbox: { name: string; state: string; url: string | null } | null;
-};
+type UsageSummary = { hours: number; sessions: number; openSession: boolean; windowDays: number };
 
+/** Runtime section of the project detail page: state, start/stop, recorded usage. */
 export default function ProjectRuntimePanel({ projectId }: { projectId: string }) {
   const t = useTranslations("projectRuntime");
-  const [data, setData] = useState<SandboxResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [usage, setUsage] = useState<{ hours: number; sessions: number; openSession: boolean; windowDays: number } | null>(null);
-
-  const base = `/api/bff/projects/${encodeURIComponent(projectId)}/sandbox`;
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await bffFetch(base, { cache: "no-store" });
-      if (!response.ok) {
-        setError(t("loadFailed"));
-        return;
-      }
-      setData(await response.json() as SandboxResponse);
-      const usageResponse = await bffFetch(`/api/bff/projects/${encodeURIComponent(projectId)}/usage`, { cache: "no-store" });
-      if (usageResponse.ok) {
-        const body = await usageResponse.json() as { usage?: { hours: number; sessions: number; openSession: boolean; windowDays: number } };
-        setUsage(body.usage ?? null);
-      }
-      setError(null);
-    } catch {
-      setError(t("loadFailed"));
-    } finally {
-      setLoading(false);
-    }
-  }, [base, t]);
+  const { data, loading, busy, error, stateKey, canOperate, profiles, act } = useProjectSandbox(projectId);
+  const [profile, setProfile] = useState("cpu-small");
+  const [usage, setUsage] = useState<UsageSummary | null>(null);
 
   useEffect(() => {
-    const task = window.setTimeout(() => void load(), 0);
-    return () => window.clearTimeout(task);
-  }, [load]);
+    let cancelled = false;
+    const task = window.setTimeout(() => {
+      bffFetch(`/api/bff/projects/${encodeURIComponent(projectId)}/usage`, { cache: "no-store" })
+        .then((response) => (response.ok ? response.json() as Promise<{ usage?: UsageSummary }> : null))
+        .then((body) => {
+          if (!cancelled) setUsage(body?.usage ?? null);
+        })
+        .catch(() => undefined);
+    }, 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(task);
+    };
+  }, [projectId]);
 
-  const act = async (action: "start" | "stop") => {
-    setBusy(true);
-    setError(null);
-    try {
-      const response = await bffFetch(`${base}/${action}`, { method: "POST" });
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({})) as { error?: string };
-        if (body.error === "PROJECT_OWNER_NOT_READY") setError(t("ownerNotReady"));
-        else if (response.status === 403) setError(t("forbidden"));
-        else setError(action === "start" ? t("startFailed") : t("stopFailed"));
-        return;
-      }
-      await load();
-    } catch {
-      setError(action === "start" ? t("startFailed") : t("stopFailed"));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const stateKey = runtimeStateKey(data?.sandbox?.state);
-  const canOperate = data?.canOperate ?? false;
+  const url = data?.sandbox?.url ?? null;
+  const running = stateKey === "running";
 
   return (
-    <Card className="workspace-detail-section">
-      <span className="workspace-section-index">{t("section")}</span>
-      <h2>{t("title")}</h2>
-      <p>{t("body")}</p>
-      {loading ? <p className="workspace-muted-copy" role="status">{t("loading")}</p> : null}
-      {data ? <p className="workspace-status workspace-status-muted" aria-live="polite">{t(`state.${stateKey}`)}</p> : null}
-      {error ? <p className="workspace-form-error" role="alert">{error}</p> : null}
-      <div className="flex gap-2">
-        <Button variant="primary" size="sm" isDisabled={busy || loading || !canOperate || stateKey === "running" || stateKey === "starting"} onPress={() => void act("start")}>
-          {t("start")}
-        </Button>
-        <Button variant="secondary" size="sm" isDisabled={busy || loading || !canOperate || stateKey !== "running"} onPress={() => void act("stop")}>
-          {t("stop")}
-        </Button>
-        {data?.sandbox?.url ? <a className="workspace-count-label" href={data.sandbox.url} target="_blank" rel="noreferrer">{t("open")}</a> : null}
-      </div>
-      {data && !canOperate ? <p className="workspace-muted-copy">{t("readOnly")}</p> : null}
-      {usage ? <p className="workspace-muted-copy">{t("usage", { hours: usage.hours, days: usage.windowDays })}</p> : null}
-      {usage ? <p className="workspace-muted-copy">{t("usageNote")}</p> : null}
+    <Card>
+      <Card.Header>
+        <Card.Title>{t("title")}</Card.Title>
+      </Card.Header>
+      <Card.Content className="flex flex-col gap-4">
+        {loading && !data ? <div className="flex items-center gap-2 text-sm" role="status"><Spinner size="sm" /><span>{t("loading")}</span></div> : null}
+        {data ? <Chip size="sm" variant="soft" color={runtimeChipColor(stateKey)} aria-live="polite" className="w-fit">{t(`state.${stateKey}`)}</Chip> : null}
+        {error ? <Alert status="danger"><Alert.Content><Alert.Description>{t(error)}</Alert.Description></Alert.Content></Alert> : null}
+        {!running ? (
+          <Select
+            selectedKey={profile}
+            onSelectionChange={(key) => key && setProfile(String(key))}
+            isDisabled={busy || loading || !canOperate || stateKey === "starting"}
+          >
+            <Label>{t("profileLabel")}</Label>
+            <Select.Trigger>
+              <Select.Value />
+              <Select.Indicator />
+            </Select.Trigger>
+            <Select.Popover>
+              <ListBox>
+                {profiles.map((option) => (
+                  <ListBox.Item key={option.slug} id={option.slug} textValue={option.label} isDisabled={!option.available}>
+                    <span className="flex flex-col">
+                      <span>{option.label}</span>
+                      <span className="text-xs" style={{ color: "var(--muted)" }}>{option.description}</span>
+                    </span>
+                    <ListBox.ItemIndicator />
+                  </ListBox.Item>
+                ))}
+              </ListBox>
+            </Select.Popover>
+          </Select>
+        ) : null}
+        <div className="flex flex-wrap gap-2">
+          {running && url ? (
+            <Button variant="primary" size="sm" onPress={() => window.open(url, "_blank", "noopener")}><ExternalLink aria-hidden="true" size={14} />{t("open")}</Button>
+          ) : (
+            <Button variant="primary" size="sm" isDisabled={busy || loading || !canOperate || stateKey === "starting"} onPress={() => void act("start", profile)}>
+              <Play aria-hidden="true" size={14} />
+              {t("start")}
+            </Button>
+          )}
+          {running ? (
+            <Button variant="secondary" size="sm" isDisabled={busy || loading || !canOperate} onPress={() => void act("stop")}>
+              <Square aria-hidden="true" size={14} />
+              {t("stop")}
+            </Button>
+          ) : null}
+        </div>
+        {data && !canOperate ? <p className="workspace-muted-copy">{t("readOnly")}</p> : null}
+        {usage ? <p className="workspace-muted-copy">{t("usage", { hours: usage.hours, days: usage.windowDays })}</p> : null}
+      </Card.Content>
     </Card>
   );
 }

@@ -5,5 +5,10 @@ type Context = { params: Promise<{ projectId: string }> };
 
 export async function POST(request: NextRequest, context: Context) {
   const { projectId } = await context.params;
-  return proxyBff(request, `/v1/projects/${encodeURIComponent(projectId)}/sandbox/start`, { method: "POST" });
+  // The body is optional; it carries the sandbox configuration ({ profile }).
+  const body = await request.text();
+  return proxyBff(request, `/v1/projects/${encodeURIComponent(projectId)}/sandbox/start`, {
+    method: "POST",
+    body: body || undefined,
+  });
 }

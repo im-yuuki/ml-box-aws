@@ -241,6 +241,27 @@ export class AppStore {
     );
   }
 
+  async createHubHandoffCode(codeHash: string, hubUsername: string, nextPath: string, ttlSeconds: number): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO mlbox_hub_handoff_codes (code_hash, hub_username, next_path, expires_at)
+       VALUES ($1, $2, $3, now() + ($4 || ' seconds')::interval)`,
+      [codeHash, hubUsername, nextPath, String(ttlSeconds)],
+    );
+  }
+
+  // Single atomic statement: a code can be redeemed once, and only before it expires.
+  async redeemHubHandoffCode(codeHash: string): Promise<{ hubUsername: string; nextPath: string } | null> {
+    const result = await this.pool.query(
+      `UPDATE mlbox_hub_handoff_codes SET used_at = now()
+       WHERE code_hash = $1 AND used_at IS NULL AND expires_at > now()
+       RETURNING hub_username, next_path`,
+      [codeHash],
+    );
+    const row = result.rows[0];
+    if (!row) return null;
+    return { hubUsername: String(row.hub_username), nextPath: String(row.next_path) };
+  }
+
   async getHubIdentity(userId: string): Promise<HubIdentity | null> {
     const result = await this.pool.query(
       `SELECT user_id, hub_username, legacy_email, previous_hub_username, status
@@ -421,6 +442,16 @@ export class AppStore {
       );
       CREATE UNIQUE INDEX IF NOT EXISTS mlbox_hub_identities_hub_username_idx ON mlbox_hub_identities(hub_username);
       ALTER TABLE mlbox_hub_identities ADD COLUMN IF NOT EXISTS previous_hub_username text;
+
+      CREATE TABLE IF NOT EXISTS mlbox_hub_handoff_codes (
+        code_hash text PRIMARY KEY,
+        hub_username text NOT NULL,
+        next_path text NOT NULL,
+        expires_at timestamptz NOT NULL,
+        used_at timestamptz,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS mlbox_hub_handoff_codes_expires_idx ON mlbox_hub_handoff_codes(expires_at);
 
       CREATE TABLE IF NOT EXISTS mlbox_space_subscriptions (
         space_id text PRIMARY KEY REFERENCES mlbox_spaces(id) ON DELETE CASCADE,

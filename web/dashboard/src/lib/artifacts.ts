@@ -44,3 +44,11 @@ export function runtimeStateKey(state: string | null | undefined): RuntimeStateK
   if (state === "failed") return "failed";
   return "unknown";
 }
+
+/** Chip colour for a runtime state: colour plus text, never colour alone. */
+export function runtimeChipColor(state: RuntimeStateKey): "success" | "warning" | "danger" | "default" {
+  if (state === "running") return "success";
+  if (state === "starting") return "warning";
+  if (state === "failed") return "danger";
+  return "default";
+}

@@ -4,14 +4,9 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
-import {
-  Button,
-  Form,
-  Input,
-  Label,
-  TextField,
-  Description,
-} from "@heroui/react";
+import { Alert, Button, Form, Input, Label, TextField } from "@heroui/react";
+import { LogIn } from "lucide-react";
+
 function safeNext(value: string | null): string {
   return value?.startsWith("/") && !value.startsWith("//") ? value : "/sandboxes";
 }
@@ -69,14 +64,14 @@ export default function LoginForm() {
       <TextField isRequired>
         <Label>{t("emailLabel")}</Label>
         <Input name="email" type="email" autoComplete="email" placeholder={t("emailPlaceholder")} variant="secondary" fullWidth />
-        <Description>{t("emailHint")}</Description>
       </TextField>
       <TextField isRequired>
         <Label>{t("passwordLabel")}</Label>
         <Input name="password" type="password" autoComplete="current-password" variant="secondary" fullWidth />
       </TextField>
-      {error ? <p className="text-sm" style={{ color: "var(--danger)" }} role="alert">{error}</p> : null}
+      {error ? <Alert status="danger"><Alert.Content><Alert.Description>{error}</Alert.Description></Alert.Content></Alert> : null}
       <Button type="submit" variant="primary" size="lg" isPending={isPending} isDisabled={isPending}>
+        <LogIn aria-hidden="true" size={16} />
         {t("submit")}
       </Button>
       <p className="text-sm text-center"><a className="underline" href="/forgot-password">{t("forgotPassword")}</a></p>

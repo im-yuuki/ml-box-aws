@@ -4,14 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
-import {
-  Button,
-  Form,
-  Input,
-  Label,
-  TextField,
-  Description,
-} from "@heroui/react";
+import { Alert, Button, Description, Form, Input, Label, TextField } from "@heroui/react";
+import { UserPlus } from "lucide-react";
+
 async function responseMessage(response: Response, fallback: string): Promise<string> {
   try {
     const body = (await response.json()) as { message?: string };
@@ -62,15 +57,14 @@ export default function RegisterForm() {
       <TextField isRequired>
         <Label>{t("emailLabel")}</Label>
         <Input name="email" type="email" autoComplete="email" placeholder={t("emailPlaceholder")} variant="secondary" fullWidth />
-        <Description>{t("emailHint")}</Description>
       </TextField>
       <TextField isRequired>
         <Label>{t("passwordLabel")}</Label>
         <Input name="password" type="password" autoComplete="new-password" variant="secondary" fullWidth />
         <Description>{t("passwordHint")}</Description>
       </TextField>
-      {error ? <p className="text-sm" style={{ color: "var(--danger)" }} role="alert">{error}</p> : null}
-      <Button type="submit" variant="primary" size="lg" isPending={isPending} isDisabled={isPending}>{t("submit")}</Button>
+      {error ? <Alert status="danger"><Alert.Content><Alert.Description>{error}</Alert.Description></Alert.Content></Alert> : null}
+      <Button type="submit" variant="primary" size="lg" isPending={isPending} isDisabled={isPending}><UserPlus aria-hidden="true" size={16} />{t("submit")}</Button>
       <p className="text-sm text-center" style={{ color: "var(--muted)" }}>
         {t("haveAccount")} <a className="underline" href="/login">{t("signInCta")}</a>.
       </p>

@@ -91,11 +91,14 @@ export function parseCpuCores(value: unknown): number | null {
 }
 
 export function parseMemoryGb(value: unknown): number | null {
+  // Kubernetes reports memory as a plain byte count (e.g. "4294967296") when no suffix is used.
+  if (typeof value === "number") return Number.isFinite(value) && value >= 0 ? value / (1024 * 1024 * 1024) : null;
   if (typeof value !== "string") return null;
-  const match = value.trim().match(/^([0-9]+(?:\.[0-9]+)?)(k|ki|m|mi|g|gi|t|ti)b?$/i);
+  const match = value.trim().match(/^([0-9]+(?:\.[0-9]+)?)(k|ki|m|mi|g|gi|t|ti)?b?$/i);
   if (!match) return null;
   const parsed = Number(match[1]);
   if (!Number.isFinite(parsed) || parsed < 0) return null;
+  if (!match[2]) return parsed / (1024 * 1024 * 1024);
   const unit = match[2].toLowerCase();
   const factors: Record<string, number> = {
     k: 1 / (1024 * 1024), ki: 1 / (1024 * 1024),

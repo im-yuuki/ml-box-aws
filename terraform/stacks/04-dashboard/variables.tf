@@ -54,6 +54,12 @@ variable "bff_image" {
   type        = string
 }
 
+variable "sandbox_gpu_profiles" {
+  description = "Offer GPU sandbox profiles in the dashboard. Keep false until the cluster has GPU capacity (must match enable_gpu_profiles in 03-hub-app)."
+  type        = bool
+  default     = false
+}
+
 variable "bff_secure_cookies" {
   description = "Set Secure on the BFF session cookie. Keep true behind the HTTPS ALB."
   type        = bool

@@ -16,7 +16,9 @@ import cookie from "@fastify/cookie";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { createHash, createSecretKey, randomBytes, randomUUID } from "node:crypto";
 import { validCsrfPair } from "./csrf.js";
-import { ensureHubUser, hubActivationState, hubActivationUrl, hubFailure, mapHubServerState, sandboxPath, sandboxUrl, startHubSandbox, type HubError, type HubRequestResponse, type HubLifecycleState, type HubServerLike } from "./hub.js";
+import { bearerMatches } from "./hub-bridge.js";
+import { HANDOFF_TTL_SECONDS, buildHandoffUrl, generateHandoffCode, hashHandoffCode, sanitizeNextPath } from "./hub-handoff.js";
+import { ensureHubUser, hubActivationState, hubActivationUrl, hubFailure, hubServerFromUserRecord, mapHubServerState, sandboxPath, sandboxUrl, startHubSandbox, type HubError, type HubRequestResponse, type HubLifecycleState, type HubServerLike } from "./hub.js";
 import { requestHubResponse, resolveStartLifecycle, shouldStartHubSandbox, shouldUseHubActivationFallback } from "./lifecycle.js";
 import {
   buildUsageResponse,
@@ -26,8 +28,10 @@ import {
   type UsageServer,
 } from "./usage.js";
 import { UsageStore } from "./usage-store.js";
+import { listSingleuserPods, resourcesByServer } from "./pod-resources.js";
 import { AppStore, INVITATION_NOT_AVAILABLE, LAST_TEAM_LEAD, PROJECT_RUNTIME_OWNER_NOT_READY, TEAM_MANAGEMENT_DENIED, type InvitationRole } from "./app-store.js";
 import { ArtifactStorage } from "./artifact-storage.js";
+import { listSandboxProfiles, resolveSandboxProfile } from "./sandbox-profiles.js";
 import { buildArtifactObjectKey, sanitizeArtifactName, validateArtifactSize } from "./artifacts.js";
 import { verifyTurnstile } from "./turnstile.js";
 import {
@@ -73,6 +77,7 @@ const config = {
   hubUrl: process.env.HUB_URL?.replace(/\/$/, ""),
   hubPublicUrl: process.env.HUB_PUBLIC_URL?.replace(/\/$/, ""),
   hubApiToken: process.env.HUB_API_TOKEN,
+  hubAuthBridgeToken: process.env.HUB_AUTH_BRIDGE_TOKEN,
   secureCookies: process.env.SECURE_COOKIES !== "false",
   cpuQuotaHours: quotaEnv("CPU_QUOTA_HOURS"),
   ramQuotaGb: quotaEnv("RAM_QUOTA_GB"),
@@ -411,8 +416,30 @@ async function persistSessionHubIdentity(identity: HubIdentity): Promise<void> {
   if (appStore) await persistResolvedHubIdentity(identity, { upsertHubIdentity: (mapping) => appStore.upsertHubIdentity(mapping) });
 }
 
+async function readHubServer(runtime: RuntimeConfig, username: string, name: string): Promise<HubServerLike | null> {
+  const record = await hubRequest<unknown>(runtime, "GET", `/hub/api/users/${encodeURIComponent(username)}`);
+  return hubServerFromUserRecord(record, name);
+}
+
 function serverPath(username: string, name: string): string {
   return sandboxPath(username, name);
+}
+
+// The Hub record has no resource figures, so running servers take CPU and RAM from their pod spec.
+// A failed lookup leaves the figures unknown (shown as "—") rather than failing the usage page.
+async function fillPodResources(servers: UsageServer[], username: string, log: { warn: (obj: unknown, msg: string) => void }): Promise<void> {
+  if (!servers.some((server) => server.state === "running" && (server.cpuCoresAllocated == null || server.ramGbAllocated == null))) return;
+  try {
+    const byServer = resourcesByServer(await listSingleuserPods(username));
+    for (const server of servers) {
+      const figures = byServer.get(server.name || "default");
+      if (!figures) continue;
+      server.cpuCoresAllocated ??= figures.cpuCores;
+      server.ramGbAllocated ??= figures.ramGb;
+    }
+  } catch (error) {
+    log.warn({ err: error instanceof Error ? error.message : "pod_lookup_failed" }, "Pod resource lookup unavailable");
+  }
 }
 
 function usageServer(key: string, server: HubServer): UsageServer {
@@ -485,6 +512,8 @@ app.register(cookie);
 // The dashboard proxy obtains the double-submit token from /v1/auth/csrf.
 app.addHook("onRequest", async (request, reply) => {
   if (["GET", "HEAD", "OPTIONS"].includes(request.method)) return;
+  // Internal server-to-server routes authenticate with the bridge token instead of a browser CSRF pair.
+  if (request.url.startsWith("/internal/")) return;
   requireCsrf(request, reply);
 });
 
@@ -506,6 +535,46 @@ app.get("/v1/health", async (_request, reply) => {
 app.get("/v1/auth/csrf", async (_request, reply) => {
   reply.header("cache-control", "no-store");
   return { csrfToken: setCsrfCookie(reply, config.secureCookies) };
+});
+
+// Dashboard -> Hub: mint a one-time code for the signed-in user. The browser then opens the
+// Hub login handler with the code; the Hub redeems it server-to-server (see /internal below).
+app.post<{ Body: { path?: unknown } }>("/v1/hub/handoff", async (request, reply) => {
+  reply.header("cache-control", "no-store");
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Dịch vụ ứng dụng tạm thời không khả dụng." });
+  const runtime = runtimeConfig();
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  const identity = await resolveSessionHubIdentity(session);
+  if (identity.status === "conflict") return reply.code(409).send({ error: "HUB_IDENTITY_CONFLICT", message: "Tài khoản notebook đang cần kiểm tra." });
+  await persistSessionHubIdentity(identity);
+  const nextPath = sanitizeNextPath(request.body?.path);
+  const code = generateHandoffCode();
+  await appStore.createHubHandoffCode(hashHandoffCode(code), identity.hubUsername, nextPath, HANDOFF_TTL_SECONDS);
+  return { url: buildHandoffUrl(runtime.hubPublicUrl, code, nextPath), expiresIn: HANDOFF_TTL_SECONDS };
+});
+
+// Internal only: the Hub redeems a handoff code from inside the cluster. The ALB never routes
+// /internal, and the request is authenticated by the bridge token, not by a browser session.
+app.post<{ Body: { code?: unknown } }>("/internal/v1/hub/handoff/redeem", async (request, reply) => {
+  reply.header("cache-control", "no-store");
+  if (!config.hubAuthBridgeToken) return reply.code(404).send({ error: "NOT_FOUND" });
+  if (!bearerMatches(request.headers.authorization, config.hubAuthBridgeToken)) {
+    return reply.code(401).send({ error: "UNAUTHORIZED" });
+  }
+  const code = typeof request.body?.code === "string" ? request.body.code : "";
+  if (!code || code.length > 128 || !appStore) return reply.code(400).send({ error: "INVALID_CODE" });
+  try {
+    appSchemaReady ??= appStore.ensureSchema();
+    await appSchemaReady;
+    const redeemed = await appStore.redeemHubHandoffCode(hashHandoffCode(code));
+    if (!redeemed) return reply.code(401).send({ error: "INVALID_OR_EXPIRED_CODE" });
+    return redeemed;
+  } catch (error) {
+    appSchemaReady = null;
+    request.log.error({ err: error }, "Hub handoff redeem failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE" });
+  }
 });
 
 app.post<{ Body: AuthBody }>("/v1/auth/login", async (request, reply) => {
@@ -701,7 +770,9 @@ app.post("/v1/auth/logout", async (request, reply) => {
   }
   reply.clearCookie(SESSION_COOKIE, { httpOnly: true, secure: runtime.secureCookies, sameSite: "lax", path: "/" });
   reply.clearCookie(CSRF_COOKIE, { httpOnly: false, secure: runtime.secureCookies, sameSite: "lax", path: "/" });
-  return { ok: true };
+  // The Hub keeps its own session cookie on the notebook host, which this origin cannot clear.
+  // The dashboard navigates to this URL so JupyterHub drops its cookie as well.
+  return { ok: true, hubLogoutUrl: runtime.hubPublicUrl ? `${runtime.hubPublicUrl}/hub/logout` : null };
 });
 
 app.get<{ Querystring: { spaceId?: string } }>("/v1/projects", async (request, reply) => {
@@ -1116,7 +1187,7 @@ app.get<{ Params: { projectId: string } }>("/v1/projects/:projectId/sandbox", as
     const runtime = await appStore.getProjectSandboxRuntime(projectId);
     if (!runtime) return { projectId, canOperate: permission?.canOperate ?? false, sandbox: null };
     const hub = runtimeConfig();
-    const server = await hubRequest<HubServerLike | null>(hub, "GET", serverPath(runtime.hubUsername, runtime.serverName)).catch((error) => {
+    const server = await readHubServer(hub, runtime.hubUsername, runtime.serverName).catch((error) => {
       if (hubStatus(error) === 404) return null;
       throw error;
     });
@@ -1138,12 +1209,30 @@ app.get<{ Params: { projectId: string } }>("/v1/projects/:projectId/sandbox", as
   }
 });
 
-app.post<{ Params: { projectId: string } }>("/v1/projects/:projectId/sandbox/start", async (request, reply) => {
+// Sandbox profiles offered to Projects. GPU profiles appear only when the deployment enables them.
+const sandboxGpuProfiles = process.env.SANDBOX_GPU_PROFILES === "true";
+
+app.get<{ Params: { projectId: string } }>("/v1/projects/:projectId/sandbox/profiles", async (request, reply) => {
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Project storage is not configured." });
+  try {
+    if (!(await projectActionAllowed(reply, session.subject, request.params.projectId, "read"))) return;
+    return { projectId: request.params.projectId, profiles: listSandboxProfiles(sandboxGpuProfiles) };
+  } catch (error) {
+    request.log.error({ err: error }, "Sandbox profile list failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Project storage is temporarily unavailable." });
+  }
+});
+
+app.post<{ Params: { projectId: string }; Body: { profile?: unknown } | undefined }>("/v1/projects/:projectId/sandbox/start", async (request, reply) => {
   if (!requireCsrf(request, reply)) return;
   const session = await requireSession(request, reply);
   if (!session) return;
   if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Project storage is not configured." });
   const { projectId } = request.params;
+  const resolved = resolveSandboxProfile(request.body?.profile, sandboxGpuProfiles);
+  if (!resolved.ok) return reply.code(400).send({ error: resolved.error, message: "Cấu hình sandbox không hợp lệ hoặc chưa được bật." });
   try {
     if (!(await projectActionAllowed(reply, session.subject, projectId, "operate"))) return;
     let runtime;
@@ -1157,12 +1246,31 @@ app.post<{ Params: { projectId: string } }>("/v1/projects/:projectId/sandbox/sta
     }
     const hub = runtimeConfig();
     const username = runtime.hubUsername;
-    const existing = await hubRequest<HubServerLike | null>(hub, "GET", serverPath(username, runtime.serverName)).catch((error) => {
+    const existing = await readHubServer(hub, username, runtime.serverName).catch((error) => {
       if (hubStatus(error) === 404) return null;
       throw error;
     });
     if (!shouldStartHubSandbox(existing)) {
       return { ok: true, projectId, state: mapHubServerState(existing) };
+    }
+    // RAM quota: the Hub user's other servers count, and the chosen profile's RAM is the request.
+    const hubUser = await hubRequest<HubUser>(hub, "GET", `/hub/api/users/${usernamePath(username)}`).catch((error) => {
+      if (hubStatus(error) === 404) return { servers: {} } as HubUser;
+      throw error;
+    });
+    const otherServers = (Object.entries(hubUser.servers ?? {}) as Array<[string, HubServer]>)
+      .filter(([key, server]) => (server.name || key || "default") !== runtime.serverName)
+      .map(([key, server]) => usageServer(key, server));
+    const quota = checkRamQuota(otherServers, hub.ramQuotaGb, resolved.profile.ramGb);
+    if (!quota.allowed) {
+      return reply.code(429).send({
+        error: "QUOTA_EXCEEDED",
+        metric: "ram",
+        limit: quota.limitGb,
+        current: quota.currentGb,
+        requested: quota.requestedGb,
+        enforcement: quota.enforcement,
+      });
     }
     const lifecycle = await resolveStartLifecycle({
       start: () => startHubSandbox({
@@ -1171,9 +1279,10 @@ app.post<{ Params: { projectId: string } }>("/v1/projects/:projectId/sandbox/sta
           await ensureRuntimeHubUser(hub, username);
         },
         onRetry: () => auditLifecycle(session, "project.sandbox_start_retry", projectId, { status: 404 }),
-        start: () => hubRequestResponse<HubServerLike>(hub, "POST", serverPath(username, runtime.serverName), {}),
+        // JupyterHub takes the spawn options in the body; `profile` selects the Hub profile by slug.
+        start: () => hubRequestResponse<HubServerLike>(hub, "POST", serverPath(username, runtime.serverName), { profile: resolved.profile.slug }),
       }),
-      read: async () => hubRequest<HubServerLike>(hub, "GET", serverPath(username, runtime.serverName)),
+      read: async () => readHubServer(hub, username, runtime.serverName),
       audit: (action, metadata) => auditLifecycle(session, action, projectId, metadata),
     });
     if (lifecycle.state === "ready" || lifecycle.state === "starting") await appStore.openUsageSession(projectId, session.subject);
@@ -1383,6 +1492,7 @@ app.get("/v1/usage", async (request, reply) => {
       throw error;
     }
     const servers = Object.entries(user.servers ?? {}).map(([key, server]) => usageServer(key, server));
+    await fillPodResources(servers, hubUsername, request.log);
     const result = buildUsageResponse(servers, quotas);
     if (usageStore) {
       try {
@@ -1490,7 +1600,7 @@ app.post<{ Params: { name: string } }>("/v1/sandboxes/:name/start", async (reque
         onRetry: () => auditLifecycle(session, "sandbox.start_retry", request.params.name, { status: 404 }),
         start: () => hubRequestResponse<HubServerLike>(runtime, "POST", serverPath(hubUsername, request.params.name), {}),
       }),
-      read: async () => hubRequest<HubServerLike>(runtime, "GET", serverPath(hubUsername, request.params.name)),
+      read: async () => readHubServer(runtime, hubUsername, request.params.name),
       audit: (action, metadata) => auditLifecycle(session, action, request.params.name, metadata),
     });
     return { ok: true, name: request.params.name, state: lifecycle.state, enforcement };

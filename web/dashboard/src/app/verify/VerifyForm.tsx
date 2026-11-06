@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Button, Form, Input, Label, TextField } from "@heroui/react";
+import { Alert, Button, Form, Input, Label, TextField } from "@heroui/react";
+import { RefreshCw, ShieldCheck } from "lucide-react";
 import { bffFetch } from "@/lib/bffFetch";
 
 export default function VerifyForm() {
@@ -49,9 +50,10 @@ export default function VerifyForm() {
   return <Form onSubmit={onSubmit} className="flex flex-col gap-4">
     <TextField isRequired><Label>{t("emailLabel")}</Label><Input name="email" type="email" autoComplete="email" defaultValue={params.get("email") ?? ""} variant="secondary" fullWidth /></TextField>
     <TextField isRequired><Label>{t("codeLabel")}</Label><Input name="code" autoComplete="one-time-code" defaultValue={params.get("code") ?? ""} variant="secondary" fullWidth /></TextField>
-    {error ? <p className="text-sm" role="alert" style={{ color: "var(--danger)" }}>{error}</p> : null}
-    <Button type="submit" variant="primary" size="lg" isPending={pending} isDisabled={pending}>{t("confirm")}</Button>
+    {error ? <Alert status="danger"><Alert.Content><Alert.Description>{error}</Alert.Description></Alert.Content></Alert> : null}
+    <Button type="submit" variant="primary" size="lg" isPending={pending} isDisabled={pending}><ShieldCheck aria-hidden="true" size={16} />{t("confirm")}</Button>
     <Button type="button" variant="tertiary" isDisabled={pending || resendSeconds > 0 || !params.get("email")} onPress={resend}>
+      <RefreshCw aria-hidden="true" size={14} />
       {resendSeconds > 0 ? t("resendCooldown", { seconds: resendSeconds }) : t("resend")}
     </Button>
   </Form>;
