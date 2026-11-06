@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Button, Card } from "@heroui/react";
+import { Alert, Button, Card, Description, Form, Input, Label, TextField } from "@heroui/react";
+import { KeyRound, RotateCcw } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 
@@ -83,22 +84,31 @@ export default function AccountPanel() {
       <Card className="flex flex-col gap-3 p-5">
         <h2 className="text-base font-medium">{t("emailHeading")}</h2>
         {loading ? <p className="text-sm" style={{ color: "var(--muted)" }}>{t("loading")}</p>
-          : loadError ? <div className="flex flex-wrap items-center gap-3"><p className="text-sm" role="alert" style={{ color: "var(--danger)" }}>{t("loadFailed")}</p><Button size="sm" variant="secondary" onPress={() => void loadSession()}>{t("retry")}</Button></div>
+          : loadError ? <div className="flex flex-wrap items-center gap-3"><Alert status="danger"><Alert.Content><Alert.Description>{t("loadFailed")}</Alert.Description></Alert.Content></Alert><Button size="sm" variant="secondary" onPress={() => void loadSession()}><RotateCcw aria-hidden="true" size={14} />{t("retry")}</Button></div>
             : <p className="text-sm">{email}</p>}
       </Card>
       <Card className="flex flex-col gap-4 p-5">
         <div className="flex flex-col gap-1">
           <h2 className="text-base font-medium">{t("passwordHeading")}</h2>
-          <p className="text-sm" style={{ color: "var(--muted)" }}>{t("passwordBody")}</p>
         </div>
-        <form className="flex max-w-md flex-col gap-4" onSubmit={changePassword}>
-          <label className="flex flex-col gap-1 text-sm">{t("currentPasswordLabel")}<input className="rounded-md border px-3 py-2" style={{ borderColor: "var(--border)", background: "var(--surface)" }} type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} /></label>
-          <label className="flex flex-col gap-1 text-sm">{t("newPasswordLabel")}<input className="rounded-md border px-3 py-2" style={{ borderColor: "var(--border)", background: "var(--surface)" }} type="password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /><span className="text-xs" style={{ color: "var(--muted)" }}>{t("passwordHint")}</span></label>
-          <label className="flex flex-col gap-1 text-sm">{t("confirmPasswordLabel")}<input className="rounded-md border px-3 py-2" style={{ borderColor: "var(--border)", background: "var(--surface)" }} type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label>
-          {formError ? <p className="text-sm" role="alert" style={{ color: "var(--danger)" }}>{formError}</p> : null}
-          {message ? <p className="text-sm" role="status" style={{ color: "var(--success)" }}>{message}</p> : null}
-          <Button type="submit" variant="primary" isPending={pending} isDisabled={pending}>{t("changePassword")}</Button>
-        </form>
+        <Form className="flex max-w-md flex-col gap-4" onSubmit={changePassword}>
+          <TextField type="password" value={currentPassword} onChange={setCurrentPassword} autoComplete="current-password">
+            <Label>{t("currentPasswordLabel")}</Label>
+            <Input variant="secondary" fullWidth />
+          </TextField>
+          <TextField type="password" value={newPassword} onChange={setNewPassword} autoComplete="new-password">
+            <Label>{t("newPasswordLabel")}</Label>
+            <Input variant="secondary" fullWidth />
+            <Description>{t("passwordHint")}</Description>
+          </TextField>
+          <TextField type="password" value={confirmPassword} onChange={setConfirmPassword} autoComplete="new-password">
+            <Label>{t("confirmPasswordLabel")}</Label>
+            <Input variant="secondary" fullWidth />
+          </TextField>
+          {formError ? <Alert status="danger"><Alert.Content><Alert.Description>{formError}</Alert.Description></Alert.Content></Alert> : null}
+          {message ? <Alert status="success"><Alert.Content><Alert.Description>{message}</Alert.Description></Alert.Content></Alert> : null}
+          <Button type="submit" variant="primary" isPending={pending} isDisabled={pending}><KeyRound aria-hidden="true" size={16} />{t("changePassword")}</Button>
+        </Form>
       </Card>
     </div>
   );

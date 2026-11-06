@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ChangeEvent } from "react";
-import { Button, Card } from "@heroui/react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
+import { Alert, Button, Card, Spinner } from "@heroui/react";
+import { Download, Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 import { formatBytes, validateUploadFile, type ArtifactListResponse, type ArtifactRecord } from "@/lib/artifacts";
@@ -18,6 +19,7 @@ export default function ProjectArtifactsPanel({ projectId }: { projectId: string
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [canWrite, setCanWrite] = useState(true);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   const base = `/api/bff/projects/${encodeURIComponent(projectId)}/artifacts`;
 
@@ -95,35 +97,40 @@ export default function ProjectArtifactsPanel({ projectId }: { projectId: string
         return;
       }
       const body = await response.json() as { url: string };
-      window.location.href = body.url;
+      window.location.assign(body.url);
     } catch {
       setError(t("downloadFailed"));
     }
   };
 
   return (
-    <Card className="workspace-detail-section">
-      <span className="workspace-section-index">{t("section")}</span>
-      <h2>{t("title")}</h2>
-      <p>{t("body")}</p>
-      {loading ? <p className="workspace-muted-copy" role="status">{t("loading")}</p> : null}
-      {!loading && artifacts.length === 0 ? <p className="workspace-muted-copy">{t("empty")}</p> : null}
-      <ul aria-label={t("list")} className="flex flex-col gap-2">
-        {artifacts.filter((artifact) => artifact.status === "ready").map((artifact) => (
-          <li key={artifact.id} className="flex items-center justify-between gap-4">
-            <span>{artifact.name} · {formatBytes(artifact.sizeBytes)}</span>
-            <Button variant="secondary" size="sm" onPress={() => void download(artifact)}>{t("download")}</Button>
-          </li>
-        ))}
-      </ul>
-      {canWrite ? (
-        <label className="flex flex-col gap-2">
-          <span className="sr-only">{t("chooseFile")}</span>
-          <input type="file" disabled={busy} onChange={(event) => void upload(event)} />
-        </label>
-      ) : <p className="workspace-muted-copy">{t("readOnly")}</p>}
-      {busy ? <p className="workspace-muted-copy" role="status">{t("uploading")}</p> : null}
-      {error ? <p className="workspace-form-error" role="alert">{error}</p> : null}
+    <Card>
+      <Card.Header>
+        <Card.Title>{t("title")}</Card.Title>
+      </Card.Header>
+      <Card.Content className="flex flex-col gap-4">
+        {loading ? <div className="flex items-center gap-2 text-sm" role="status"><Spinner size="sm" /><span>{t("loading")}</span></div> : null}
+        {!loading && artifacts.length === 0 ? <p className="workspace-muted-copy">{t("empty")}</p> : null}
+        <ul aria-label={t("list")} className="flex flex-col gap-2">
+          {artifacts.filter((artifact) => artifact.status === "ready").map((artifact) => (
+            <li key={artifact.id} className="flex items-center justify-between gap-4">
+              <span>{artifact.name} · {formatBytes(artifact.sizeBytes)}</span>
+              <Button variant="secondary" size="sm" onPress={() => void download(artifact)}><Download aria-hidden="true" size={14} />{t("download")}</Button>
+            </li>
+          ))}
+        </ul>
+        {canWrite ? (
+          <div className="flex items-center gap-3">
+            <Button variant="secondary" size="sm" isDisabled={busy} onPress={() => fileInput.current?.click()}>
+              <Upload aria-hidden="true" size={14} />
+              {t("chooseFile")}
+            </Button>
+            <input ref={fileInput} type="file" className="sr-only" tabIndex={-1} disabled={busy} onChange={(event) => void upload(event)} />
+          </div>
+        ) : <p className="workspace-muted-copy">{t("readOnly")}</p>}
+        {busy ? <div className="flex items-center gap-2 text-sm" role="status"><Spinner size="sm" /><span>{t("uploading")}</span></div> : null}
+        {error ? <Alert status="danger"><Alert.Content><Alert.Description>{error}</Alert.Description></Alert.Content></Alert> : null}
+      </Card.Content>
     </Card>
   );
 }

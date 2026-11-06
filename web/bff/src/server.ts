@@ -28,6 +28,7 @@ import {
 import { UsageStore } from "./usage-store.js";
 import { AppStore, INVITATION_NOT_AVAILABLE, LAST_TEAM_LEAD, PROJECT_RUNTIME_OWNER_NOT_READY, TEAM_MANAGEMENT_DENIED, type InvitationRole } from "./app-store.js";
 import { ArtifactStorage } from "./artifact-storage.js";
+import { listSandboxProfiles, resolveSandboxProfile } from "./sandbox-profiles.js";
 import { buildArtifactObjectKey, sanitizeArtifactName, validateArtifactSize } from "./artifacts.js";
 import { verifyTurnstile } from "./turnstile.js";
 import {
@@ -1138,12 +1139,30 @@ app.get<{ Params: { projectId: string } }>("/v1/projects/:projectId/sandbox", as
   }
 });
 
-app.post<{ Params: { projectId: string } }>("/v1/projects/:projectId/sandbox/start", async (request, reply) => {
+// Sandbox profiles offered to Projects. GPU profiles appear only when the deployment enables them.
+const sandboxGpuProfiles = process.env.SANDBOX_GPU_PROFILES === "true";
+
+app.get<{ Params: { projectId: string } }>("/v1/projects/:projectId/sandbox/profiles", async (request, reply) => {
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Project storage is not configured." });
+  try {
+    if (!(await projectActionAllowed(reply, session.subject, request.params.projectId, "read"))) return;
+    return { projectId: request.params.projectId, profiles: listSandboxProfiles(sandboxGpuProfiles) };
+  } catch (error) {
+    request.log.error({ err: error }, "Sandbox profile list failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Project storage is temporarily unavailable." });
+  }
+});
+
+app.post<{ Params: { projectId: string }; Body: { profile?: unknown } | undefined }>("/v1/projects/:projectId/sandbox/start", async (request, reply) => {
   if (!requireCsrf(request, reply)) return;
   const session = await requireSession(request, reply);
   if (!session) return;
   if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Project storage is not configured." });
   const { projectId } = request.params;
+  const resolved = resolveSandboxProfile(request.body?.profile, sandboxGpuProfiles);
+  if (!resolved.ok) return reply.code(400).send({ error: resolved.error, message: "Cấu hình sandbox không hợp lệ hoặc chưa được bật." });
   try {
     if (!(await projectActionAllowed(reply, session.subject, projectId, "operate"))) return;
     let runtime;
@@ -1171,7 +1190,8 @@ app.post<{ Params: { projectId: string } }>("/v1/projects/:projectId/sandbox/sta
           await ensureRuntimeHubUser(hub, username);
         },
         onRetry: () => auditLifecycle(session, "project.sandbox_start_retry", projectId, { status: 404 }),
-        start: () => hubRequestResponse<HubServerLike>(hub, "POST", serverPath(username, runtime.serverName), {}),
+        // JupyterHub takes the spawn options in the body; `profile` selects the Hub profile by slug.
+        start: () => hubRequestResponse<HubServerLike>(hub, "POST", serverPath(username, runtime.serverName), { profile: resolved.profile.slug }),
       }),
       read: async () => hubRequest<HubServerLike>(hub, "GET", serverPath(username, runtime.serverName)),
       audit: (action, metadata) => auditLifecycle(session, action, projectId, metadata),

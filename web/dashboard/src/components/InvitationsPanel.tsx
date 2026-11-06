@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Button, Card } from "@heroui/react";
+import { Alert, Button, Card, Form, Input, ListBox, Select, TextField } from "@heroui/react";
+import { Check, Send, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 import { canManageTeams, type SpaceSummary } from "@/lib/spaces";
@@ -91,28 +92,34 @@ export default function InvitationsPanel({ space }: { space: SpaceSummary }) {
 
   return (
     <Card className="workspace-detail-section">
-      <span className="workspace-section-index">{t("section")}</span>
       <h2>{t("title")}</h2>
-      <p>{t("body")}</p>
 
       {manager ? (
         <>
-          <form className="workspace-create-form" onSubmit={invite}>
-            <label className="sr-only" htmlFor="invite-email">{t("email")}</label>
-            <input id="invite-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder={t("emailPlaceholder")} />
-            <label className="sr-only" htmlFor="invite-role">{t("role")}</label>
-            <select id="invite-role" value={role} onChange={(event) => setRole(event.target.value)}>
-              <option value="member">{t("roleMember")}</option>
-              <option value="viewer">{t("roleViewer")}</option>
-              <option value="admin">{t("roleAdmin")}</option>
-            </select>
-            <Button type="submit" variant="primary" isPending={busy} isDisabled={busy}>{t("invite")}</Button>
-          </form>
+          <Form className="flex flex-wrap items-end gap-3" onSubmit={invite}>
+            <TextField type="email" value={email} onChange={setEmail} aria-label={t("email")} className="min-w-64">
+              <Input placeholder={t("emailPlaceholder")} variant="secondary" fullWidth />
+            </TextField>
+            <Select selectedKey={role} onSelectionChange={(key) => key && setRole(String(key))} aria-label={t("role")} className="w-40">
+              <Select.Trigger>
+                <Select.Value />
+                <Select.Indicator />
+              </Select.Trigger>
+              <Select.Popover>
+                <ListBox>
+                  <ListBox.Item id="member" textValue={t("roleMember")}>{t("roleMember")}<ListBox.ItemIndicator /></ListBox.Item>
+                  <ListBox.Item id="viewer" textValue={t("roleViewer")}>{t("roleViewer")}<ListBox.ItemIndicator /></ListBox.Item>
+                  <ListBox.Item id="admin" textValue={t("roleAdmin")}>{t("roleAdmin")}<ListBox.ItemIndicator /></ListBox.Item>
+                </ListBox>
+              </Select.Popover>
+            </Select>
+            <Button type="submit" variant="primary" isPending={busy} isDisabled={busy}><Send aria-hidden="true" size={16} />{t("invite")}</Button>
+          </Form>
           <ul aria-label={t("pendingList")} className="flex flex-col gap-2">
             {pending.map((invitation) => (
               <li key={invitation.id} className="flex items-center justify-between gap-4">
                 <span>{invitation.email} · {invitation.role}</span>
-                <Button variant="secondary" size="sm" isDisabled={busy} onPress={() => void revoke(invitation.id)}>{t("revoke")}</Button>
+                <Button variant="secondary" size="sm" isDisabled={busy} onPress={() => void revoke(invitation.id)}><X aria-hidden="true" size={14} />{t("revoke")}</Button>
               </li>
             ))}
           </ul>
@@ -124,13 +131,13 @@ export default function InvitationsPanel({ space }: { space: SpaceSummary }) {
           {mine.map((invitation) => (
             <li key={invitation.id} className="flex items-center justify-between gap-4">
               <span>{t("incoming", { role: invitation.role })}</span>
-              <Button variant="primary" size="sm" isDisabled={busy} onPress={() => void accept(invitation.id)}>{t("accept")}</Button>
+              <Button variant="primary" size="sm" isDisabled={busy} onPress={() => void accept(invitation.id)}><Check aria-hidden="true" size={14} />{t("accept")}</Button>
             </li>
           ))}
         </ul>
       ) : null}
 
-      {error ? <p className="workspace-form-error" role="alert">{error}</p> : null}
+      {error ? <Alert status="danger"><Alert.Content><Alert.Description>{error}</Alert.Description></Alert.Content></Alert> : null}
     </Card>
   );
 }

@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { Button } from "@heroui/react";
-import { useRouter } from "next/navigation";
+import { Button, Card, FieldError, Input, Label, Modal, Spinner, TextField } from "@heroui/react";
+import { LogIn, Plus, RotateCcw } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 import {
@@ -15,29 +16,37 @@ import {
   type ProjectLoadState,
   type ProjectRecord,
 } from "@/lib/projects";
-import ProjectCard from "@/components/ProjectCard";
+import ProjectRow from "@/components/ProjectRow";
 import { useActiveSpace } from "@/hooks/useActiveSpace";
 
 type CreateProjectResponse = { project?: ProjectRecord };
+type TeamOption = { id: string; name: string };
 
+/**
+ * The single workspace page: Projects with their notebook runtimes. The navbar
+ * search filters the list through ?q=; new projects are created from a dialog.
+ */
 export default function ProjectBoard() {
   const t = useTranslations("workspace");
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlQuery = searchParams.get("q") ?? "";
   const [projects, setProjects] = useState<ProjectRecord[]>([]);
   const { activeSpace } = useActiveSpace();
-  const [query, setQuery] = useState("");
+  const [teams, setTeams] = useState<TeamOption[]>([]);
   const [loadState, setLoadState] = useState<ProjectLoadState | "loading">("loading");
   const [projectName, setProjectName] = useState("");
   const [createError, setCreateError] = useState(false);
   const [creating, setCreating] = useState(false);
 
   const activeSpaceId = activeSpace?.id ?? null;
+  const isOrganization = activeSpace?.type === "organization";
 
   const loadProjects = useCallback(async () => {
     setLoadState("loading");
     try {
-      const query = activeSpaceId ? `?spaceId=${encodeURIComponent(activeSpaceId)}` : "";
-      const response = await bffFetch(`/api/bff/projects${query}`, { cache: "no-store" });
+      const search = activeSpaceId ? `?spaceId=${encodeURIComponent(activeSpaceId)}` : "";
+      const response = await bffFetch(`/api/bff/projects${search}`, { cache: "no-store" });
       setLoadState(classifyProjectResponse(response.status));
       if (!response.ok) return;
       const body = await response.json() as ProjectListResponse;
@@ -53,17 +62,36 @@ export default function ProjectBoard() {
     return () => window.clearTimeout(task);
   }, [activeSpaceId, loadProjects]);
 
-  const visibleProjects = useMemo(() => filterProjects(projects, query), [projects, query]);
+  // Teams only exist inside organizations; a new project in one needs a team.
+  useEffect(() => {
+    if (!activeSpaceId || !isOrganization) {
+      const task = window.setTimeout(() => setTeams([]), 0);
+      return () => window.clearTimeout(task);
+    }
+    let cancelled = false;
+    const task = window.setTimeout(() => {
+      bffFetch(`/api/bff/spaces/${encodeURIComponent(activeSpaceId)}/teams`, { cache: "no-store" })
+        .then((response) => (response.ok ? response.json() as Promise<{ teams?: TeamOption[] }> : { teams: [] }))
+        .then((body) => {
+          if (!cancelled) setTeams(Array.isArray(body.teams) ? body.teams : []);
+        })
+        .catch(() => {
+          if (!cancelled) setTeams([]);
+        });
+    }, 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(task);
+    };
+  }, [activeSpaceId, isOrganization]);
 
-  const createProject = async (event: FormEvent<HTMLFormElement>) => {
+  const visibleProjects = useMemo(() => filterProjects(projects, urlQuery), [projects, urlQuery]);
+
+  const createProject = async (event: FormEvent<HTMLFormElement>, close: () => void) => {
     event.preventDefault();
     setCreateError(false);
     const validated = validateProjectName(projectName);
-    if (!validated.ok) {
-      setCreateError(true);
-      return;
-    }
-    if (!activeSpaceId) {
+    if (!validated.ok || !activeSpaceId) {
       setCreateError(true);
       return;
     }
@@ -71,10 +99,8 @@ export default function ProjectBoard() {
     try {
       // Organization Spaces need an explicit team; personal Spaces use their default team.
       let teamId: string | undefined;
-      if (activeSpace?.type === "organization") {
-        const teamsResponse = await bffFetch(`/api/bff/spaces/${encodeURIComponent(activeSpaceId)}/teams`, { cache: "no-store" });
-        const teamsBody = teamsResponse.ok ? await teamsResponse.json() as { teams?: Array<{ id: string }> } : { teams: [] };
-        teamId = teamsBody.teams?.[0]?.id;
+      if (isOrganization) {
+        teamId = teams[0]?.id;
         if (!teamId) {
           setCreateError(true);
           return;
@@ -95,6 +121,7 @@ export default function ProjectBoard() {
         setCreateError(true);
         return;
       }
+      close();
       router.push(destination);
     } catch {
       setCreateError(true);
@@ -104,17 +131,15 @@ export default function ProjectBoard() {
   };
 
   if (loadState === "loading") {
-    return <p className="workspace-muted-copy" role="status">{t("loadingProjects")}</p>;
+    return <div className="flex items-center gap-2 text-sm" role="status"><Spinner size="sm" /><span>{t("loadingProjects")}</span></div>;
   }
 
   if (loadState === "unauthenticated") {
     return (
-      <section className="workspace-state-panel" aria-labelledby="projects-auth-title">
-        <span className="workspace-section-index">{t("authSection")}</span>
+      <Card className="p-6" aria-labelledby="projects-auth-title">
         <h2 id="projects-auth-title">{t("unauthenticatedTitle")}</h2>
-        <p>{t("unauthenticatedBody")}</p>
-        <Link href="/login"><Button variant="primary">{t("signIn")}</Button></Link>
-      </section>
+        <Link href="/login"><Button variant="primary"><LogIn aria-hidden="true" size={16} />{t("signIn")}</Button></Link>
+      </Card>
     );
   }
 
@@ -130,44 +155,69 @@ export default function ProjectBoard() {
     <div className="flex flex-col gap-8">
       <header className="workspace-page-heading">
         <div>
-          <span className="workspace-section-index">{t("projectsSection")}</span>
           <h1>{t("projectsTitle")}</h1>
-          <p>{t("projectsSubtitle")}</p>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <span className="workspace-count-label">{t("projectCount", { count: projects.length })}</span>
-          <Link href="/teams" className="workspace-count-label">{t("teamsLink")}</Link>
+        <div className="flex flex-col items-end gap-3">
+          <Modal onOpenChange={(open) => { if (!open) setCreateError(false); }}>
+            <Modal.Trigger>
+              <Button variant="primary">
+                <Plus aria-hidden="true" size={16} />
+                {t("newProject")}
+              </Button>
+            </Modal.Trigger>
+            <Modal.Backdrop>
+              <Modal.Container>
+                <Modal.Dialog>
+                  {({ close }) => (
+                    <form onSubmit={(event) => void createProject(event, close)} className="flex flex-col gap-4">
+                      <Modal.Header>
+                        <Modal.Heading>{t("newProject")}</Modal.Heading>
+                      </Modal.Header>
+                      <Modal.Body className="flex flex-col gap-3">
+                        <TextField value={projectName} onChange={setProjectName} autoFocus isInvalid={createError}>
+                          <Label>{t("projectName")}</Label>
+                          <Input placeholder={t("projectNamePlaceholder")} variant="secondary" fullWidth />
+                          {createError ? <FieldError>{projectName.trim() ? t("projectCreateFailed") : t("projectNameRequired")}</FieldError> : null}
+                        </TextField>
+                      </Modal.Body>
+                      <Modal.Footer className="flex justify-end gap-2">
+                        <Button variant="secondary" onPress={close}>{t("cancel")}</Button>
+                        <Button type="submit" variant="primary" isPending={creating} isDisabled={creating}>{t("createProject")}</Button>
+                      </Modal.Footer>
+                    </form>
+                  )}
+                </Modal.Dialog>
+              </Modal.Container>
+            </Modal.Backdrop>
+          </Modal>
         </div>
       </header>
 
-      <section className="workspace-project-toolbar" aria-label={t("searchProjects")}>
-        <label className="workspace-search-field">
-          <span className="sr-only">{t("searchProjects")}</span>
-          <span aria-hidden="true">⌕</span>
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("searchProjectsHint")} />
-        </label>
-        <form className="workspace-create-form" onSubmit={createProject}>
-          <label className="sr-only" htmlFor="new-project-name">{t("projectName")}</label>
-          <input id="new-project-name" value={projectName} onChange={(event) => setProjectName(event.target.value)} placeholder={t("projectNamePlaceholder")} />
-          <Button type="submit" variant="primary" isPending={creating} isDisabled={creating}>{t("newProject")}</Button>
-        </form>
-      </section>
-      {createError ? <p className="workspace-form-error" role="alert">{projectName.trim() ? t("projectCreateFailed") : t("projectNameRequired")}</p> : null}
+      {urlQuery ? (
+        <p className="text-sm" style={{ color: "var(--muted)" }} role="status">
+          {t("filteredBy", { query: urlQuery })} · <Link href="/projects">{t("clearFilter")}</Link>
+        </p>
+      ) : null}
+
 
       {projects.length === 0 ? (
-        <section className="workspace-state-panel" aria-labelledby="projects-empty-title">
-          <span className="workspace-section-index">{t("workspaceSection")}</span>
+        <Card className="p-6" aria-labelledby="projects-empty-title">
           <h2 id="projects-empty-title">{t("projectsEmptyTitle")}</h2>
-          <p>{t("projectsEmptyBody")}</p>
-        </section>
+        </Card>
       ) : visibleProjects.length === 0 ? (
-        <section className="workspace-state-panel" aria-labelledby="projects-results-title">
+        <Card className="p-6" aria-labelledby="projects-results-title">
           <h2 id="projects-results-title">{t("noResultsTitle")}</h2>
-          <p>{t("noResultsBody")}</p>
-        </section>
+        </Card>
       ) : (
-        <section className="workspace-project-grid" aria-label={t("projectsTitle")}>
-          {visibleProjects.map((project) => <ProjectCard key={project.id} project={project} />)}
+        <section aria-label={t("projectsTitle")} className="flex flex-col gap-2">
+          <div className="workspace-list-head" aria-hidden="true">
+            <span>{t("columnProject")}</span>
+            <span>{t("columnRuntime")}</span>
+            <span />
+          </div>
+          <ul className="workspace-project-list">
+            {visibleProjects.map((project) => <ProjectRow key={project.id} project={project} />)}
+          </ul>
         </section>
       )}
     </div>
@@ -175,14 +225,11 @@ export default function ProjectBoard() {
 }
 
 function StatePanel({ title, body, action, onAction }: { title: string; body: string; action: string; onAction: () => void }) {
-  const t = useTranslations("workspace");
-
   return (
-    <section className="workspace-state-panel" aria-live="polite">
-      <span className="workspace-section-index">{t("statusSection")}</span>
+    <Card className="p-6" aria-live="polite">
       <h2>{title}</h2>
       <p>{body}</p>
-      <Button variant="secondary" onPress={onAction}>{action}</Button>
-    </section>
+      <Button variant="secondary" onPress={onAction}><RotateCcw aria-hidden="true" size={16} />{action}</Button>
+    </Card>
   );
 }

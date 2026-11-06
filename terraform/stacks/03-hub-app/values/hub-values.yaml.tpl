@@ -137,8 +137,9 @@ singleuser:
     TF_FORCE_GPU_ALLOW_GROWTH: "true"
     XLA_PYTHON_CLIENT_PREALLOCATE: "false"
   profileList:
-    - display_name: "CPU only"
-      description: "No GPU, basic Python learning."
+    - display_name: "CPU · 2 vCPU"
+      slug: cpu-small
+      description: "2 vCPU, 4 GB RAM."
       default: true
       kubespawner_override:
         image: ${cpu_image}
@@ -148,8 +149,31 @@ singleuser:
         mem_guarantee: 1G
         node_selector:
           karpenter.sh/nodepool: cpu-user
+    - display_name: "CPU · 4 vCPU"
+      slug: cpu-medium
+      description: "4 vCPU, 8 GB RAM."
+      kubespawner_override:
+        image: ${cpu_image}
+        cpu_limit: 4
+        cpu_guarantee: 1
+        mem_limit: 8G
+        mem_guarantee: 2G
+        node_selector:
+          karpenter.sh/nodepool: cpu-user
+    - display_name: "CPU · 8 vCPU"
+      slug: cpu-large
+      description: "8 vCPU, 16 GB RAM."
+      kubespawner_override:
+        image: ${cpu_image}
+        cpu_limit: 8
+        cpu_guarantee: 2
+        mem_limit: 16G
+        mem_guarantee: 4G
+        node_selector:
+          karpenter.sh/nodepool: cpu-user
 %{ if enable_gpu_profiles ~}
     - display_name: "GPU shared L4 (commit/ceiling per config)"
+      slug: gpu-l4-shared
       description: "L4 GPU split by time-slicing, best-effort, killed when exceeding the ceiling."
       kubespawner_override:
         image: ${gpu_image}
@@ -177,6 +201,7 @@ singleuser:
           VRAM_COMMIT_MIB: "${vram_commit_mib}"
           VRAM_CEILING_MIB: "${vram_ceiling_mib}"
     - display_name: "GPU dedicated (1 full GPU)"
+      slug: gpu-dedicated
       description: "Small unshared GPU, no sharing. Requires plan=dedicated."
       kubespawner_override:
         image: ${gpu_image}
