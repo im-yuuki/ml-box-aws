@@ -25,7 +25,7 @@ export type SandboxProfileOption = {
   available: boolean;
 };
 
-export type SandboxErrorKey = "loadFailed" | "ownerNotReady" | "forbidden" | "startFailed" | "stopFailed";
+export type SandboxErrorKey = "loadFailed" | "ownerNotReady" | "forbidden" | "startFailed" | "stopFailed" | "quotaExceeded";
 
 /**
  * Loads and operates the notebook runtime of one Project. Shared by the
@@ -75,6 +75,7 @@ export function useProjectSandbox(projectId: string) {
       if (!response.ok) {
         const body = await response.json().catch(() => ({})) as { error?: string };
         if (body.error === "PROJECT_OWNER_NOT_READY") setError("ownerNotReady");
+        else if (body.error === "QUOTA_EXCEEDED") setError("quotaExceeded");
         else if (response.status === 403) setError("forbidden");
         else setError(action === "start" ? "startFailed" : "stopFailed");
         return;

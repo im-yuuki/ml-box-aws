@@ -309,7 +309,8 @@
       "unknown": "Not started"
     },
     "usage": "Recorded runtime: {hours} h in the last {days} days",
-    "profileLabel": "Configuration"
+    "profileLabel": "Configuration",
+    "quotaExceeded": "Not enough RAM quota for this configuration. Stop another sandbox or choose a smaller one."
   },
   "projectArtifacts": {
     "title": "Artifacts",

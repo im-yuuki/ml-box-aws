@@ -309,7 +309,8 @@
       "unknown": "Chưa khởi động"
     },
     "usage": "Thời gian chạy đã ghi nhận: {hours} giờ trong {days} ngày gần nhất",
-    "profileLabel": "Cấu hình"
+    "profileLabel": "Cấu hình",
+    "quotaExceeded": "Không đủ hạn mức RAM cho cấu hình này. Hãy dừng sandbox khác hoặc chọn cấu hình nhỏ hơn."
   },
   "projectArtifacts": {
     "title": "Artifacts",

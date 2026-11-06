@@ -1253,6 +1253,25 @@ app.post<{ Params: { projectId: string }; Body: { profile?: unknown } | undefine
     if (!shouldStartHubSandbox(existing)) {
       return { ok: true, projectId, state: mapHubServerState(existing) };
     }
+    // RAM quota: the Hub user's other servers count, and the chosen profile's RAM is the request.
+    const hubUser = await hubRequest<HubUser>(hub, "GET", `/hub/api/users/${usernamePath(username)}`).catch((error) => {
+      if (hubStatus(error) === 404) return { servers: {} } as HubUser;
+      throw error;
+    });
+    const otherServers = (Object.entries(hubUser.servers ?? {}) as Array<[string, HubServer]>)
+      .filter(([key, server]) => (server.name || key || "default") !== runtime.serverName)
+      .map(([key, server]) => usageServer(key, server));
+    const quota = checkRamQuota(otherServers, hub.ramQuotaGb, resolved.profile.ramGb);
+    if (!quota.allowed) {
+      return reply.code(429).send({
+        error: "QUOTA_EXCEEDED",
+        metric: "ram",
+        limit: quota.limitGb,
+        current: quota.currentGb,
+        requested: quota.requestedGb,
+        enforcement: quota.enforcement,
+      });
+    }
     const lifecycle = await resolveStartLifecycle({
       start: () => startHubSandbox({
         userExists: true,
