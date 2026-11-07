@@ -212,9 +212,9 @@ singleuser:
         node_selector:
           karpenter.sh/nodepool: cpu-user
 %{ if enable_gpu_profiles ~}
-    - display_name: "GPU shared L4 (commit/ceiling per config)"
+    - display_name: "GPU shared T4 (commit/ceiling per config)"
       slug: gpu-l4-shared
-      description: "L4 GPU split by time-slicing, best-effort, killed when exceeding the ceiling."
+      description: "T4 GPU split by time-slicing, best-effort, killed when exceeding the ceiling."
       kubespawner_override:
         image: ${gpu_image}
         cpu_limit: 4
@@ -225,7 +225,7 @@ singleuser:
           nvidia.com/gpu: "1"  # time-sliced replica on tier=shared nodes
         node_selector:
           tier: shared
-          gpu-family: L4
+          gpu-family: T4
         tolerations:
           - key: tier
             operator: Equal

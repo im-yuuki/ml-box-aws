@@ -1,4 +1,4 @@
-# NodePool shared L4: g6 single-GPU, time-slicing replicas=3 @ 8GB commit.
+# NodePool shared T4: g4dn.xlarge single-GPU, time-slicing replicas=2 @ 8GB commit.
 # Taint tier=shared so dedicated pods don't leak in. Consolidation won't remove nodes with sessions:
 # user pods must carry the annotation karpenter.sh/do-not-disrupt=true (hub hook).
 # expireAfter: set long/turned off for the GPU user pool — verify against the Karpenter release.
@@ -11,7 +11,7 @@ spec:
     metadata:
       labels:
         tier: shared
-        gpu-family: L4
+        gpu-family: T4
         nvidia.com/device-plugin.config: any # selects the time-slicing config key in the gpu-stack ConfigMap
         hub.jupyter.org/node-purpose: user # mandatory for Z2JH matchNodePurpose=require
     spec:
@@ -26,10 +26,10 @@ spec:
       requirements:
         - key: node.kubernetes.io/instance-type
           operator: In
-          values: ["g6.xlarge", "g6.2xlarge", "g6.4xlarge"]
+          values: ["g4dn.xlarge"]
         - key: karpenter.k8s.aws/instance-gpu-name
           operator: In
-          values: ["l4"]
+          values: ["t4"]
         - key: karpenter.k8s.aws/instance-gpu-count
           operator: In
           values: ["1"]

@@ -1,5 +1,5 @@
-# Applies to shared L4 nodes via the label nvidia.com/device-plugin.config=time-slicing-shared.
-# replicas=3 @ 8GB commit (L4 24GB, factor 1.0). Increase gradually based on measurements.
+# Applies to shared T4 nodes via the label nvidia.com/device-plugin.config=time-slicing-shared.
+# replicas=2 @ 8GB commit (T4 16GB, factor 1.0). Increase gradually based on measurements.
 # Do NOT apply to the dedicated pool (dedicated nodes don't carry this label -> whole GPU).
 apiVersion: v1
 kind: ConfigMap

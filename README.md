@@ -9,7 +9,7 @@ Sandbox notebook theo user, ephemeral, GPU chia sẻ (time-slicing) + dedicated,
 |---|---|
 | Region đầu tiên | ap-southeast-2 (Sydney), mã ngắn `apse2` |
 | Region tiếp theo | ap-southeast-1, ap-southeast-3 (xem `docs/regions.md`) |
-| GPU shared | L4 (g6), time-slicing replicas 3 @ commit 8GB / ceiling 12GB |
+| GPU shared | T4 (g4dn), time-slicing replicas 2 @ commit 8GB / ceiling 12GB |
 | GPU dedicated | 1 GPU/node (g4dn/g6/g5.xlarge), tạm không MIG |
 | NAT | `fck_nat` cho lab (~$5/tháng); `managed_per_az` cho prod |
 | K8s | 1.36 (1.33 đã rơi vào extended support) |

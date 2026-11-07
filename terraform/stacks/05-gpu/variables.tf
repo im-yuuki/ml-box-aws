@@ -25,9 +25,9 @@ variable "dcgm_exporter_chart_version" {
 }
 
 variable "gpu_shared_replicas_l4" {
-  description = "time-slicing replicas for L4 @ commit 8GB, factor 1.0."
+  description = "time-slicing replicas for T4 @ commit 8GB, factor 1.0. (Name kept for backwards compatibility; now targets g4dn.xlarge T4)"
   type        = number
-  default     = 3
+  default     = 2
 }
 
 variable "tags" {

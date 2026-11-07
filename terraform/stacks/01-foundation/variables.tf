@@ -138,8 +138,8 @@ variable "tags" {
   }
 }
 
-# VRAM commit/ceiling — latest decision: commit 8GiB, ceiling 12GiB for the shared L4 pool.
-# Time-slicing replicas derived: L4 22.5GiB usable ~ 24GB -> floor(24/8)=3 @ factor 1.0.
+# VRAM commit/ceiling — latest decision: commit 8GiB, ceiling 12GiB for the shared T4 pool.
+# Time-slicing replicas derived: T4 16GB usable -> floor(16/8)=2 @ factor 1.0.
 variable "vram_commit_mib" {
   type    = number
   default = 8192
@@ -151,7 +151,7 @@ variable "vram_ceiling_mib" {
 }
 
 variable "gpu_shared_replicas_l4" {
-  description = "Time-slicing replicas for L4 @ commit 8GB, factor 1.0."
+  description = "Time-slicing replicas for T4 @ commit 8GB, factor 1.0. (Name kept for backwards compatibility; now targets g4dn.xlarge T4)"
   type        = number
-  default     = 3
+  default     = 2
 }

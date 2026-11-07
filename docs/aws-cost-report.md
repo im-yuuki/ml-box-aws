@@ -13,7 +13,7 @@
 |---|---|---|---|---|
 | EKS control plane | $0.10/giờ = **$73/th** | $0.10/giờ = **$73/th** | control plane K8s (API server, etcd, scheduler) — bắt buộc của cluster | phẳng theo region |
 | m6i.large (system node) | $0.096/giờ | **$0.12/giờ** | node chạy services hệ thống: hub, proxy, karpenter, LB controller, coredns, dashboard/BFF | OD, Linux; sau tối ưu đổi t4g.large |
-| g6.xlarge (1× L4) | $0.8048/giờ | **$1.05/giờ** (+30%) | node notebook GPU shared (1 L4 time-slicing ~3 phiên) | OD; spot us-east-1 ~$0.62, Sydney ~$0.71 |
+| g4dn.xlarge (1× T4) | $0.526/giờ | **$0.684/giờ** (+30%) | node notebook GPU shared (1 T4 time-slicing ~2 phiên) | OD; spot us-east-1 ~$0.32, Sydney ~$0.29 |
 | g6.2xlarge / 4xlarge | ≈ 2× / 4× giá xlarge | ≈ 2× / 4× giá xlarge | tùy chọn node shared L4 nhiều RAM hơn cho phiên GPU nặng | ≈, chưa verify từng size |
 | g4dn.xlarge (1× T4) | $0.526/giờ | **$0.684/giờ** (+30%) | node GPU T4 dedicated — dòng GPU rẻ nhất cho profile dedicated | OD; spot us-east-1 ~$0.32, Sydney ~$0.29 |
 | g5.xlarge (1× A10G) | $1.01/giờ | **~$1.31/giờ** (≈ +30%) | node GPU A10G dedicated — mạnh hơn T4 cho session nặng | đúng cho profile dedicated |
@@ -68,7 +68,7 @@ Floor thật của cluster chỉ là 2 node MNG system (mục 2). Ba NodePool đ
 | NodePool | Capacity type | Min | Max (`limits`) | Giá node Sydney/th (OD) |
 |---|---|---|---|---|
 | `cpu-user` | Spot + OD | **0** | 500 vCPU / 2000Gi | m6i.large $87.6; Spot ~$26-44 (≈) |
-| `gpu-shared-l4` | OD | **0** | 50 GPU time-slice ≈ ~17 node | g6.xlarge $766 |
+| `gpu-shared-l4` | OD | **0** | 50 GPU time-slice ≈ ~25 node | g4dn.xlarge $499 |
 | `gpu-dedicated` | OD, `WhenEmpty` | **0** | 20 GPU = 20 node | g4dn $499; g6 $766; g5 ~$960 (≈) |
 
 Mỗi node user root EBS 100Gi gp3 = ~$10.4/th (Sydney ≈) tính theo giờ node chạy.
@@ -76,13 +76,13 @@ Mỗi node user root EBS 100Gi gp3 = ~$10.4/th (Sydney ≈) tính theo giờ nod
 ## 4. Tỉ lệ user/instance kỳ vọng
 
 Bundle người dùng (`hub-values.yaml.tpl`): CPU profile guarantee 0.5 vCPU / 1GB;
-GPU shared 3 phiên/GPU (time-slicing, commit 8GB / ceiling 12GB);
+GPU shared 2 phiên/GPU (time-slicing, commit 8GB / ceiling 12GB);
 GPU dedicated 1 GPU/node không chia.
 
 | Gói | Tỉ lệ kỳ vọng | Chi phí giờ-phiên (Sydney) |
 |---|---|---|
 | CPU | ~1.5 user/vCPU ⇒ **3-4 user/m6i.large**, ~14 user/m6i.2xlarge | Spot: ~$0.015-0.03/giờ (≈) |
-| GPU shared | **3 user/node** (1 GPU × 3 replica) | g6.xlarge $1.05/3 = **$0.35/giờ** |
+| GPU shared | **2 user/node** (1 GPU × 2 replica) | g4dn.xlarge $0.68/2 = **$0.34/giờ** |
 | GPU dedicated | **1 user/node** | g4dn $0.68; g6 $1.05; g5 ~$1.31/giờ |
 
 Quy mô mục tiêu: 50 user đầu, kiến trúc tới 2000 user đồng thời.
@@ -90,13 +90,13 @@ Quy mô mục tiêu: 50 user đầu, kiến trúc tới 2000 user đồng thời
 | Kịch bản | Node cần | Chi phí phần autoscale (Sydney/th) |
 |---|---|---|
 | 0 user | 0 | $0 |
-| 50 user (~40 CPU + ~10 shared) | ~4-6 node m/r Spot + ~3-4 g6.xlarge | ~$250-350 (≈) |
-| 2000 concurrent (~1600 CPU + ~400 shared) | ~430 node Spot + ~134 node g6 | **chạm cap 50 GPU** ⇒ tăng `limits` hoặc thêm pool T4/A10G |
+| 50 user (~40 CPU + ~10 shared) | ~4-6 node m/r Spot + ~5 g4dn.xlarge | ~$250-350 (≈) |
+| 2000 concurrent (~1600 CPU + ~400 shared) | ~430 node Spot + ~200 node g4dn | **chạm cap 50 GPU** ⇒ tăng `limits` hoặc thêm pool A10G/L4 |
 
 ## 5. Chi phí theo phiên (đối chiếu đơn giá)
 
 - Chi phí hạ tầng cố định Sydney idle ≈ $320/th ⇒ ~$0.44/giờ kể cả không có ai dùng.
-- Chi phí cận biên mỗi phiên sống: CPU Spot ~$0.02/giờ, GPU shared $0.35/giờ, dedicated $0.68-1.31/giờ.
+- Chi phí cận biên mỗi phiên sống: CPU Spot ~$0.02/giờ, GPU shared $0.34/giờ, dedicated $0.68-1.31/giờ.
 - Nút chi phí lớn nhất: GPU shared pool chỉ chạy OD và `expireAfter: Never` ⇒
   node có phiên sẽ tồn tại tới khi phiên đóng + `consolidateAfter` 5m.
 - EBS node 100Gi + S3 workspace sync là 2 mục co giãn chủ yếu còn lại theo user data.

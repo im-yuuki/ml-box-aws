@@ -62,7 +62,7 @@ variable "vram_ceiling_mib" {
 # GPU profiles are hidden until the account has a GPU quota (On-Demand / EDP).
 variable "enable_gpu_profiles" {
   description = <<-EOT
-    Render the GPU profiles (GPU shared L4 + GPU dedicated) in the hub profile
+    Render the GPU profiles (GPU shared T4 + GPU dedicated) in the hub profile
     list. Keep false while there is no GPU quota: the GPU NodePools would
     fail to scale and the profiles would only produce confusing errors.
     The CPU profile stays available either way.
