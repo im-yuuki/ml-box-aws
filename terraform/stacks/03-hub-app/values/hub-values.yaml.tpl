@@ -1,6 +1,6 @@
 # Z2JH values — rendered via templatefile() in stack 03-hub-app/main.tf.
 # Cross-check field names against the Z2JH chart version in use; do not infer from this file.
-# Decisions applied: commit/ceiling VRAM, L4 shared replicas 3, userScheduler,
+# Decisions applied: commit/ceiling VRAM, T4 shared replicas 2, userScheduler,
 # do-not-disrupt, Cognito OIDC, external RDS, pre-created ALB + ACM (no Ingress).
 #
 # The Ingress block was removed on purpose: the ALB lives in 02-platform, so
@@ -172,7 +172,19 @@ singleuser:
     limit: 8G
     guarantee: 1G
   storage:
-    type: none # workspace ephemeral + sync via S3 sidecar (§7), no PVC
+    # One EFS-backed PVC per Project: the server name is the Project id, so the claim is
+    # mlbox-<project id>. It survives stop and start. Deleting the Project deletes the claim (BFF),
+    # and deleteAccessPointRootDir removes the directory with it. Storage class: stacks/06-storage.
+    type: dynamic
+    capacity: 10Gi # EFS grows on demand; Kubernetes still requires a size on the claim
+    dynamic:
+      storageClass: efs-sc
+      storageAccessModes:
+        - ReadWriteMany
+      pvcNameTemplate: "mlbox-{servername}"
+      volumeNameTemplate: volume-{user_server}
+      subPath: null
+    homeMountPath: /home/jovyan
   extraEnv:
     TF_FORCE_GPU_ALLOW_GROWTH: "true"
     XLA_PYTHON_CLIENT_PREALLOCATE: "false"

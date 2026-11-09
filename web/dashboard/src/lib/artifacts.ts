@@ -11,7 +11,23 @@ export type ArtifactRecord = {
   createdBy: string;
 };
 
-export type ArtifactListResponse = { projectId?: string; canOperate?: boolean; artifacts?: ArtifactRecord[] };
+export type ArtifactSettings = {
+  enabled: boolean;
+  retentionDays: number;
+  storage: {
+    // Null when the plan has no storage limit.
+    quotaGb: number | null;
+    projectBytes: number;
+    otherProjectBytes: number;
+  };
+};
+
+export type ArtifactListResponse = {
+  projectId?: string;
+  canOperate?: boolean;
+  settings?: ArtifactSettings;
+  artifacts?: ArtifactRecord[];
+};
 
 export type UploadValidation = { ok: true } | { ok: false; reason: "empty" | "tooLarge" | "name" };
 

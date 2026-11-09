@@ -345,7 +345,8 @@ resource "aws_iam_role_policy" "bff_sessions" {
 }
 
 # Phase 5 MVP: the BFF signs presigned URLs for artifacts under spaces/*/projects/* only.
-# No bucket listing and no runtime access; hub/runtime roles are unchanged.
+# DeleteObject serves the retention sweep and the storage-off confirmation. No bucket listing;
+# hub/runtime roles are unchanged.
 resource "aws_iam_role_policy" "bff_workspace_artifacts" {
   name = "workspace-artifacts"
   role = aws_iam_role.bff_sessions.id
@@ -354,7 +355,7 @@ resource "aws_iam_role_policy" "bff_workspace_artifacts" {
     Statement = [
       {
         Effect   = "Allow"
-        Action   = ["s3:PutObject", "s3:GetObject"]
+        Action   = ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"]
         Resource = "${module.storage.bucket_arn}/spaces/*"
       },
       {

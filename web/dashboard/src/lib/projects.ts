@@ -6,6 +6,8 @@ export type ProjectRecord = {
   teamId?: string;
   runtimeStatus?: string;
   sandboxName?: string;
+  // Whether the viewer may manage the Project (delete it).
+  canManage?: boolean;
 };
 
 export type ProjectListResponse = {

@@ -20,6 +20,8 @@ export type MockPlan = {
   currency: "USD";
   billingInterval: "month";
   status: MockPlanStatus;
+  // How long Project artifacts are kept before the sweep deletes them. Null: plan not offered yet.
+  artifactRetentionDays: number | null;
   quotas: {
     projects: number | null;
     storageGb: number | null;
@@ -30,15 +32,25 @@ export type MockPlan = {
 };
 
 const plans: readonly MockPlan[] = [
-  { id: "personal_free", spaceType: "personal", name: "Personal Free", amountCents: 0, currency: "USD", billingInterval: "month", status: "active", quotas: { projects: 1, storageGb: 5, cpuHours: 10, gpuHours: 0 } },
-  { id: "personal_plus", spaceType: "personal", name: "Personal Plus", amountCents: 800, currency: "USD", billingInterval: "month", status: "active", quotas: { projects: 5, storageGb: 25, cpuHours: 50, gpuHours: 0 } },
-  { id: "personal_pro", spaceType: "personal", name: "Personal Pro", amountCents: 1900, currency: "USD", billingInterval: "month", status: "active", quotas: { projects: 20, storageGb: 100, cpuHours: 200, gpuHours: 0 } },
-  { id: "personal_power", spaceType: "personal", name: "Personal Power", amountCents: 3900, currency: "USD", billingInterval: "month", status: "coming_soon", quotas: { projects: null, storageGb: null, cpuHours: null, gpuHours: null } },
-  { id: "org_team", spaceType: "organization", name: "Organization Team", amountCents: 1900, currency: "USD", billingInterval: "month", status: "active", quotas: { projects: 10, storageGb: 100, cpuHours: 300, gpuHours: 0, members: 3 } },
-  { id: "org_growth", spaceType: "organization", name: "Organization Growth", amountCents: 800, currency: "USD", billingInterval: "month", status: "active", quotas: { projects: 50, storageGb: 500, cpuHours: 1000, gpuHours: 0, members: null } },
-  { id: "org_scale", spaceType: "organization", name: "Organization Scale", amountCents: 1500, currency: "USD", billingInterval: "month", status: "coming_soon", quotas: { projects: null, storageGb: null, cpuHours: null, gpuHours: null, members: null } },
-  { id: "org_enterprise", spaceType: "organization", name: "Organization Enterprise", amountCents: 0, currency: "USD", billingInterval: "month", status: "coming_soon", quotas: { projects: null, storageGb: null, cpuHours: null, gpuHours: null, members: null } },
+  { id: "personal_free", spaceType: "personal", name: "Personal Free", amountCents: 0, currency: "USD", billingInterval: "month", status: "active", artifactRetentionDays: 7, quotas: { projects: 1, storageGb: 5, cpuHours: 10, gpuHours: 0 } },
+  { id: "personal_plus", spaceType: "personal", name: "Personal Plus", amountCents: 800, currency: "USD", billingInterval: "month", status: "active", artifactRetentionDays: 14, quotas: { projects: 5, storageGb: 25, cpuHours: 50, gpuHours: 0 } },
+  { id: "personal_pro", spaceType: "personal", name: "Personal Pro", amountCents: 1900, currency: "USD", billingInterval: "month", status: "active", artifactRetentionDays: 30, quotas: { projects: 20, storageGb: 100, cpuHours: 200, gpuHours: 0 } },
+  { id: "personal_power", spaceType: "personal", name: "Personal Power", amountCents: 3900, currency: "USD", billingInterval: "month", status: "coming_soon", artifactRetentionDays: null, quotas: { projects: null, storageGb: null, cpuHours: null, gpuHours: null } },
+  { id: "org_team", spaceType: "organization", name: "Organization Team", amountCents: 1900, currency: "USD", billingInterval: "month", status: "active", artifactRetentionDays: 14, quotas: { projects: 10, storageGb: 100, cpuHours: 300, gpuHours: 0, members: 3 } },
+  { id: "org_growth", spaceType: "organization", name: "Organization Growth", amountCents: 800, currency: "USD", billingInterval: "month", status: "active", artifactRetentionDays: 30, quotas: { projects: 50, storageGb: 500, cpuHours: 1000, gpuHours: 0, members: null } },
+  { id: "org_scale", spaceType: "organization", name: "Organization Scale", amountCents: 1500, currency: "USD", billingInterval: "month", status: "coming_soon", artifactRetentionDays: null, quotas: { projects: null, storageGb: null, cpuHours: null, gpuHours: null, members: null } },
+  { id: "org_enterprise", spaceType: "organization", name: "Organization Enterprise", amountCents: 0, currency: "USD", billingInterval: "month", status: "coming_soon", artifactRetentionDays: null, quotas: { projects: null, storageGb: null, cpuHours: null, gpuHours: null, members: null } },
 ];
+
+// Storage and retention for a Space. Without an active subscription the Space has the free tier.
+export const FREE_PLAN_ID = "personal_free";
+export function artifactPolicyForPlan(planId: string | null): { retentionDays: number; storageGb: number | null } {
+  const plan = getMockPlan(planId ?? FREE_PLAN_ID) ?? getMockPlan(FREE_PLAN_ID);
+  return {
+    retentionDays: plan?.artifactRetentionDays ?? 7,
+    storageGb: plan?.quotas.storageGb ?? null,
+  };
+}
 
 export function listMockPlans(spaceType?: SpaceType): MockPlan[] {
   return plans.filter((plan) => !spaceType || plan.spaceType === spaceType).map((plan) => ({ ...plan, quotas: { ...plan.quotas } }));

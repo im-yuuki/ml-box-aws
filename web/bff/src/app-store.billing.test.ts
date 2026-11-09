@@ -84,6 +84,7 @@ test("free activation creates no payment and writes demo entitlements", async ()
   const { store, state } = makeStore();
   const result = await store.activateFreeSubscription("user-1", "personal:user-1", {
     id: "personal_free", spaceType: "personal", name: "Personal Free", amountCents: 0, currency: "USD", billingInterval: "month", status: "active",
+    artifactRetentionDays: 7,
     quotas: { projects: 1, storageGb: 5, cpuHours: 10, gpuHours: 0 },
   });
 

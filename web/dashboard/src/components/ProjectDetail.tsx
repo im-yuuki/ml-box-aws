@@ -14,6 +14,8 @@ import {
 import { useActiveSpace } from "@/hooks/useActiveSpace";
 import ProjectArtifactsPanel from "@/components/ProjectArtifactsPanel";
 import ProjectRuntimePanel from "@/components/ProjectRuntimePanel";
+import CopyableText from "@/components/CopyableText";
+import ProjectDeleteButton from "@/components/ProjectDeleteButton";
 
 export default function ProjectDetail({ projectId }: { projectId: string }) {
   const t = useTranslations("workspace");
@@ -100,10 +102,11 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
           {t("backToProjects")}
         </Link>
       </div>
-      <header className="workspace-page-heading">
+      <header className="workspace-page-heading flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1>{project.name}</h1>
         </div>
+        {project.canManage ? <ProjectDeleteButton projectId={project.id} projectName={project.name} /> : null}
       </header>
 
       <div className="workspace-detail-layout">
@@ -116,11 +119,17 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
               <dl className="workspace-detail-facts">
                 <div>
                   <dt>{t("projectId")}</dt>
-                  <dd>{project.id}</dd>
+                  <dd><CopyableText value={project.id} label={t("projectId")} /></dd>
                 </div>
                 <div>
                   <dt>{t("personalSpace")}</dt>
-                  <dd>{project.spaceId || t("personalSpace")}</dd>
+                  <dd>
+                    {project.spaceId ? (
+                      <CopyableText value={project.spaceId} label={t("personalSpace")} />
+                    ) : (
+                      t("personalSpace")
+                    )}
+                  </dd>
                 </div>
                 <div>
                   <dt>{t("projectTeam")}</dt>

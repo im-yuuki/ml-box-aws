@@ -412,7 +412,7 @@ test("project runtime is created under the project owner's Hub identity", async 
     return { rows: [{ project_id: "p1", owner_user_id: "owner", hub_username: "cognito-owner", server_name: "p1", state: "unknown" }] };
   });
   const runtime = await store.ensureProjectSandboxRuntime("p1");
-  assert.deepEqual(runtime, { projectId: "p1", ownerUserId: "owner", hubUsername: "cognito-owner", serverName: "p1", state: "unknown" });
+  assert.deepEqual(runtime, { projectId: "p1", ownerUserId: "owner", hubUsername: "cognito-owner", serverName: "p1", state: "unknown", profile: null });
   const insert = queries.find((query) => query.sql.includes("INSERT INTO mlbox_sandboxes"));
   assert.match(insert?.sql ?? "", /JOIN mlbox_hub_identities hi ON hi\.user_id = p\.created_by/);
   assert.match(insert?.sql ?? "", /ON CONFLICT \(project_id\) DO NOTHING/);
@@ -487,4 +487,18 @@ test("accepting an invitation is limited to the invited email and does not downg
   assert.match(update?.sql ?? "", /lower\(email\) = lower\(\$3\)/);
   const insert = queries.find((q) => q.sql.includes("INSERT INTO mlbox_space_memberships"));
   assert.match(insert?.sql ?? "", /ON CONFLICT \(space_id, user_id\) DO NOTHING/);
+});
+
+test("project deletion is soft: usage history is kept, the Project is marked deleted, all in one transaction", async () => {
+  const { store, queries } = fakeStore(() => ({ rows: [] }));
+  await store.deleteProject("p1");
+  const statements = queries.map((query) => query.sql.trim());
+  assert.equal(statements[0], "BEGIN");
+  assert.match(statements[1], /UPDATE mlbox_usage_sessions SET ended_at = now\(\)/);
+  assert.doesNotMatch(statements.join("\n"), /DELETE FROM mlbox_usage_sessions/);
+  assert.match(statements[2], /DELETE FROM mlbox_artifacts/);
+  assert.match(statements[3], /DELETE FROM mlbox_sandboxes/);
+  assert.match(statements[4], /UPDATE mlbox_projects SET deleted_at = now\(\)/);
+  assert.doesNotMatch(statements.join("\n"), /DELETE FROM mlbox_projects/);
+  assert.equal(statements[5], "COMMIT");
 });

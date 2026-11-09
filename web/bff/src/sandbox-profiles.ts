@@ -19,12 +19,15 @@ export type SandboxProfile = {
 
 export const DEFAULT_SANDBOX_PROFILE = "cpu-small";
 
+// Instance codenames follow EC2 naming: family and size. Families: c = CPU, g = GPU shared, d = GPU dedicated;
+// the digit is the generation (1 = first MLBox generation). The slug stays the
+// stable key stored with runs and sent to the Hub; the codename is what people read.
 export const SANDBOX_PROFILES: readonly SandboxProfile[] = [
-  { slug: "cpu-small", label: "CPU · 2 vCPU", description: "2 vCPU, 4 GB RAM", kind: "cpu", cpuCores: 2, ramGb: 4, gpu: null, requiresGpu: false },
-  { slug: "cpu-medium", label: "CPU · 4 vCPU", description: "4 vCPU, 8 GB RAM", kind: "cpu", cpuCores: 4, ramGb: 8, gpu: null, requiresGpu: false },
-  { slug: "cpu-large", label: "CPU · 8 vCPU", description: "8 vCPU, 16 GB RAM", kind: "cpu", cpuCores: 8, ramGb: 16, gpu: null, requiresGpu: false },
-  { slug: "gpu-l4-shared", label: "GPU L4 (chia sẻ)", description: "4 vCPU, 16 GB RAM, 1 GPU L4 chia sẻ", kind: "gpu", cpuCores: 4, ramGb: 16, gpu: "L4 shared", requiresGpu: true },
-  { slug: "gpu-dedicated", label: "GPU dedicated", description: "1 GPU riêng", kind: "gpu", cpuCores: 4, ramGb: 16, gpu: "dedicated", requiresGpu: true },
+  { slug: "cpu-small", label: "c1.large", description: "2 vCPU · 4 GB RAM · CPU", kind: "cpu", cpuCores: 2, ramGb: 4, gpu: null, requiresGpu: false },
+  { slug: "cpu-medium", label: "c1.xlarge", description: "4 vCPU · 8 GB RAM · CPU", kind: "cpu", cpuCores: 4, ramGb: 8, gpu: null, requiresGpu: false },
+  { slug: "cpu-large", label: "c1.2xlarge", description: "8 vCPU · 16 GB RAM · CPU", kind: "cpu", cpuCores: 8, ramGb: 16, gpu: null, requiresGpu: false },
+  { slug: "gpu-l4-shared", label: "g1.xlarge", description: "4 vCPU · 16 GB RAM · 1 GPU T4 chia sẻ", kind: "gpu", cpuCores: 4, ramGb: 16, gpu: "T4 shared", requiresGpu: true },
+  { slug: "gpu-dedicated", label: "d1.xlarge", description: "4 vCPU · 16 GB RAM · 1 GPU T4 riêng", kind: "gpu", cpuCores: 4, ramGb: 16, gpu: "dedicated", requiresGpu: true },
 ];
 
 export type AvailableSandboxProfile = SandboxProfile & { available: boolean };
