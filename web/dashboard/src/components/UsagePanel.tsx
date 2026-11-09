@@ -10,7 +10,7 @@ import {
   Spinner,
   Table,
 } from "@heroui/react";
-import { Cpu, Database, Gpu, MemoryStick, RotateCcw } from "lucide-react";
+import { Cpu, Database, MemoryStick, RotateCcw } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 import UsageChart from "@/components/UsageChart";
@@ -48,6 +48,7 @@ type UsageResponse = {
   generatedAt: string;
   history?: HistorySample[];
   historyAvailable?: boolean;
+  computeUnits?: { planId: string; limit: number | null; used: number };
   quota: {
     cpuHours: Metric;
     ramGb: Metric;
@@ -136,33 +137,19 @@ export default function UsagePanel() {
     return () => window.clearTimeout(task);
   }, [load]);
 
-  const meters = useMemo(
-    () =>
-      data
-        ? [
-            {
-              key: "cpuHours",
-              label: t("cpuHours"),
-              icon: Cpu,
-              metric: data.quota.cpuHours,
-            },
-            { key: "ramGb", label: t("ram"), icon: MemoryStick, metric: data.quota.ramGb },
-            {
-              key: "storageGb",
-              label: t("storage"),
-              icon: Database,
-              metric: data.quota.storageGb,
-            },
-            {
-              key: "gpuHours",
-              label: t("gpuHours"),
-              icon: Gpu,
-              metric: data.quota.gpuHours,
-            },
-          ]
-        : [],
-    [data, t],
-  );
+  // Compute units replace the untracked CPU/GPU hour meters: one pool per month for the whole Space.
+  const meters = useMemo(() => {
+    if (!data) return [];
+    const units = data.computeUnits;
+    const unitsMetric: Metric | null = units
+      ? { limit: units.limit ?? 0, unit: "units", usage: units.used, tracking: "allocated-footprint" }
+      : null;
+    return [
+      ...(unitsMetric ? [{ key: "computeUnits", label: t("computeUnits"), icon: Cpu, metric: unitsMetric }] : []),
+      { key: "ramGb", label: t("ram"), icon: MemoryStick, metric: data.quota.ramGb },
+      { key: "storageGb", label: t("storage"), icon: Database, metric: data.quota.storageGb },
+    ];
+  }, [data, t]);
 
   const history = data?.history ?? [];
 

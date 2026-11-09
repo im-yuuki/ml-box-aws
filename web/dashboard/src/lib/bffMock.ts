@@ -57,12 +57,12 @@ const artifacts = new Map<string, Array<Record<string, unknown>>>([
 ]);
 
 const plans = [
-  { id: "personal_free", spaceType: "personal", name: "Personal Free", amountCents: 0, currency: "USD", billingInterval: "month", status: "active", quotas: { projects: 1, storageGb: 5, cpuHours: 10, gpuHours: 0 } },
-  { id: "personal_plus", spaceType: "personal", name: "Personal Plus", amountCents: 800, currency: "USD", billingInterval: "month", status: "active", quotas: { projects: 5, storageGb: 25, cpuHours: 50, gpuHours: 0 } },
-  { id: "personal_pro", spaceType: "personal", name: "Personal Pro", amountCents: 1900, currency: "USD", billingInterval: "month", status: "active", quotas: { projects: 20, storageGb: 100, cpuHours: 200, gpuHours: 0 } },
-  { id: "org_team", spaceType: "organization", name: "Organization Team", amountCents: 1900, currency: "USD", billingInterval: "month", status: "active", quotas: { projects: 10, storageGb: 100, cpuHours: 300, gpuHours: 0, members: 3 } },
-  { id: "org_growth", spaceType: "organization", name: "Organization Growth", amountCents: 800, currency: "USD", billingInterval: "month", status: "active", quotas: { projects: 50, storageGb: 500, cpuHours: 1000, gpuHours: 0, members: null } },
-  { id: "personal_power", spaceType: "personal", name: "Personal Power", amountCents: 3900, currency: "USD", billingInterval: "month", status: "coming_soon", quotas: { projects: null, storageGb: null, cpuHours: null, gpuHours: null } },
+  { id: "personal_free", spaceType: "personal", name: "Personal Free", amountCents: 0, currency: "USD", billingInterval: "month", status: "active", computeUnits: 20, projects: 1, storageGb: 5, gpuAccess: false },
+  { id: "personal_plus", spaceType: "personal", name: "Personal Plus", amountCents: 800, currency: "USD", billingInterval: "month", status: "active", computeUnits: 100, projects: 5, storageGb: 25, gpuAccess: true },
+  { id: "personal_pro", spaceType: "personal", name: "Personal Pro", amountCents: 1900, currency: "USD", billingInterval: "month", status: "active", computeUnits: 300, projects: 20, storageGb: 100, gpuAccess: true },
+  { id: "org_team", spaceType: "organization", name: "Organization Team", amountCents: 1900, currency: "USD", billingInterval: "month", status: "active", computeUnits: 300, projects: 10, storageGb: 100, gpuAccess: true, members: 3 },
+  { id: "org_growth", spaceType: "organization", name: "Organization Growth", amountCents: 800, currency: "USD", billingInterval: "month", status: "active", computeUnits: 1000, projects: 50, storageGb: 500, gpuAccess: true, members: null },
+  { id: "personal_power", spaceType: "personal", name: "Personal Power", amountCents: 3900, currency: "USD", billingInterval: "month", status: "coming_soon", computeUnits: null, projects: null, storageGb: null, gpuAccess: true },
 ];
 
 const payments: Array<Record<string, unknown>> = [

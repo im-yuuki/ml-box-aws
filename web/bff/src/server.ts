@@ -47,11 +47,17 @@ import {
 } from "./hub-identity-routing.js";
 import type { HubIdentity } from "./hub-identity.js";
 import {
+  FREE_PLAN_ID,
+  MAX_USAGE_SESSION_HOURS,
   artifactPolicyForPlan,
   getMockPlan,
   isMockPaymentMethod,
   isMockPaymentOutcome,
   listMockPlans,
+  planAllowsRuntime,
+  runtimeAccessDecision,
+  runtimeClassForProfile,
+  unitsPerHourForRuntime,
   type MockPaymentMethod,
   type MockPaymentOutcome,
   type SpaceType,
@@ -1468,7 +1474,14 @@ app.get<{ Params: { projectId: string } }>("/v1/projects/:projectId/sandbox/prof
   if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Project storage is not configured." });
   try {
     if (!(await projectActionAllowed(reply, session.subject, request.params.projectId, "read"))) return;
-    return { projectId: request.params.projectId, profiles: listSandboxProfiles(sandboxGpuProfiles) };
+    // Profiles the Space's plan cannot run are listed as unavailable, so the UI does not offer a start that will be refused.
+    const spacePlan = await appStore.spaceAndPlanForProject(request.params.projectId);
+    const plan = getMockPlan(spacePlan?.planId ?? FREE_PLAN_ID) ?? getMockPlan(FREE_PLAN_ID)!;
+    const profiles = listSandboxProfiles(sandboxGpuProfiles).map((profile) => ({
+      ...profile,
+      available: profile.available && planAllowsRuntime(plan, runtimeClassForProfile(profile.kind)) === null,
+    }));
+    return { projectId: request.params.projectId, profiles };
   } catch (error) {
     request.log.error({ err: error }, "Sandbox profile list failed");
     return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Project storage is temporarily unavailable." });
@@ -1512,6 +1525,21 @@ app.post<{ Params: { projectId: string }; Body: { profile?: unknown } | undefine
     if (!shouldStartHubSandbox(existing)) {
       return { ok: true, projectId, state: mapHubServerState(existing) };
     }
+    // Plan gate: GPU profiles need a GPU-enabled plan, and a Space that has used its monthly compute units cannot start more runtimes.
+    const spacePlan = await appStore.spaceAndPlanForProject(projectId);
+    if (!spacePlan) return reply.code(404).send({ error: "NOT_FOUND", message: "Project không tồn tại." });
+    const plan = getMockPlan(spacePlan.planId ?? FREE_PLAN_ID) ?? getMockPlan(FREE_PLAN_ID)!;
+    const runtimeClass = runtimeClassForProfile(resolved.profile.kind);
+    // Sessions left open by a crashed runtime are closed at the cap before the balance is read.
+    await appStore.closeStaleUsageSessions(spacePlan.spaceId, MAX_USAGE_SESSION_HOURS);
+    const unitsUsed = plan.computeUnits === null ? 0 : await appStore.computeUnitsUsedThisMonth(spacePlan.spaceId);
+    const access = runtimeAccessDecision(plan, runtimeClass, unitsUsed);
+    if (!access.allowed) {
+      if (access.code === "COMPUTE_UNITS_EXHAUSTED") {
+        return reply.code(429).send({ error: "QUOTA_EXCEEDED", metric: "compute_units", limit: plan.computeUnits, current: unitsUsed, enforcement: "enforced" });
+      }
+      return reply.code(403).send({ error: access.code, message: "Profile này cần gói trả phí. Hãy nâng cấp gói để dùng." });
+    }
     // RAM quota: the Hub user's other servers count, and the chosen profile's RAM is the request.
     const hubUser = await hubRequest<HubUser>(hub, "GET", `/hub/api/users/${usernamePath(username)}`).catch((error) => {
       if (hubStatus(error) === 404) return { servers: {} } as HubUser;
@@ -1545,7 +1573,7 @@ app.post<{ Params: { projectId: string }; Body: { profile?: unknown } | undefine
       audit: (action, metadata) => auditLifecycle(session, action, projectId, metadata),
     });
     if (lifecycle.state === "ready" || lifecycle.state === "starting") {
-      await appStore.openUsageSession(projectId, session.subject);
+      await appStore.openUsageSession(projectId, session.subject, unitsPerHourForRuntime(runtimeClass));
       // The started profile is remembered for the Project and as the user's default for the next start.
       await appStore.setSandboxProfile(projectId, resolved.profile.slug);
     }
@@ -1853,6 +1881,14 @@ app.get("/v1/usage", async (request, reply) => {
     const servers = Object.entries(user.servers ?? {}).map(([key, server]) => usageServer(key, server));
     await fillPodResources(servers, hubUsername, request.log);
     const result = buildUsageResponse(servers, quotas);
+    if (appStore) {
+      // Compute units are a Space pool; the personal Space is the one this account's runtimes bill to.
+      const spaceId = `personal:${session.subject}`;
+      await appStore.closeStaleUsageSessions(spaceId, MAX_USAGE_SESSION_HOURS);
+      const planId = await appStore.activePlanIdForSpace(spaceId);
+      const plan = getMockPlan(planId ?? FREE_PLAN_ID) ?? getMockPlan(FREE_PLAN_ID)!;
+      result.computeUnits = { planId: plan.id, limit: plan.computeUnits, used: await appStore.computeUnitsUsedThisMonth(spaceId) };
+    }
     if (usageStore) {
       try {
         usageSchemaReady ??= usageStore.ensureSchema();

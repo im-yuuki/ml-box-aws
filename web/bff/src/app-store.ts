@@ -438,6 +438,9 @@ export class AppStore {
       );
       CREATE INDEX IF NOT EXISTS mlbox_usage_sessions_project_idx ON mlbox_usage_sessions(project_id, started_at);
       CREATE INDEX IF NOT EXISTS mlbox_usage_sessions_space_idx ON mlbox_usage_sessions(space_id, started_at);
+      -- Compute units per runtime-hour captured at start. Rows from before this column count at the CPU rate.
+      ALTER TABLE mlbox_usage_sessions ADD COLUMN IF NOT EXISTS units_per_hour numeric NOT NULL DEFAULT 1;
+      CREATE INDEX IF NOT EXISTS mlbox_usage_sessions_open_idx ON mlbox_usage_sessions(space_id, started_at) WHERE ended_at IS NULL;
 
       CREATE TABLE IF NOT EXISTS mlbox_space_invitations (
         id text PRIMARY KEY,
@@ -1047,14 +1050,52 @@ export class AppStore {
 
   // Usage is measured from BFF-observed runtime transitions (start / stop / observed stopped).
   // It approximates quota display and is not billing data.
-  async openUsageSession(projectId: string, actorId: string): Promise<void> {
+  async openUsageSession(projectId: string, actorId: string, unitsPerHour: number): Promise<void> {
     await this.pool.query(
-      `INSERT INTO mlbox_usage_sessions (id, space_id, project_id, started_by)
-       SELECT $1, t.space_id, p.id, $3
+      `INSERT INTO mlbox_usage_sessions (id, space_id, project_id, started_by, units_per_hour)
+       SELECT $1, t.space_id, p.id, $3, $4
        FROM mlbox_projects p JOIN mlbox_teams t ON t.id = p.team_id
        WHERE p.id = $2
          AND NOT EXISTS (SELECT 1 FROM mlbox_usage_sessions u WHERE u.project_id = $2 AND u.ended_at IS NULL)`,
-      [randomUUID(), projectId, actorId],
+      [randomUUID(), projectId, actorId, unitsPerHour],
+    );
+  }
+
+  // Space and its active plan for a Project. A Space with no active subscription is on the free tier (plan null).
+  async spaceAndPlanForProject(projectId: string): Promise<{ spaceId: string; planId: string | null } | null> {
+    const result = await this.pool.query(
+      `SELECT t.space_id, s.plan
+       FROM mlbox_projects p
+       JOIN mlbox_teams t ON t.id = p.team_id
+       LEFT JOIN mlbox_space_subscriptions s ON s.space_id = t.space_id AND s.status = 'active'
+       WHERE p.id = $1`,
+      [projectId],
+    );
+    const row = result.rows[0];
+    if (!row) return null;
+    return { spaceId: String(row.space_id), planId: row.plan == null ? null : String(row.plan) };
+  }
+
+  // Compute units consumed in the current calendar month (UTC) across all runtimes of the Space.
+  // Open sessions count up to now, so a running runtime is charged as it runs.
+  async computeUnitsUsedThisMonth(spaceId: string): Promise<number> {
+    const result = await this.pool.query(
+      `SELECT COALESCE(sum(
+         EXTRACT(EPOCH FROM (COALESCE(ended_at, now()) - GREATEST(started_at, date_trunc('month', now())))) / 3600.0 * units_per_hour
+       ), 0) AS units
+       FROM mlbox_usage_sessions
+       WHERE space_id = $1 AND COALESCE(ended_at, now()) > date_trunc('month', now())`,
+      [spaceId],
+    );
+    return Number(result.rows[0]?.units ?? 0);
+  }
+
+  // Closes this Space's open sessions older than maxHours at that bound. Used when a runtime stopped without a BFF stop event.
+  async closeStaleUsageSessions(spaceId: string, maxHours: number): Promise<void> {
+    await this.pool.query(
+      `UPDATE mlbox_usage_sessions SET ended_at = started_at + make_interval(hours => $2::int)
+       WHERE space_id = $1 AND ended_at IS NULL AND started_at < now() - make_interval(hours => $2::int)`,
+      [spaceId, maxHours],
     );
   }
 
