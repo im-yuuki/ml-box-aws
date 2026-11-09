@@ -1,21 +1,21 @@
 /**
- * Cognito client config surfaced to the browser.
+ * Cognito client config for the server-side dashboard helpers.
  *
- * The dashboard uses a public Cognito app client (no client secret) so the
- * browser can be configured for the deployed user pool. Authentication
- * requests are sent to the same-origin BFF; Cognito tokens never enter the
- * browser session or a build argument.
+ * These variables are deliberately NOT `NEXT_PUBLIC_*`: Next.js inlines those
+ * into the JS bundle at build time, which would bake one AWS account into the
+ * image. Without the prefix they are read from the process environment when the
+ * container starts, so the same image runs in any account.
  *
- * These public identifiers are embedded at Next.js build time. Empty defaults
- * keep local UI previews usable, while the production image must receive the
- * values from the 02-platform outputs.
+ * The dashboard uses a public Cognito app client (no client secret). Browser
+ * authentication goes through the same-origin BFF; Cognito tokens never reach
+ * the browser.
  */
 export const cognitoConfig = {
-  region: process.env.NEXT_PUBLIC_COGNITO_REGION ?? "ap-southeast-2",
-  userPoolId: process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID ?? "",
-  clientId: process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID ?? "",
-  /** Where the BFF is reachable from the browser. Same origin in production. */
-  bffBaseUrl: process.env.NEXT_PUBLIC_BFF_BASE_URL ?? "/api/bff",
+  region: process.env.COGNITO_REGION ?? "ap-southeast-2",
+  userPoolId: process.env.COGNITO_USER_POOL_ID ?? "",
+  clientId: process.env.COGNITO_CLIENT_ID ?? "",
+  /** Where the BFF is reachable from the browser. Same origin by default. */
+  bffBaseUrl: process.env.BFF_PUBLIC_BASE_URL ?? "/api/bff",
 } as const;
 
 /** True once the env has been populated. Use to gate the auth UI. */

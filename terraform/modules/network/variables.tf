@@ -1,7 +1,7 @@
 # Network: dual-stack, flexible NAT via nat_mode.
 # - "managed_per_az": 1 NAT GW/AZ (default, HA — ~$43/month/NAT in Sydney + $0.059/GB).
 # - "fck_nat": t4g.nano NAT instance ~$5/month (legacy IPv4 for PyPI/GitHub/registries without IPv6).
-# - "none": IPv6-only, ZERO NAT cost. IPv4 only via VPC endpoints (S3/ECR/STS).
+# - "none": IPv6-only, ZERO NAT cost. IPv4 only via VPC endpoints (S3/STS); GHCR image pulls need a NAT mode.
 #   IPv6 outbound via Egress-only IGW (free). Pod IPv4 has no internet access in this mode.
 # - Public subnets: ALB hub (+ NAT when enabled). Private subnets: nodes/pods.
 
@@ -22,7 +22,7 @@ variable "nat_mode" {
 }
 
 variable "enable_vpc_interface_endpoints" {
-  description = "Enable ECR/STS/Logs/Monitoring endpoints. Dev=false (saves money), prod=true."
+  description = "Enable STS/Logs/Monitoring endpoints. Dev=false (saves money), prod=true."
   type        = bool
   default     = false
 }

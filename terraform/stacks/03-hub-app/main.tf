@@ -51,7 +51,7 @@ locals {
 # 02-platform remote state (infra owned by the platform stack)
 # ---------------------------------------------------------------------------
 # Everything infra-ish now lives in 02-platform: S3 workspace + IRSA role,
-# RDS hub DB, Cognito user pool, ECR repos, the AWS Load Balancer Controller,
+# RDS hub DB, Cognito user pool, the AWS Load Balancer Controller,
 # the pre-created ALB + target group and the ACM certificate.
 #
 # This stack only consumes their outputs. The platform stack MUST be applied

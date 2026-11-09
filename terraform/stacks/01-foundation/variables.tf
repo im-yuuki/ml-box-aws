@@ -81,7 +81,7 @@ variable "nat_mode" {
 }
 
 variable "enable_vpc_interface_endpoints" {
-  description = "Enable ECR/STS/Logs endpoints. Dev=false, prod=true."
+  description = "Enable STS/Logs endpoints. Dev=false, prod=true."
   type        = bool
   default     = false
 }

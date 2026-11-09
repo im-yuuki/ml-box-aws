@@ -113,7 +113,7 @@ khắc phục health check; traffic ALB → node phải dùng security group ref
 ## Rollout image an toàn
 
 1. Build image từ repository root theo hướng dẫn trong [`scripts/README.md`](../scripts/README.md).
-2. Push tag immutable vào ECR.
+2. Push tag immutable lên GHCR (`ghcr.io/<owner>/mlbox-*`).
 3. Cập nhật image tag trong `terraform.tfvars` của stack tương ứng.
 4. Chạy `terraform plan` và review chỉ thay đổi image.
 5. Apply stack, theo dõi rollout và health check.

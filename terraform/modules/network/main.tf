@@ -52,7 +52,7 @@ module "vpc" {
 }
 
 # VPC endpoints via submodule (the v5 root module no longer has enable_*_endpoint booleans).
-# S3 gateway (free) always on; interface endpoints (ECR/STS/Logs ~$10/month/AZ each) prod-only.
+# S3 gateway (free) always on; interface endpoints (STS/Logs ~$10/month/AZ each) prod-only.
 module "vpc_endpoints" {
   source  = "terraform-aws-modules/vpc/aws//modules/vpc-endpoints"
   version = "~> 5.8"
@@ -79,18 +79,6 @@ module "vpc_endpoints" {
       }
     },
     var.enable_vpc_interface_endpoints ? {
-      ecr_api = {
-        service             = "ecr.api"
-        private_dns_enabled = true
-        subnet_ids          = module.vpc.private_subnets
-        tags                = { Name = "${var.name}-ecr-api" }
-      },
-      ecr_dkr = {
-        service             = "ecr.dkr"
-        private_dns_enabled = true
-        subnet_ids          = module.vpc.private_subnets
-        tags                = { Name = "${var.name}-ecr-dkr" }
-      },
       sts = {
         service             = "sts"
         private_dns_enabled = true

@@ -45,12 +45,12 @@ variable "state_key_hub_app" {
 # Dashboard image
 # ---------------------------------------------------------------------------
 variable "dashboard_image" {
-  description = "ECR image for the dashboard (tag = dev-<sha>). Must be pushed before deploy_dashboard=true."
+  description = "Dashboard image, e.g. ghcr.io/<owner>/mlbox-dashboard:<40-char commit sha>. Must be published before deploy_dashboard=true."
   type        = string
 }
 
 variable "bff_image" {
-  description = "ECR image for the dashboard BFF (tag = dev-<sha>). Must be pushed before deploy_dashboard=true."
+  description = "BFF image, e.g. ghcr.io/<owner>/mlbox-bff:<40-char commit sha>. Must be published before deploy_dashboard=true."
   type        = string
 }
 
@@ -115,7 +115,7 @@ variable "bff_replicas" {
 variable "deploy_dashboard" {
   description = <<-EOT
     Gate k8s resources (Deployment, Service, TGB) + ALB listener rule/cert.
-    Set false on first apply to create only the ECR repos + target group,
+    Set false on first apply to create only the target group,
     then flip true after pushing the image.
   EOT
   type        = bool

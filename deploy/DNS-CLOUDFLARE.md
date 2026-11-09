@@ -5,7 +5,7 @@ Bố cục deploy sau khi tách stack:
 ```
 00-bootstrap     S3 state + DDB lock
 01-foundation    VPC + EKS + Karpenter (NodePool cpu-user + gpu-shared-l4)
-02-platform      S3 workspace + RDS + Cognito + ECR + LB controller + ALB/TG + Route53 aliases
+02-platform      S3 workspace + RDS + Cognito + LB controller + ALB/TG + Route53 aliases
    >>> KHOẢNG NGHỈ: delegate subdomain mlbox sang Route53, đổi NS ở parent Cloudflare, chờ ACM ISSUED <<<
 03-hub-app       JupyterHub (Z2JH) + TargetGroupBinding + listener + profile CPU
 04-dashboard     Dashboard + BFF + apex listener rule

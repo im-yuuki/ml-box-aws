@@ -33,15 +33,15 @@ terraform/
   stacks/
     00-bootstrap/   # S3 state bucket + DynamoDB lock (1 lần/account, state local)
     01-foundation/  # network + EKS + Karpenter (VPC dual-stack, MNG system, NodePools)
-    02-platform/    # S3 workspace + RDS + Cognito + ECR + LB controller + ALB/TG + Route53 aliases
+    02-platform/    # S3 workspace + RDS + Cognito + LB controller + ALB/TG + Route53 aliases
     03-hub-app/     # JupyterHub (Z2JH) + TargetGroupBinding + listener + profile CPU
     04-dashboard/   # Dashboard + BFF + apex listener rule
     05-gpu/          # device plugin NVIDIA + DCGM exporter (đã apply; verify L4 còn chờ capacity g6)
   modules/
     network/ eks/ karpenter/ gpu-stack/
-    storage/ hub-db/ auth/ ecr/ ingress-dns/
-images/              # Dockerfile CPU/GPU + script build/push lên ECR
-scripts/             # build-images.sh (đóng gói theme JupyterLab vào image)
+    storage/ hub-db/ auth/ ingress-dns/
+images/              # Dockerfile CPU/GPU (theme JupyterLab đóng gói sẵn)
+scripts/             # build-images.sh (build/push 4 image lên GHCR)
 web/theme/           # nguồn theme MLBox (Hub templates + Lab extension)
 deploy/              # apply-hub-theme.sh, DNS-CLOUDFLARE.md
 docs/
@@ -80,7 +80,7 @@ terraform plan; terraform apply   # ~15-20 phút, KHÔNG ngắt giữa chừng
 
 cd ../02-platform
 terraform init -reconfigure -backend-config=backend.hcl
-terraform plan; terraform apply   # ALB + cert + RDS + Cognito + ECR
+terraform plan; terraform apply   # ALB + cert + RDS + Cognito
 
 # >>> KHOẢNG NGHỈ: delegate subdomain mlbox sang Route53 và chờ ACM ISSUED - xem deploy/DNS-CLOUDFLARE.md
 

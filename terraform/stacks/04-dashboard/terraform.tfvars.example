@@ -1,9 +1,9 @@
 region = "ap-southeast-2"
 domain = "example.com"
 
-# Images must be pushed to ECR before apply. Tags = dev-<sha>.
-dashboard_image = "123456789012.dkr.ecr.ap-southeast-2.amazonaws.com/jhub-gpu-sandbox/dashboard:dev-abcdef1"
-bff_image       = "123456789012.dkr.ecr.ap-southeast-2.amazonaws.com/jhub-gpu-sandbox/bff:dev-abcdef1"
+# Images published to GHCR by .github/workflows/images.yml before apply. Use the full commit SHA.
+dashboard_image = "ghcr.io/<owner>/mlbox-dashboard:<40-char-commit-sha>"
+bff_image       = "ghcr.io/<owner>/mlbox-bff:<40-char-commit-sha>"
 
 # Terraform reads the sensitive Hub service token from 03-hub-app remote state
 # and generates the BFF session-encryption key in this stack.
@@ -13,5 +13,5 @@ ram_quota_gb       = 24
 storage_quota_gb   = 20
 gpu_quota_hours     = 0
 
-# First apply: set false to create ECR + TG only, then flip true after push.
+# First apply: set false to create TG only, then flip true after push.
 deploy_dashboard = false

@@ -92,12 +92,11 @@ locals {
   node_security_group_id = one(
     data.aws_security_groups.node.ids
   )
-  oidc_url               = data.aws_eks_cluster.core.identity[0].oidc[0].issuer
-  oidc_provider          = replace(local.oidc_url, "https://", "")
-  oidc_provider_arn      = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${local.oidc_provider}"
-  github_oidc_url        = "https://token.actions.githubusercontent.com"
-  github_oidc_host       = "token.actions.githubusercontent.com"
-  github_repo_arn_prefix = "arn:${data.aws_partition.current.partition}:ecr:${var.region}:${data.aws_caller_identity.current.account_id}:repository/jhub-gpu-sandbox/"
+  oidc_url          = data.aws_eks_cluster.core.identity[0].oidc[0].issuer
+  oidc_provider     = replace(local.oidc_url, "https://", "")
+  oidc_provider_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${local.oidc_provider}"
+  github_oidc_url   = "https://token.actions.githubusercontent.com"
+  github_oidc_host  = "token.actions.githubusercontent.com"
 }
 
 # If this provider already exists in the AWS account, import its ARN into this
@@ -107,57 +106,6 @@ resource "aws_iam_openid_connect_provider" "github_actions" {
   url            = local.github_oidc_url
   client_id_list = ["sts.amazonaws.com"]
   tags           = var.tags
-}
-
-resource "aws_iam_role" "github_publisher" {
-  name = "${local.cluster_name}-github-publisher"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect    = "Allow"
-      Principal = { Federated = aws_iam_openid_connect_provider.github_actions.arn }
-      Action    = "sts:AssumeRoleWithWebIdentity"
-      Condition = {
-        StringEquals = {
-          "${local.github_oidc_host}:aud" = "sts.amazonaws.com"
-          "${local.github_oidc_host}:sub" = "repo:im-yuuki/ml-box-aws:ref:refs/heads/master"
-        }
-      }
-    }]
-  })
-  tags = var.tags
-}
-
-resource "aws_iam_role_policy" "github_publisher" {
-  name = "publish-project-ecr-images"
-  role = aws_iam_role.github_publisher.id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = ["ecr:GetAuthorizationToken"]
-        Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "ecr:BatchCheckLayerAvailability",
-          "ecr:BatchGetImage",
-          "ecr:CompleteLayerUpload",
-          "ecr:InitiateLayerUpload",
-          "ecr:PutImage",
-          "ecr:UploadLayerPart",
-        ]
-        Resource = [
-          "${local.github_repo_arn_prefix}dashboard",
-          "${local.github_repo_arn_prefix}bff",
-          "${local.github_repo_arn_prefix}cpu",
-          "${local.github_repo_arn_prefix}gpu",
-        ]
-      },
-    ]
-  })
 }
 
 resource "aws_iam_role" "github_deployer" {
@@ -428,13 +376,6 @@ resource "aws_s3_bucket_cors_configuration" "workspace_artifacts" {
     expose_headers  = ["ETag"]
     max_age_seconds = 600
   }
-}
-
-module "ecr" {
-  source = "../../modules/ecr"
-
-  project = "jhub-gpu-sandbox"
-  tags    = var.tags
 }
 
 # ALB + target group + Route53 aliases + AWS Load Balancer Controller.

@@ -9,7 +9,7 @@
 # NAT mode:
 # - "managed_per_az" (default, HA): 1 NAT GW/AZ, ~$43/month per NAT in Sydney + $0.059/GB
 # - "fck_nat": t4g.nano NAT instance ~$5/month for legacy IPv4
-# - "none": IPv6-only, 0 NAT cost. IPv4 only through VPC endpoints (S3/ECR/STS).
+# - "none": IPv6-only, 0 NAT cost. IPv4 only through VPC endpoints (S3/STS); GHCR image pulls need a NAT mode.
 #   Note: IPv4 pods have no internet in none mode — the image/registry must be IPv6 or go through an endpoint.
 # nat_mode = "managed_per_az"
 # nat_mode = "none"  # max savings for dev, once workloads are IPv6-ready

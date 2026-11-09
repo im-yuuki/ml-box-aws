@@ -34,20 +34,19 @@ variable "z2jh_chart_version" {
 # Image tags follow the pipeline convention: dev-<gitshortsha>.
 variable "cpu_image" {
   description = <<-EOT
-    CPU image (ECR). The ECR repo is created by 02-platform; this stack only
-    references the image. Tag = dev-<gitshortsha>.
+    CPU notebook image, e.g. ghcr.io/<owner>/mlbox-cpu:<40-char commit sha>.
+    Published by .github/workflows/images.yml. Use an immutable tag (commit SHA);
+    do not use latest. Required: there is no default so no account is baked in.
   EOT
   type        = string
-  default     = "451058046864.dkr.ecr.ap-southeast-2.amazonaws.com/jhub-gpu-sandbox/cpu:dev-fa3b6fa"
 }
 
 variable "gpu_image" {
   description = <<-EOT
-    GPU image (ECR). The ECR repo is created by 02-platform; this stack only
-    references the image. Tag = dev-<gitshortsha>.
+    GPU notebook image, e.g. ghcr.io/<owner>/mlbox-gpu:<40-char commit sha>.
+    Published by .github/workflows/images.yml. Use an immutable tag (commit SHA).
   EOT
   type        = string
-  default     = "451058046864.dkr.ecr.ap-southeast-2.amazonaws.com/jhub-gpu-sandbox/gpu:dev-fa3b6fa"
 }
 
 variable "vram_commit_mib" {
@@ -81,7 +80,7 @@ variable "state_bucket" {
 }
 
 variable "state_key" {
-  description = "State object key of the 02-platform stack (infra: S3/RDS/Cognito/ECR/ALB/ACM)."
+  description = "State object key of the 02-platform stack (infra: S3/RDS/Cognito/ALB/ACM)."
   type        = string
   default     = "dev/ap-southeast-2/02-platform.tfstate"
 }

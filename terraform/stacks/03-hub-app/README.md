@@ -18,7 +18,7 @@ through `data "terraform_remote_state" "platform"`:
 | `certificate_arn` | HTTPS listener + cert wait |
 | `certificate_validation_records` | deprecated compatibility output; validation records are managed by `00-bootstrap` |
 
-The stack also creates **no** S3 bucket, RDS instance, Cognito pool, ECR repo,
+The stack also creates **no** S3 bucket, RDS instance, Cognito pool,
 ALB or persistent ACM certificate — those belong to `02-platform` and `00-bootstrap`
 respectively.
 
@@ -73,17 +73,17 @@ template).
 
 ## Image pinning
 
-`cpu_image` / `gpu_image` point at the ECR repositories created by
-`02-platform`. The tag follows the image-pipeline convention **`dev-<gitshortsha>`**,
-currently `dev-fa3b6fa`:
+`cpu_image` / `gpu_image` are required inputs with no default. Set them to
+immutable GHCR tags (full commit SHA) published by `.github/workflows/images.yml`:
 
 ```
-451058046864.dkr.ecr.ap-southeast-2.amazonaws.com/jhub-gpu-sandbox/cpu:dev-fa3b6fa
-451058046864.dkr.ecr.ap-southeast-2.amazonaws.com/jhub-gpu-sandbox/gpu:dev-fa3b6fa
+ghcr.io/<owner>/mlbox-cpu:<40-char-sha>
+ghcr.io/<owner>/mlbox-gpu:<40-char-sha>
 ```
 
-Bump the tag when the pipeline produces a new image. The EKS nodes pull from
-ECR through the node role, so the image must be pushed before the first spawn.
+Bump the tag when the pipeline produces a new image. The packages must be public
+(or the cluster needs an `imagePullSecret`), and the image must exist before the
+first spawn.
 
 ---
 

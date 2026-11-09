@@ -30,11 +30,12 @@ jobs:
       - name: Roll out approved images
         env:
           TAG: ${{ inputs.image_tag }}
-          REGISTRY: 451058046864.dkr.ecr.ap-southeast-2.amazonaws.com
+          REGISTRY: ghcr.io/${{ github.repository_owner }}
         run: |
           set -euo pipefail
+          REGISTRY="${REGISTRY,,}"
           [[ "$TAG" =~ ^[0-9a-f]{40}$ ]] || { echo 'image_tag must be a full commit SHA' >&2; exit 1; }
-          kubectl -n dashboard set image deployment/dashboard dashboard="$REGISTRY/jhub-gpu-sandbox/dashboard:$TAG"
-          kubectl -n dashboard set image deployment/bff bff="$REGISTRY/jhub-gpu-sandbox/bff:$TAG"
+          kubectl -n dashboard set image deployment/dashboard dashboard="$REGISTRY/mlbox-dashboard:$TAG"
+          kubectl -n dashboard set image deployment/bff bff="$REGISTRY/mlbox-bff:$TAG"
           kubectl -n dashboard rollout status deployment/dashboard --timeout=5m
           kubectl -n dashboard rollout status deployment/bff --timeout=5m

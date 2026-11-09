@@ -1,20 +1,24 @@
-# Image build & publish (CPU / GPU single-user notebooks)
+# Image build & publish
 
-The JupyterHub single-user pods run two images:
+The project ships four OCI images. They are published to GitHub Container
+Registry (GHCR); no AWS account is needed to build or pull them.
 
-| Flavour | Base image | Repo (ECR) |
-| --- | --- | --- |
-| CPU | `jupyter/base-notebook:latest` | `jhub-gpu-sandbox/cpu` |
-| GPU | `quay.io/jupyter/pytorch-notebook:cuda12-latest` | `jhub-gpu-sandbox/gpu` |
+| Image | Dockerfile | Base | Purpose |
+| --- | --- | --- | --- |
+| `mlbox-dashboard` | `web/dashboard/Dockerfile` | `node:22-bookworm-slim` | Next.js dashboard |
+| `mlbox-bff` | `web/bff/Dockerfile` | `node:22-bookworm-slim` | Cognito / JupyterHub BFF |
+| `mlbox-cpu` | `images/cpu/Dockerfile` | `jupyter/base-notebook:latest` | single-user notebook, CPU |
+| `mlbox-gpu` | `images/gpu/Dockerfile` | `quay.io/jupyter/pytorch-notebook:cuda12-latest` | single-user notebook, GPU |
 
-Both are built from `images/cpu/Dockerfile` and `images/gpu/Dockerfile` and both
-carry the MLBox JupyterLab theme (`@mlbox/jlab-heroui-theme`) as a prebuilt
-labextension, installed **offline** from the wheel vendored in the repository
-(`web/theme/lab/jlab-heroui-theme/dist/`). No secrets are baked into the images
-and the runtime user stays non-root (`jovyan`, uid 1000).
+All images are built from the repository root and target `linux/amd64` (the EKS
+nodes are x86_64). No account-specific values are baked in: runtime settings come
+from Terraform as Kubernetes env or Secrets.
 
-The image build lives outside Terraform: Terraform only
-creates the ECR repositories and points the hub at the resulting image URIs.
+The cpu/gpu notebook images carry the MLBox JupyterLab theme
+(`@mlbox/jlab-heroui-theme`) as a prebuilt labextension, installed **offline**
+from a wheel. The wheel is not committed; it is built from
+`web/theme/lab/jlab-heroui-theme` (npm + pip). The runtime user stays non-root
+(`jovyan`, uid 1000 for notebooks).
 
 ```
 images/
@@ -22,136 +26,103 @@ images/
 ├── gpu/Dockerfile          # GPU single-user image
 └── lib/install-theme.sh    # shared install + verification step
 scripts/
-├── build-images.sh         # build / push
+├── build-images.sh         # build / push all four images
 └── README.md
 ```
 
-## Prerequisites
+## Automated publishing (recommended)
 
-- Docker with Buildx (`docker buildx version`).
-- AWS CLI with credentials for the target account — **only needed to push**
-  (`PUSH=1`); a local build does not touch AWS.
-- The theme wheel. `build-images.sh` uses
-  `web/theme/lab/jlab-heroui-theme/dist/jlab_heroui_theme-0.1.0-py3-none-any.whl`
-  and rebuilds it with the theme's own `build.sh` (npm + pip) when missing.
-  Set `SKIP_WHEEL_BUILD=1` to fail instead of rebuilding.
+`.github/workflows/images.yml` builds all four images and pushes them to
+`ghcr.io/<owner>/mlbox-<name>` on pushes to `master` and `v*.*.*` tags. Pull
+requests build without pushing. Each image is tagged with:
 
-## Build (local, no AWS access)
+- the full commit SHA (immutable; use this in Terraform),
+- the branch name, and `latest` on the default branch,
+- the semver version, for release tags.
+
+Authentication uses the workflow's `GITHUB_TOKEN`; no extra secret is needed.
+
+After the first push, make each package **public** in GitHub (package settings →
+Change visibility), so other AWS accounts can pull without credentials. A private
+package requires an `imagePullSecret` in the cluster.
+
+## Local build
+
+Requires Docker with Buildx (`docker buildx version`).
 
 ```bash
-./scripts/build-images.sh                 # both flavours, loaded into local Docker
-ONLY=cpu ./scripts/build-images.sh        # one flavour
-TAG=v1.2.3 ./scripts/build-images.sh     # explicit tag
+./scripts/build-images.sh                 # all four, loaded into local Docker
+ONLY=cpu ./scripts/build-images.sh        # one image: dashboard | bff | cpu | gpu
+TAG=v1.2.3 ./scripts/build-images.sh      # explicit tag
 ```
 
 The default tag is `dev-<gitshortsha>` (`dev-latest` outside a git checkout).
-Images are built for `linux/amd64` because the EKS nodes are x86_64 — on an
-Apple Silicon machine the build runs through emulation, so it is slow.
+The image prefix defaults to `ghcr.io/<owner>/mlbox-`, where the owner is read from
+the `origin` remote; override with `IMAGE_PREFIX`.
 
-Without `PUSH=1` the images are only loaded into the local Docker image store
-(`jhub-gpu-sandbox/cpu:<tag>`, `jhub-gpu-sandbox/gpu:<tag>`).
+Apple Silicon builds run `linux/amd64` through emulation, so they are slow.
 
-## Push to ECR
-
-The ECR repositories are created by Terraform
-(`terraform/modules/ecr`, applied by `terraform/stacks/02-platform`), so apply the
-hub stack once before the first push.
+## Push to GHCR
 
 ```bash
+export GHCR_USER=<your-github-username>
+export CR_PAT=<token-with-write:packages>   # classic PAT or fine-grained token
 PUSH=1 ./scripts/build-images.sh
 ```
 
-This runs `aws ecr get-login-password` against
-`451058046864.dkr.ecr.ap-southeast-2.amazonaws.com` and pushes:
-
-```
-451058046864.dkr.ecr.ap-southeast-2.amazonaws.com/jhub-gpu-sandbox/cpu:<tag>
-451058046864.dkr.ecr.ap-southeast-2.amazonaws.com/jhub-gpu-sandbox/gpu:<tag>
-```
-
-Override `AWS_ACCOUNT_ID`, `AWS_REGION`, `ECR_REGISTRY` or `IMAGE_NAMESPACE`
-if the repos live elsewhere (`IMAGE_NAMESPACE` must match the ECR repository
-names created by Terraform).
+If `CR_PAT` is unset, the script assumes `docker login ghcr.io` was already run.
 
 ## Point Terraform at the images
 
-`terraform/stacks/03-hub-app/variables.tf` exposes `cpu_image` and `gpu_image`
-(defaults: the public base images). Set them to the ECR URIs:
+Stacks `03-hub-app` and `04-dashboard` have no default image references. Set
+them in each stack's `terraform.tfvars` (git-ignored), using the full commit SHA:
 
-```bash
-cd terraform/stacks/03-hub-app
-terraform init
-terraform apply \
-  -var="cpu_image=451058046864.dkr.ecr.ap-southeast-2.amazonaws.com/jhub-gpu-sandbox/cpu:dev-fa3b6fa" \
-  -var="gpu_image=451058046864.dkr.ecr.ap-southeast-2.amazonaws.com/jhub-gpu-sandbox/gpu:dev-fa3b6fa"
+```hcl
+# terraform/stacks/03-hub-app/terraform.tfvars
+cpu_image = "ghcr.io/<owner>/mlbox-cpu:<40-char-sha>"
+gpu_image = "ghcr.io/<owner>/mlbox-gpu:<40-char-sha>"
+
+# terraform/stacks/04-dashboard/terraform.tfvars
+dashboard_image = "ghcr.io/<owner>/mlbox-dashboard:<40-char-sha>"
+bff_image       = "ghcr.io/<owner>/mlbox-bff:<40-char-sha>"
 ```
 
-or put the same two values in `terraform/stacks/03-hub-app/terraform.tfvars`
-(git-ignored) and run a plain `terraform apply`. The values end up in
-`singleuser.profileList[].kubespawner_override.image` in
-`values/hub-values.yaml.tpl`.
+The values end up in `singleuser.profileList[].kubespawner_override.image` in
+`terraform/stacks/03-hub-app/values/hub-values.yaml.tpl`.
 
-The GPU profile additionally needs the image to be pullable by the EKS node
-role: the Karpenter node role attaches `AmazonEC2ContainerRegistryPullOnly`
-(`terraform/modules/karpenter/node-role.tf`), which covers
-`ecr:GetAuthorizationToken`, `ecr:BatchGetImage` and
-`ecr:GetDownloadUrlForLayer` on these repositories.
+Pulls from GHCR go through the NAT gateway, so the cluster needs egress: keep
+`nat_mode` at `managed_per_az` or `fck_nat` in `01-foundation`. With `nat_mode = "none"`
+the nodes have no IPv4 route to `ghcr.io`.
 
-## GitHub Actions release and deployment (temporarily disabled)
+## GitHub Actions
 
-The CI and deployment workflow definitions are retained as
-`.github/workflows/ci.yml.disabled` and `.github/workflows/deploy.yml.disabled`.
-GitHub Actions does not load these `.disabled` files, so pushes, pull requests,
-tags, and manual dispatches currently trigger no CI/CD jobs. They are intentionally
-parked until the near-final project phase.
+| Workflow | State | Purpose |
+| --- | --- | --- |
+| `images.yml` | active | build and push the four images to GHCR |
+| `deploy.yml.disabled` | disabled | production rollout of dashboard and BFF |
 
-To reopen CI/CD later, rename them back to `ci.yml` and `deploy.yml`, then review
-the workflow contents and complete the one-time GitHub setup below before
-enabling the triggers.
+`deploy.yml.disabled` is kept until the production rollout is reopened. To reopen
+it, rename it to `deploy.yml`, then complete the one-time setup:
 
-### One-time GitHub setup
-
-1. In repository **Settings → Environments**, create `production` and add the
-   production approvers as required reviewers. Restrict deployment branches to
-   `master` as an additional guard.
+1. In **Settings → Environments**, create `production`, add the production
+   approvers as required reviewers, and restrict deployments to `master`.
 2. In **Settings → Secrets and variables → Actions → Variables**, set
-   `AWS_ECR_PUBLISH_ROLE_ARN`, `AWS_DEPLOY_ROLE_ARN`, and `EKS_CLUSTER_NAME` to
-   the role ARNs and cluster name emitted/configured by `terraform/stacks/02-platform`.
-   These are identifiers, not secrets; do not put AWS access keys in GitHub.
-3. When re-enabled and after role changes exist in AWS, open a PR to test
-   validation without AWS access, merge to `master` to publish images, then
-   dispatch **Approved production rollout** from `master` with the exact commit
-   SHA. Confirm environment approval and both rollout statuses before closing
-   the release.
+   `AWS_DEPLOY_ROLE_ARN` and `EKS_CLUSTER_NAME` to the values from
+   `terraform/stacks/02-platform` (`github_deployer_role_arn`,
+   `github_actions_cluster_name`). These are identifiers, not secrets.
+3. Dispatch **Approved production rollout** from `master` with a full commit SHA
+   that `images.yml` has already published, and confirm environment approval and
+   both rollout statuses.
 
-The CI publisher and deployment role are separate roles with separate trust
-subjects: branch-ref trust for publishing and production-environment trust for
-deployment. The platform stack should create/reuse the GitHub OIDC provider
-(`https://token.actions.githubusercontent.com`, client ID `sts.amazonaws.com`)
-and provision these narrowly scoped roles; do not broaden either role to
-wildcard repository/branch subjects. No Terraform apply is performed by these
-workflows.
-
-Usage history is opt-in: enable `enable_dashboard_usage_history=true` in stack
-02 to provision the private PostgreSQL instance, then set
-`enable_usage_history=true` in stack 04. The DB has deletion protection and
-final snapshots; disabling history alone does not destroy the DB. Samples are
-recorded at most once per hour when an authenticated usage GET occurs; there is
-no background sampler, so idle periods and missed visits are not accounted for.
-CPU-hours remain untracked. The BFF uses verified TLS and logs only generic
-database error names. The DB URL is materialized into Terraform-managed
-Kubernetes Secret state; protect both Terraform state backends accordingly.
-
-When re-enabled, deploy updates only dashboard and BFF deployments. Notebook
-image builds are published by CI, but hub image selection remains a separately
-approved Terraform change.
+The deployer role trusts only the `production` environment subject. Do not broaden
+it to wildcard repository or branch subjects.
 
 ## Verify
 
 Inside the image:
 
 ```bash
-docker run --rm jhub-gpu-sandbox/cpu:dev-fa3b6fa \
+docker run --rm ghcr.io/<owner>/mlbox-cpu:<tag> \
   jupyter labextension list | sed -E 's/\x1B\[[0-9;]*m//g'
 ```
 
@@ -169,31 +140,30 @@ The image build itself fails if the theme is not `enabled OK` or if the
 `heroui-light` / `heroui-dark` plugins are missing from the shipped bundle, so a
 successful build is the verification.
 
-In a running pod:
-
-```bash
-kubectl -n hub exec deploy/hub -c hub -- true   # hub pod
-kubectl -n hub run tmp --rm -it --image=<image-uri> --restart=Never -- jupyter labextension list
-```
-
 ## Notes / gotchas
 
 - **JupyterLab version.** The theme declares `"@jupyterlab/apputils": "^4.4.2"`.
   The stock `jupyter/base-notebook:latest` ships JupyterLab 4.0.7, where the
   extension is reported as *not compatible* and the browser refuses to load its
-  plugins — the themes then never appear in Settings → Theme. The image build
-  therefore upgrades JupyterLab to 4.4.2 (and `jupyterlab-pygments` to 0.3.0,
-  whose 0.2.x release is only compatible with JupyterLab < 4.1) when the base
-  image is older. `images/lib/install-theme.sh` does it only when needed and
-  fails the build if the extension still ends up incompatible.
+  plugins. The image build therefore upgrades JupyterLab to 4.4.2 (and
+  `jupyterlab-pygments` to 0.3.0) when the base image is older.
+  `images/lib/install-theme.sh` does it only when needed and fails the build if
+  the extension is still incompatible.
 - **Theme on disk.** The extension installs to
-  `<sys-prefix>/share/jupyter/labextensions/@mlbox/jlab-heroui-theme` and is
-  picked up automatically by JupyterLab 4 / Notebook 7 on the next server start.
-- **Default theme.** The images ship the extension but do **not** force it as
-  the default; to make HeroUI the fleet-wide default, drop the
-  `overrides.json` snippet from `web/theme/lab/jlab-heroui-theme/README.md` into
+  `<sys-prefix>/share/jupyter/labextensions/@mlbox/jlab-heroui-theme` and is picked
+  up automatically by JupyterLab 4 / Notebook 7 on the next server start.
+- **Default theme.** The images ship the extension but do **not** force it as the
+  default. To make HeroUI the fleet-wide default, add the `overrides.json` snippet
+  from `web/theme/lab/jlab-heroui-theme/README.md` to
   `<home>/.jupyter/lab/user-settings/@jupyterlab/apputils-extension/overrides.json`
   in the image.
 - **GPU runtime env.** The GPU image sets `TF_FORCE_GPU_ALLOW_GROWTH=true` and
-  `XLA_PYTHON_CLIENT_PREALLOCATE=false` ; the hub values set the
-  same variables per pod (`singleuser.extraEnv`).
+  `XLA_PYTHON_CLIENT_PREALLOCATE=false`; the hub values set the same variables per
+  pod (`singleuser.extraEnv`).
+- **Usage history is opt-in.** Enable `enable_dashboard_usage_history=true` in
+  stack 02 to provision the private PostgreSQL instance, then set
+  `enable_usage_history=true` in stack 04. The DB has deletion protection and final
+  snapshots; disabling history alone does not destroy the DB. Samples are recorded
+  at most once per hour when an authenticated usage GET occurs; there is no
+  background sampler. CPU-hours remain untracked. The DB URL is materialized into
+  a Terraform-managed Kubernetes Secret, so protect both Terraform state backends.
