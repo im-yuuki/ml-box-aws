@@ -455,7 +455,7 @@ test("space listing returns only active memberships with the caller role", async
 
 test("usage sessions open only once per project and close on stop", async () => {
   const { store, queries } = fakeStore(() => ({ rows: [] }));
-  await store.openUsageSession("p1", "u1");
+  await store.openUsageSession("p1", "u1", 10);
   await store.closeUsageSessions("p1");
   const open = queries.find((q) => q.sql.includes("INSERT INTO mlbox_usage_sessions"));
   assert.match(open?.sql ?? "", /AND NOT EXISTS \(SELECT 1 FROM mlbox_usage_sessions u WHERE u\.project_id = \$2 AND u\.ended_at IS NULL\)/);

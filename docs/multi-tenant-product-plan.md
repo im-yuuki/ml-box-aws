@@ -152,14 +152,16 @@ Ràng buộc quan trọng: một Project có đúng một Team; Team và Project
 
 | Space | Gói | Giá đề xuất | Giá trị chính |
 |---|---|---:|---|
-| Personal | Free | $0 | 1 Project, 5 GB lưu trữ, sandbox CPU và một hạn mức compute nhỏ hàng tháng |
-| Personal | Plus | $8 | Tối đa 5 Project, 25 GB lưu trữ, nhiều giờ CPU hơn Free và quyền dùng GPU cơ bản khi có capacity |
-| Personal | Pro | $19 | Hạn mức Project/lưu trữ/compute cao hơn Plus và ưu tiên trên shared GPU |
+| Personal | Free | $0 | 20 compute units/tháng, 1 Project, 5 GB, CPU shared |
+| Personal | Plus | $8 | 100 compute units/tháng, 5 Project, 25 GB, CPU + GPU |
+| Personal | Pro | $19 | 300 compute units/tháng, 20 Project, 100 GB, CPU + GPU, ưu tiên GPU |
 | Personal | Power | $39 | Hạn mức tự phục vụ cao nhất và ưu tiên shared GPU cao nhất; dedicated GPU tính riêng |
 | Organization | Team | $19, tối đa 3 thành viên | Project dùng chung, role cơ bản và compute pool chung |
 | Organization | Growth | $8/thành viên | Mở rộng thành viên, Team, lưu trữ dùng chung và theo dõi usage |
 | Organization | Scale | $15/thành viên | Hạn mức cao hơn, quản trị bổ sung, audit history và hỗ trợ ưu tiên |
 | Organization | Enterprise | Báo giá | Hạn mức theo hợp đồng, tùy chọn capacity riêng và SLA |
+
+Mô hình đơn giản hóa (demo): mỗi Space có **một pool compute units/tháng** quy đổi từ thời gian chạy runtime — CPU 1 unit/giờ, GPU (shared hoặc dedicated) 10 units/giờ (xem `COMPUTE_UNIT_RATES` trong `web/bff/src/mock-billing.ts`). Mỗi gói chỉ thêm Project, storage và quyền GPU. GPU có trong mọi gói trả phí, không có trong Free. Số units và tỉ lệ là giả thuyết để demo, chưa phải giá cuối.
 
 Nguyên tắc đóng gói:
 

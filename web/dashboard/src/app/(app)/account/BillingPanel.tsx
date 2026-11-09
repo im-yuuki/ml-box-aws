@@ -20,13 +20,11 @@ type Plan = {
   currency: string;
   billingInterval: string;
   status: PlanStatus;
-  quotas: {
-    projects: number | null;
-    storageGb: number | null;
-    cpuHours: number | null;
-    gpuHours: number | null;
-    members?: number | null;
-  };
+  computeUnits: number | null;
+  projects: number | null;
+  storageGb: number | null;
+  gpuAccess: boolean;
+  members?: number | null;
 };
 
 type Subscription = {
@@ -193,14 +191,12 @@ export default function BillingPanel() {
       string,
       | "billingQuotaProjects"
       | "billingQuotaStorageGb"
-      | "billingQuotaCpuHours"
-      | "billingQuotaGpuHours"
+      | "billingQuotaComputeUnits"
       | "billingQuotaMembers"
     > = {
       projects: "billingQuotaProjects",
       storage_gb: "billingQuotaStorageGb",
-      cpu_hours: "billingQuotaCpuHours",
-      gpu_hours: "billingQuotaGpuHours",
+      compute_units: "billingQuotaComputeUnits",
       members: "billingQuotaMembers",
     };
     const key = labels[resource];
@@ -330,16 +326,16 @@ export default function BillingPanel() {
                   className="grid grid-cols-2 gap-1 text-xs"
                   style={{ color: "var(--muted)" }}>
                   <span>
-                    {formatQuota(plan.quotas.projects, t("billingProjects"))}
+                    {formatQuota(plan.computeUnits, t("billingComputeUnits"))}
                   </span>
                   <span>
-                    {formatQuota(plan.quotas.storageGb, t("billingGb"))}
+                    {formatQuota(plan.projects, t("billingProjects"))}
                   </span>
                   <span>
-                    {formatQuota(plan.quotas.cpuHours, t("billingHours"))}
+                    {formatQuota(plan.storageGb, t("billingGb"))}
                   </span>
                   <span>
-                    {formatQuota(plan.quotas.gpuHours, t("billingGpuHours"))}
+                    {plan.gpuAccess ? t("billingGpuIncluded") : t("billingGpuNotIncluded")}
                   </span>
                 </div>
               </button>

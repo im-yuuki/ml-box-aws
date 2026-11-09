@@ -85,13 +85,15 @@ test("free activation creates no payment and writes demo entitlements", async ()
   const result = await store.activateFreeSubscription("user-1", "personal:user-1", {
     id: "personal_free", spaceType: "personal", name: "Personal Free", amountCents: 0, currency: "USD", billingInterval: "month", status: "active",
     artifactRetentionDays: 7,
-    quotas: { projects: 1, storageGb: 5, cpuHours: 10, gpuHours: 0 },
+    computeUnits: 20, projects: 1, storageGb: 5, gpuAccess: false,
   });
 
   assert.equal(result.payment, null);
   assert.equal(Object.keys(state.payments).length, 0);
   assert.equal(result.subscription.plan, "personal_free");
   assert.equal(result.entitlements.find((item) => item.resource === "projects")?.limitValue, 1);
+  assert.equal(result.entitlements.find((item) => item.resource === "compute_units")?.limitValue, 20);
+  assert.equal(result.entitlements.find((item) => item.resource === "gpu_access")?.limitValue, 0);
 });
 
 test("checkout rejects a plan whose catalog Space type differs from the target Space", async () => {
@@ -129,6 +131,8 @@ test("successful checkout activates the subscription and records entitlements", 
   assert.equal(result.subscription.plan, "personal_plus");
   assert.equal(result.subscription.status, "active");
   assert.equal(result.entitlements.find((item) => item.resource === "storage_gb")?.limitValue, 25);
+  assert.equal(result.entitlements.find((item) => item.resource === "compute_units")?.limitValue, 100);
+  assert.equal(result.entitlements.find((item) => item.resource === "gpu_access")?.limitValue, 1);
   assert.deepEqual(Object.keys(state.payments).length, 1);
   assert.ok(state.auditActions.includes("payment.mock_succeeded"));
   assert.ok(state.auditActions.includes("subscription.mock_activated"));
