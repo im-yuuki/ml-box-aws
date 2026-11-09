@@ -36,22 +36,6 @@ locals {
   dashboard_usage_db_url = var.enable_usage_history ? "postgresql://${data.terraform_remote_state.platform.outputs.dashboard_usage_db_username}:${local.dashboard_usage_db_password_encoded}@${data.terraform_remote_state.platform.outputs.dashboard_usage_db_address}:${data.terraform_remote_state.platform.outputs.dashboard_usage_db_port}/${data.terraform_remote_state.platform.outputs.dashboard_usage_db_name}" : ""
 }
 
-# ---------------------------------------------------------------------------
-# ECR repositories (dashboard + bff)
-# ---------------------------------------------------------------------------
-resource "aws_ecr_repository" "this" {
-  for_each = toset(["dashboard", "bff"])
-
-  name                 = "${var.project}/${each.value}"
-  image_tag_mutability = "IMMUTABLE"
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-
-  tags = var.tags
-}
-
 # The session key is generated in Terraform and stored only in the Kubernetes
 # Secret below. It is also retained in Terraform state, which must stay in the
 # encrypted/locked bootstrap backend.
@@ -152,9 +136,9 @@ resource "kubectl_manifest" "deployment" {
               { name = "NODE_ENV", value = "production" },
               { name = "PORT", value = "3000" },
               { name = "BFF_INTERNAL_URL", value = "http://bff:4000" },
-              { name = "NEXT_PUBLIC_COGNITO_REGION", value = var.region },
-              { name = "NEXT_PUBLIC_COGNITO_USER_POOL_ID", value = data.terraform_remote_state.platform.outputs.cognito_user_pool_id },
-              { name = "NEXT_PUBLIC_COGNITO_CLIENT_ID", value = data.terraform_remote_state.platform.outputs.cognito_dashboard_client_id },
+              { name = "COGNITO_REGION", value = var.region },
+              { name = "COGNITO_USER_POOL_ID", value = data.terraform_remote_state.platform.outputs.cognito_user_pool_id },
+              { name = "COGNITO_CLIENT_ID", value = data.terraform_remote_state.platform.outputs.cognito_dashboard_client_id },
             ]
             resources = {
               requests = {

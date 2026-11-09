@@ -11,7 +11,7 @@ Tài liệu này là quy trình triển khai hiện tại cho một region. Quy 
 |---|---|---|
 | `00-bootstrap` | ✅ Đã apply fresh | S3 state, DynamoDB lock, Route53 zone, ACM certificates và validation records |
 | `01-foundation` | ✅ Đã apply | VPC, EKS, system node group, Karpenter, CPU NodePool |
-| `02-platform` | ✅ Đã apply | RDS, Cognito, ECR, ALB, Route53 aliases, Load Balancer Controller |
+| `02-platform` | ✅ Đã apply | RDS, Cognito, ALB, Route53 aliases, Load Balancer Controller |
 | DNS / ACM | ✅ Hoàn tất | Cloudflare delegate `mlbox` sang Route53; cả hai certificate đều `ISSUED` |
 | `03-hub-app` | ✅ Đã apply | JupyterHub tại `notebook.mlbox.june8th.me`, có BFF service token |
 | Hub theme | ✅ Đã apply | ConfigMap theme MLBox và rollout Hub |
@@ -95,7 +95,7 @@ terraform output certificate_status
 terraform output -json route53_zone_nameservers
 ```
 
-Stack tạo ALB, target group, ACM, Cognito, ECR, RDS, workspace S3 và Load Balancer Controller.
+Stack tạo ALB, target group, ACM, Cognito, RDS, workspace S3 và Load Balancer Controller.
 
 ## DNS và ACM pause
 
@@ -117,7 +117,7 @@ aws acm describe-certificate \
 
 ## Hub application
 
-Trước khi apply, push CPU image vào ECR và cập nhật `terraform.tfvars` nếu tag thay đổi.
+Trước khi apply, publish CPU image lên GHCR (`.github/workflows/images.yml`) và cập nhật `cpu_image` trong `terraform.tfvars` nếu tag thay đổi.
 
 ```bash
 cd ../03-hub-app
@@ -141,12 +141,12 @@ GPU profiles vẫn ẩn.
 
 ## Dashboard
 
-Image dashboard phải được build với context repository root và push vào ECR trước khi bật
+Image dashboard phải được build với context repository root và publish lên GHCR trước khi bật
 `deploy_dashboard`.
 
 ```bash
 # Từ repository root
-./scripts/build-dashboard.sh
+PUSH=1 ./scripts/build-images.sh   # dashboard + bff (+ cpu/gpu nếu cần)
 
 cd terraform/stacks/04-dashboard
 terraform init -reconfigure -backend-config=backend.hcl
@@ -154,13 +154,13 @@ terraform plan
 terraform apply
 ```
 
-Các build args quan trọng:
+Dashboard không cần build args. Cấu hình Cognito được truyền lúc container chạy
+(env do stack `04-dashboard` tạo):
 
 ```text
-NEXT_PUBLIC_COGNITO_REGION=ap-southeast-2
-NEXT_PUBLIC_COGNITO_USER_POOL_ID=<pool-id>
-NEXT_PUBLIC_COGNITO_CLIENT_ID=<dashboard-client-id>
-NEXT_PUBLIC_BFF_BASE_URL=https://mlbox.june8th.me/api/bff
+COGNITO_REGION=ap-southeast-2
+COGNITO_USER_POOL_ID=<pool-id>
+COGNITO_CLIENT_ID=<dashboard-client-id>
 ```
 
 Kiểm tra Kubernetes và ALB:

@@ -22,15 +22,15 @@ flows remain scaffold/mock until their APIs are implemented.
 
 ## Environment
 
-The dashboard is a public client, so only `NEXT_PUBLIC_*` variables are
-needed at build time. They are inlined into the JS bundle by Next.js.
+The image contains no account-specific configuration. Every variable below is
+read at container start-up, so one image works in any AWS account.
 
 | Variable | Notes |
 | --- | --- |
-| `NEXT_PUBLIC_COGNITO_REGION` | Region of the Cognito user pool. |
-| `NEXT_PUBLIC_COGNITO_USER_POOL_ID` | The pool the dashboard authenticates against. |
-| `NEXT_PUBLIC_COGNITO_CLIENT_ID` | The public (no secret) dashboard app client. |
-| `NEXT_PUBLIC_BFF_BASE_URL` | Where the BFF is reachable. Same origin in prod. |
+| `COGNITO_REGION` | Region of the Cognito user pool. Default `ap-southeast-2`. |
+| `COGNITO_USER_POOL_ID` | The pool the dashboard authenticates against. |
+| `COGNITO_CLIENT_ID` | The public (no secret) dashboard app client. |
+| `BFF_PUBLIC_BASE_URL` | Browser-facing BFF URL. Default `/api/bff` (same origin). |
 
 ## Develop
 
@@ -67,12 +67,11 @@ configured `BFF_INTERNAL_URL` always takes precedence over the mock.
 ```bash
 docker buildx build --platform linux/amd64 \
   -f web/dashboard/Dockerfile \
-  --build-arg NEXT_PUBLIC_COGNITO_REGION=ap-southeast-2 \
-  --build-arg NEXT_PUBLIC_COGNITO_USER_POOL_ID=<...> \
-  --build-arg NEXT_PUBLIC_COGNITO_CLIENT_ID=<...> \
-  --build-arg NEXT_PUBLIC_BFF_BASE_URL=https://mlbox.june8th.me/api/bff \
-  --tag 451058046864.dkr.ecr.ap-southeast-2.amazonaws.com/jhub-gpu-sandbox/dashboard:dev-<sha> \
+  --tag ghcr.io/<owner>/mlbox-dashboard:<sha> \
   .
+
+# Configuration is supplied at run time (Kubernetes env), not at build time:
+#   COGNITO_REGION, COGNITO_USER_POOL_ID, COGNITO_CLIENT_ID
 ```
 
 ## Current implementation status
@@ -83,7 +82,7 @@ Code and deployment wiring currently prepared:
   dashboard client enables the BFF's `USER_PASSWORD_AUTH` flow.
 - `web/bff/` implements Cognito sign-up/confirm/login/logout, encrypted HttpOnly
   sessions, JWT/JWKS verification and per-user JupyterHub list/start/stop proxying.
-- `04-dashboard` defines immutable ECR images, dashboard and BFF Deployments,
+- `04-dashboard` defines immutable GHCR images, dashboard and BFF Deployments,
   the BFF Kubernetes Secret/Service, TargetGroupBinding and apex listener rule.
 - The dashboard image is built from repository root and uses
   `https://mlbox.june8th.me/api/bff` as its same-origin proxy base URL.

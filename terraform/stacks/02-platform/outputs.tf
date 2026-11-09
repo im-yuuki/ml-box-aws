@@ -102,11 +102,6 @@ output "github_oidc_provider_arn" {
   value       = aws_iam_openid_connect_provider.github_actions.arn
 }
 
-output "github_publisher_role_arn" {
-  description = "Set GitHub Actions repository variable AWS_ECR_PUBLISH_ROLE_ARN to this value."
-  value       = aws_iam_role.github_publisher.arn
-}
-
 output "github_deployer_role_arn" {
   description = "Set GitHub Actions production environment variable AWS_DEPLOY_ROLE_ARN to this value."
   value       = aws_iam_role.github_deployer.arn
@@ -115,17 +110,6 @@ output "github_deployer_role_arn" {
 output "github_actions_cluster_name" {
   description = "Set GitHub Actions production environment variable EKS_CLUSTER_NAME to this value."
   value       = local.cluster_name
-}
-
-# --- ECR ---
-output "ecr_cpu_repo_url" {
-  description = "ECR repository URL for the CPU image (jhub-gpu-sandbox/cpu)."
-  value       = module.ecr.repository_urls["cpu"]
-}
-
-output "ecr_gpu_repo_url" {
-  description = "ECR repository URL for the GPU image (jhub-gpu-sandbox/gpu)."
-  value       = module.ecr.repository_urls["gpu"]
 }
 
 # --- ALB / target group / certificate (module ingress-dns) ---

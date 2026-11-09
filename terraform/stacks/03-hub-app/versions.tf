@@ -1,5 +1,5 @@
 # Application stack (JupyterHub / Z2JH).
-# Infra (S3, RDS, Cognito, ECR, LB controller, ALB + target group, ACM) now
+# Infra (S3, RDS, Cognito, LB controller, ALB + target group, ACM) now
 # lives in 02-platform and is consumed read-only through
 # data "terraform_remote_state" "platform".
 # Producers from 01-foundation are resolved automatically:

@@ -22,9 +22,6 @@ Xem thêm [`docs/DEPLOYMENT.md`](../../../docs/DEPLOYMENT.md) và
 
 ## Tài nguyên
 
-- ECR repositories immutable, scan-on-push:
-  - `jhub-gpu-sandbox/dashboard`
-  - `jhub-gpu-sandbox/bff`
 - ALB target group cho dashboard trên port `3000` và security-group rules tương ứng.
 - Namespace `dashboard` với:
   - Deployment/Service `dashboard`;
@@ -43,8 +40,8 @@ versioning và lock; không đưa `terraform.tfvars`, backend hoặc state vào 
 
 Luồng `00-bootstrap` → `04-dashboard` đã được fresh deploy từ state/backend mới.
 Dashboard và BFF đang Running; TargetGroupBinding đã reconcile và dashboard ALB
-target đang healthy. Hai image immutable `dev-16de76b` đã được push vào ECR và
-được dùng trong rollout.
+target đang healthy. Hai image immutable `dev-16de76b` (trước khi chuyển sang GHCR) đã được
+dùng trong rollout.
 
 Production dashboard đã xử lý `DYNAMIC_SERVER_USAGE` bằng cách bỏ
 `cacheComponents`/`partialPrefetching`; kiểm tra qua ALB cho thấy `/` và `/login`
@@ -54,17 +51,19 @@ sandbox lifecycle vẫn cần test user thật.
 
 ## Build images
 
-Từ repository root, sau khi `02-platform` tạo ECR và Cognito:
+Cách khuyến nghị: dùng image đã publish lên GHCR bởi `.github/workflows/images.yml`
+và đặt `dashboard_image` / `bff_image` trong `terraform.tfvars` (commit SHA đầy đủ).
+Image không chứa cấu hình theo account; `COGNITO_*` do Terraform truyền lúc chạy.
+
+Nếu muốn tự build và push lên GHCR:
 
 ```bash
-source .private/aws-env.sh
-export NEXT_PUBLIC_COGNITO_USER_POOL_ID="$(terraform -chdir=terraform/stacks/02-platform output -raw cognito_user_pool_id)"
-export NEXT_PUBLIC_COGNITO_CLIENT_ID="$(terraform -chdir=terraform/stacks/02-platform output -raw cognito_dashboard_client_id)"
-PUSH=1 ./scripts/build-dashboard.sh
+export GHCR_USER=<github-username> CR_PAT=<token-with-write:packages>
+PUSH=1 ./scripts/build-images.sh
 ```
 
-Script tạo cùng một immutable tag `dev-<gitshortsha>` cho dashboard và BFF. BFF
-không nhận secret lúc build; secret chỉ được inject lúc chạy bởi Terraform.
+Script tạo tag `dev-<gitshortsha>` cho cả bốn image. BFF không nhận secret lúc
+build; secret chỉ được inject lúc chạy bởi Terraform.
 
 ## Apply / rollout
 
@@ -79,7 +78,7 @@ kubectl -n dashboard rollout status deployment/bff --timeout=300s
 kubectl -n dashboard get pods,svc,targetgroupbinding
 ```
 
-`dashboard_image` và `bff_image` phải là immutable ECR tags, không dùng `latest`.
+`dashboard_image` và `bff_image` phải là immutable GHCR tags (commit SHA đầy đủ), không dùng `latest`.
 
 Sau rollout:
 

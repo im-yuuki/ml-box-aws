@@ -1,0 +1,141 @@
+# Build the four OCI images of the MLBox stack and push them to GHCR.
+#
+#   ghcr.io/<owner>/mlbox-dashboard   web/dashboard/Dockerfile   (Next.js dashboard)
+#   ghcr.io/<owner>/mlbox-bff         web/bff/Dockerfile         (Cognito/JupyterHub BFF)
+#   ghcr.io/<owner>/mlbox-cpu         images/cpu/Dockerfile      (single-user notebook, CPU)
+#   ghcr.io/<owner>/mlbox-gpu         images/gpu/Dockerfile      (single-user notebook, GPU)
+#
+# Tags pushed on master / v*.*.* tags:
+#   <full commit SHA>   immutable, what the deploy workflow expects (40 hex chars)
+#   master              branch name (default branch)
+#   latest              default branch only
+#   1.2.3 / 1.2 / 1    semver, on v*.*.* tags
+#
+# Pull requests build every image (linux/amd64) but do NOT push.
+
+name: Build and push images
+
+on:
+  push:
+    branches: [master]
+    tags: ["v*.*.*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: images-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The cpu/gpu images install the JupyterLab theme from a wheel that is NOT
+  # committed (web/theme/lab/jlab-heroui-theme/.gitignore ignores dist/), so it
+  # is built here once and handed to the image jobs as an artifact.
+  theme-wheel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/theme/lab/jlab-heroui-theme/package-lock.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: web/theme/lab/jlab-heroui-theme/pyproject.toml
+
+      - name: Build jlab-heroui-theme wheel
+        working-directory: web/theme/lab/jlab-heroui-theme
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip build
+          bash build.sh
+          ls -l dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jlab-heroui-theme-wheel
+          path: web/theme/lab/jlab-heroui-theme/dist/*.whl
+          if-no-files-found: error
+          retention-days: 7
+
+  images:
+    needs: theme-wheel
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: dashboard
+            file: web/dashboard/Dockerfile
+          - name: bff
+            file: web/bff/Dockerfile
+          - name: cpu
+            file: images/cpu/Dockerfile
+          - name: gpu
+            file: images/gpu/Dockerfile
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # The GPU base image is very large; free runner disk before building it.
+      - name: Free disk space (gpu)
+        if: matrix.name == 'gpu'
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /usr/local/share/boost
+          df -h /
+
+      - name: Fetch theme wheel (cpu/gpu)
+        if: matrix.name == 'cpu' || matrix.name == 'gpu'
+        uses: actions/download-artifact@v4
+        with:
+          name: jlab-heroui-theme-wheel
+          path: web/theme/lab/jlab-heroui-theme/dist
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/mlbox-${{ matrix.name }}
+          tags: |
+            type=raw,value=${{ github.sha }}
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable={{is_default_branch}}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          platforms: linux/amd64
+          provenance: false
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}

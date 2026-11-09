@@ -13,9 +13,8 @@ Không có JupyterHub ở đây - Helm release của hub nằm ở stack `03-hub
 | `storage` | S3 bucket workspace (KMS, versioning, lifecycle) + IAM role cho hub AssumeRole theo prefix `users/<id>/` |
 | `hub_db` | RDS Postgres (private subnet, SG chỉ cho EKS node) + master password do RDS quản lý trong Secrets Manager |
 | `auth` | Cognito User Pool + hosted UI + OIDC app client (`hub_callback_url` = `https://notebook.<domain>/hub/oauth_callback`) |
-| `ecr` | ECR repos `jhub-gpu-sandbox/cpu` và `jhub-gpu-sandbox/gpu` |
 | `ingress_dns` | AWS Load Balancer Controller (Helm + IRSA), ALB internet-facing ở public subnet, target group và A-alias records trong zone do `00-bootstrap` sở hữu |
-| GitHub Actions | GitHub OIDC provider, publisher role giới hạn ở 4 ECR repos, production deployer role và RBAC chỉ cho hai dashboard Deployments |
+| GitHub Actions | GitHub OIDC provider, production deployer role và RBAC chỉ cho hai dashboard Deployments |
 
 ALB và target group nằm ở đây; Route53 zone và ACM certificates được giữ riêng trong
 `00-bootstrap` để việc destroy/redeploy platform không làm mất biên DNS/TLS lâu dài.
@@ -25,7 +24,7 @@ ALB và target group nằm ở đây; Route53 zone và ACM certificates được
 ```
 00-bootstrap     S3 state + DDB lock
 01-foundation    VPC + EKS + Karpenter
-02-platform      S3 workspace + RDS + Cognito + ECR + LB controller + ALB/TG + Route53 aliases
+02-platform      S3 workspace + RDS + Cognito + LB controller + ALB/TG + Route53 aliases
    (zone + ACM do 00-bootstrap tạo; delegate NS và chờ ACM ISSUED trước bước này)
 03-hub-app       JupyterHub (Z2JH) + TargetGroupBinding + listener + profile CPU
 04-dashboard     Dashboard + BFF + apex listener rule
@@ -35,12 +34,11 @@ ALB và target group nằm ở đây; Route53 zone và ACM certificates được
 
 ## GitHub Actions OIDC
 
-`github_publisher_role_arn` dùng cho repository variable `AWS_ECR_PUBLISH_ROLE_ARN`;
-`github_deployer_role_arn` và `github_actions_cluster_name` dùng làm production
-environment variables `AWS_DEPLOY_ROLE_ARN` và `EKS_CLUSTER_NAME`. Outputs:
+Image đã chuyển sang GHCR (`images.yml` dùng `GITHUB_TOKEN`), nên không còn
+publisher role. `github_deployer_role_arn` và `github_actions_cluster_name` dùng làm
+production environment variables `AWS_DEPLOY_ROLE_ARN` và `EKS_CLUSTER_NAME`. Outputs:
 
 ```bash
-terraform -chdir=terraform/stacks/02-platform output -raw github_publisher_role_arn
 terraform -chdir=terraform/stacks/02-platform output -raw github_deployer_role_arn
 terraform -chdir=terraform/stacks/02-platform output -raw github_actions_cluster_name
 ```
@@ -95,7 +93,6 @@ Thực hiện:
 | `db_url` (sensitive) | `hub.db.url` trong Z2JH values |
 | `cognito_issuer`, `cognito_client_id`, `cognito_client_secret` (sensitive), `cognito_authorize_url`, `cognito_token_url`, `cognito_userdata_url` | `GenericOAuthenticator` |
 | `hub_role_arn` | IRSA annotation cho hub service account |
-| `ecr_cpu_repo_url`, `ecr_gpu_repo_url` | URL repo để build/push image |
 | `alb_arn`, `alb_dns_name`, `alb_security_group_id` | Thông tin ALB (DNS cho operator) |
 | `target_group_arn`, `target_group_name` | TargetGroupBinding trong `03-hub-app` |
 | `certificate_arn`, `certificate_status`, `certificate_validation_records`, `route53_zone_nameservers` | ACM cert, validation status và nameserver Route53 cho operator |

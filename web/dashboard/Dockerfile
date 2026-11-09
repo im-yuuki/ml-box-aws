@@ -1,19 +1,16 @@
 # MLBox — Dashboard (Next.js) image.
 #
 # Multi-stage: build with `npm run build`, then copy the standalone output
-# into a slim runtime image.  The Next.js image is fronted by the same ALB
-# as the notebook (host = apex mlbox.june8th.me).
+# into a slim runtime image.
+#
+# The image is account-agnostic: no NEXT_PUBLIC_* values are baked in. Cognito
+# and BFF settings are read from the environment when the container starts.
 #
 # Build context: repository root.
 #
 #   docker buildx build --platform linux/amd64 \
 #     -f web/dashboard/Dockerfile \
-#     --build-arg NEXT_PUBLIC_COGNITO_REGION=ap-southeast-2 \
-#     --build-arg NEXT_PUBLIC_COGNITO_USER_POOL_ID=<...> \
-#     --build-arg NEXT_PUBLIC_COGNITO_CLIENT_ID=<...> \
-#     --build-arg NEXT_PUBLIC_BFF_BASE_URL=https://mlbox.june8th.me/api/bff \
-#     --tag 451058046864.dkr.ecr.ap-southeast-2.amazonaws.com/jhub-gpu-sandbox/dashboard:dev-<sha> \
-#     .
+#     --tag ghcr.io/<owner>/mlbox-dashboard:<sha> .
 
 ARG NODE_IMAGE=node:22-bookworm-slim
 
@@ -24,15 +21,7 @@ RUN npm ci
 
 FROM ${NODE_IMAGE} AS builder
 WORKDIR /app
-ARG NEXT_PUBLIC_COGNITO_REGION
-ARG NEXT_PUBLIC_COGNITO_USER_POOL_ID
-ARG NEXT_PUBLIC_COGNITO_CLIENT_ID
-ARG NEXT_PUBLIC_BFF_BASE_URL
-ENV NEXT_PUBLIC_COGNITO_REGION=${NEXT_PUBLIC_COGNITO_REGION} \
-    NEXT_PUBLIC_COGNITO_USER_POOL_ID=${NEXT_PUBLIC_COGNITO_USER_POOL_ID} \
-    NEXT_PUBLIC_COGNITO_CLIENT_ID=${NEXT_PUBLIC_COGNITO_CLIENT_ID} \
-    NEXT_PUBLIC_BFF_BASE_URL=${NEXT_PUBLIC_BFF_BASE_URL} \
-    NEXT_TELEMETRY_DISABLED=1
+ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY web/dashboard/ ./
 RUN npm run build
