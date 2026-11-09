@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 
 const sections = [
   { href: "/account", key: "profile" },
+  { href: "/account/security", key: "security" },
   { href: "/account/subscription", key: "subscription" },
   { href: "/account/quota", key: "quota" },
 ] as const;

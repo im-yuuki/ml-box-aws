@@ -1,4 +1,4 @@
-import { GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { PRESIGN_DOWNLOAD_SECONDS, PRESIGN_UPLOAD_SECONDS } from "./artifacts.js";
 
@@ -28,6 +28,11 @@ export class ArtifactStorage {
       ResponseContentDisposition: `attachment; filename="${fileName.replace(/"/g, "")}"`,
     });
     return getSignedUrl(this.client, command, { expiresIn: PRESIGN_DOWNLOAD_SECONDS });
+  }
+
+  // Idempotent: S3 reports success for a key that is already gone.
+  async deleteObject(objectKey: string): Promise<void> {
+    await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: objectKey }));
   }
 
   // Returns the stored size, or null when the object was never uploaded.

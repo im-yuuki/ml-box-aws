@@ -7,14 +7,17 @@ import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 import { useProjectSandbox } from "@/hooks/useProjectSandbox";
 import { runtimeChipColor } from "@/lib/artifacts";
+import InstanceType from "@/components/InstanceType";
 
 type UsageSummary = { hours: number; sessions: number; openSession: boolean; windowDays: number };
 
 /** Runtime section of the project detail page: state, start/stop, recorded usage. */
 export default function ProjectRuntimePanel({ projectId }: { projectId: string }) {
   const t = useTranslations("projectRuntime");
-  const { data, loading, busy, error, stateKey, canOperate, profiles, act } = useProjectSandbox(projectId);
-  const [profile, setProfile] = useState("cpu-small");
+  const { data, loading, busy, error, stateKey, canOperate, profiles, runningProfile, preferredProfile, act } = useProjectSandbox(projectId);
+  // The user's choice wins; otherwise the last started profile, then the default one.
+  const [chosenProfile, setChosenProfile] = useState<string | null>(null);
+  const profile = chosenProfile ?? preferredProfile ?? "cpu-small";
   const [usage, setUsage] = useState<UsageSummary | null>(null);
 
   useEffect(() => {
@@ -44,11 +47,17 @@ export default function ProjectRuntimePanel({ projectId }: { projectId: string }
       <Card.Content className="flex flex-col gap-4">
         {loading && !data ? <div className="flex items-center gap-2 text-sm" role="status"><Spinner size="sm" /><span>{t("loading")}</span></div> : null}
         {data ? <Chip size="sm" variant="soft" color={runtimeChipColor(stateKey)} aria-live="polite" className="w-fit">{t(`state.${stateKey}`)}</Chip> : null}
+        <p className="workspace-muted-copy">{t("body")}</p>
+        {running && runningProfile ? (
+          <p className="text-sm" aria-live="polite"><span style={{ color: "var(--muted)" }}>{t("instanceLabel")}: </span><InstanceType slug={runningProfile} profiles={profiles} /></p>
+        ) : !running && preferredProfile ? (
+          <p className="text-sm" style={{ color: "var(--muted)" }}>{t("instanceDefault")} <InstanceType slug={preferredProfile} profiles={profiles} /></p>
+        ) : null}
         {error ? <Alert status="danger"><Alert.Content><Alert.Description>{t(error)}</Alert.Description></Alert.Content></Alert> : null}
         {!running ? (
           <Select
             selectedKey={profile}
-            onSelectionChange={(key) => key && setProfile(String(key))}
+            onSelectionChange={(key) => key && setChosenProfile(String(key))}
             variant="secondary"
             isDisabled={busy || loading || !canOperate || stateKey === "starting"}
           >

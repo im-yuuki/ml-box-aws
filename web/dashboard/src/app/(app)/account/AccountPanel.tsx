@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import {
   Alert,
   Button,
@@ -11,48 +11,20 @@ import {
   Label,
   TextField,
 } from "@heroui/react";
-import { KeyRound, RotateCcw } from "lucide-react";
+import { KeyRound } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
+import ProfileCard from "@/components/account/ProfileCard";
 
-type SessionResponse = { user?: { email?: string } };
-
+/** Profile and password. Login sessions live on the Security page. */
 export default function AccountPanel() {
   const t = useTranslations("account");
-  const [email, setEmail] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
-
-  const loadSession = useCallback(async () => {
-    setLoading(true);
-    setLoadError(false);
-    try {
-      const response = await bffFetch("/api/bff/auth/session", {
-        cache: "no-store",
-      });
-      if (!response.ok) throw new Error("session");
-      const body = (await response.json()) as SessionResponse;
-      if (!body.user?.email) throw new Error("session");
-      setEmail(body.user.email);
-    } catch {
-      setLoadError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    const task = window.setTimeout(() => {
-      void loadSession();
-    }, 0);
-    return () => window.clearTimeout(task);
-  }, [loadSession]);
 
   const changePassword = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -102,31 +74,7 @@ export default function AccountPanel() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Card className="flex flex-col gap-3 p-5">
-        <h2 className="text-base font-medium">{t("emailHeading")}</h2>
-        {loading ? (
-          <p className="text-sm" style={{ color: "var(--muted)" }}>
-            {t("loading")}
-          </p>
-        ) : loadError ? (
-          <div className="flex flex-wrap items-center gap-3">
-            <Alert status="danger">
-              <Alert.Content>
-                <Alert.Description>{t("loadFailed")}</Alert.Description>
-              </Alert.Content>
-            </Alert>
-            <Button
-              size="sm"
-              variant="secondary"
-              onPress={() => void loadSession()}>
-              <RotateCcw aria-hidden="true" size={14} />
-              {t("retry")}
-            </Button>
-          </div>
-        ) : (
-          <p className="text-sm">{email}</p>
-        )}
-      </Card>
+      <ProfileCard />
       <Card className="flex flex-col gap-4 p-5">
         <div className="flex flex-col gap-1">
           <h2 className="text-base font-medium">{t("passwordHeading")}</h2>

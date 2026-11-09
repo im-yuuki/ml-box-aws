@@ -98,6 +98,7 @@ export type ProjectSandboxRuntime = {
   hubUsername: string;
   serverName: string;
   state: string;
+  profile: string | null;
 };
 
 function projectSandboxFromRow(row: Record<string, unknown>): ProjectSandboxRuntime {
@@ -107,8 +108,29 @@ function projectSandboxFromRow(row: Record<string, unknown>): ProjectSandboxRunt
     hubUsername: String(row.hub_username),
     serverName: String(row.server_name),
     state: String(row.state ?? "unknown"),
+    profile: nullableText(row.profile),
   };
 }
+
+function nullableText(value: unknown): string | null {
+  return value == null ? null : String(value);
+}
+
+export type AccountProfileRecord = {
+  email: string;
+  fullName: string | null;
+  jobTitle: string | null;
+  timezone: string | null;
+  avatarDataUrl: string | null;
+  preferredSandboxProfile: string | null;
+};
+
+export type AuthSessionRecord = {
+  sessionId: string;
+  userAgent: string;
+  createdAt: string;
+  lastSeenAt: string;
+};
 
 export type ArtifactRecord = {
   id: string;
@@ -501,6 +523,22 @@ export class AppStore {
         metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
         created_at timestamptz NOT NULL DEFAULT now()
       );
+      ALTER TABLE mlbox_users ADD COLUMN IF NOT EXISTS full_name text;
+      ALTER TABLE mlbox_users ADD COLUMN IF NOT EXISTS job_title text;
+      ALTER TABLE mlbox_users ADD COLUMN IF NOT EXISTS timezone text;
+      ALTER TABLE mlbox_users ADD COLUMN IF NOT EXISTS avatar_data_url text;
+      ALTER TABLE mlbox_users ADD COLUMN IF NOT EXISTS preferred_sandbox_profile text;
+      ALTER TABLE mlbox_projects ADD COLUMN IF NOT EXISTS artifacts_enabled boolean NOT NULL DEFAULT false;
+      ALTER TABLE mlbox_projects ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+      CREATE TABLE IF NOT EXISTS mlbox_auth_sessions (
+        session_id text PRIMARY KEY,
+        user_id text NOT NULL REFERENCES mlbox_users(id) ON DELETE CASCADE,
+        user_agent text NOT NULL DEFAULT '',
+        created_at timestamptz NOT NULL DEFAULT now(),
+        last_seen_at timestamptz NOT NULL DEFAULT now(),
+        revoked_at timestamptz
+      );
+      CREATE INDEX IF NOT EXISTS mlbox_auth_sessions_user_idx ON mlbox_auth_sessions(user_id);
       CREATE INDEX IF NOT EXISTS mlbox_space_memberships_user_idx ON mlbox_space_memberships(user_id, status);
       CREATE INDEX IF NOT EXISTS mlbox_projects_team_idx ON mlbox_projects(team_id);
       CREATE INDEX IF NOT EXISTS mlbox_project_access_user_idx ON mlbox_project_access(user_id);
@@ -560,6 +598,7 @@ export class AppStore {
        LEFT JOIN mlbox_team_members tm ON tm.team_id = t.id AND tm.user_id = $1
        LEFT JOIN mlbox_project_access pa ON pa.project_id = p.id AND pa.user_id = $1
        WHERE t.space_id = $2
+         AND p.deleted_at IS NULL
          AND (
            sm.role IN ('owner', 'admin', 'viewer')
            OR (COALESCE(pa.role, '') <> 'blocked' AND (tm.user_id IS NOT NULL OR pa.role IS NOT NULL))
@@ -612,7 +651,7 @@ export class AppStore {
        JOIN mlbox_space_memberships sm ON sm.space_id = t.space_id AND sm.user_id = $1 AND sm.status = 'active'
        LEFT JOIN mlbox_team_members tm ON tm.team_id = t.id AND tm.user_id = $1
        LEFT JOIN mlbox_project_access pa ON pa.project_id = p.id AND pa.user_id = $1
-       WHERE p.id = $2`,
+       WHERE p.id = $2 AND p.deleted_at IS NULL`,
       [userId, projectId],
     );
     const row = result.rows[0];
@@ -909,7 +948,7 @@ export class AppStore {
   // Artifacts are metadata only here; bytes live in S3 under the Project's prefix.
   async getProjectSpaceId(projectId: string): Promise<string | null> {
     const result = await this.pool.query(
-      `SELECT t.space_id FROM mlbox_projects p JOIN mlbox_teams t ON t.id = p.team_id WHERE p.id = $1`,
+      `SELECT t.space_id FROM mlbox_projects p JOIN mlbox_teams t ON t.id = p.team_id WHERE p.id = $1 AND p.deleted_at IS NULL`,
       [projectId],
     );
     const value = result.rows[0]?.space_id;
@@ -965,7 +1004,7 @@ export class AppStore {
   // owner's Hub user. Authorization is decided per Project; the owner is only the runtime holder.
   async getProjectSandboxRuntime(projectId: string): Promise<ProjectSandboxRuntime | null> {
     const result = await this.pool.query(
-      `SELECT project_id, owner_user_id, hub_username, server_name, state
+      `SELECT project_id, owner_user_id, hub_username, server_name, state, profile
        FROM mlbox_sandboxes WHERE project_id = $1`,
       [projectId],
     );
@@ -1248,6 +1287,184 @@ export class AppStore {
     );
     const row = result.rows[0];
     return Boolean(row?.target_is_lead) && Number(row?.lead_count) === 1;
+  }
+
+  // Account profile. Stored on the user row so every Space and page reads the same values.
+  async getAccountProfile(userId: string): Promise<AccountProfileRecord | null> {
+    const result = await this.pool.query(
+      `SELECT email, full_name, job_title, timezone, avatar_data_url, preferred_sandbox_profile
+       FROM mlbox_users WHERE id = $1`,
+      [userId],
+    );
+    const row = result.rows[0];
+    if (!row) return null;
+    return {
+      email: String(row.email),
+      fullName: nullableText(row.full_name),
+      jobTitle: nullableText(row.job_title),
+      timezone: nullableText(row.timezone),
+      avatarDataUrl: nullableText(row.avatar_data_url),
+      preferredSandboxProfile: nullableText(row.preferred_sandbox_profile),
+    };
+  }
+
+  async updateAccountProfile(userId: string, input: { fullName: string | null; jobTitle: string | null; timezone: string | null }): Promise<void> {
+    await this.pool.query(
+      `UPDATE mlbox_users SET full_name = $2, job_title = $3, timezone = $4 WHERE id = $1`,
+      [userId, input.fullName, input.jobTitle, input.timezone],
+    );
+  }
+
+  async setAvatarDataUrl(userId: string, dataUrl: string | null): Promise<void> {
+    await this.pool.query(`UPDATE mlbox_users SET avatar_data_url = $2 WHERE id = $1`, [userId, dataUrl]);
+  }
+
+  async setUserEmail(userId: string, email: string): Promise<void> {
+    await this.pool.query(`UPDATE mlbox_users SET email = $2 WHERE id = $1`, [userId, email]);
+  }
+
+  // The last sandbox profile the user started. New starts default to it.
+  async setPreferredSandboxProfile(userId: string, profile: string): Promise<void> {
+    await this.pool.query(`UPDATE mlbox_users SET preferred_sandbox_profile = $2 WHERE id = $1`, [userId, profile]);
+  }
+
+  // Login sessions. A session id with no row is treated as active: sessions created before this
+  // table existed cannot be listed or revoked, but they are not locked out either.
+  async recordAuthSession(sessionId: string, userId: string, userAgent: string): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO mlbox_auth_sessions (session_id, user_id, user_agent) VALUES ($1, $2, $3)
+       ON CONFLICT (session_id) DO NOTHING`,
+      [sessionId, userId, userAgent.slice(0, 255)],
+    );
+  }
+
+  async touchAuthSession(sessionId: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE mlbox_auth_sessions SET last_seen_at = now()
+       WHERE session_id = $1 AND last_seen_at < now() - interval '5 minutes'`,
+      [sessionId],
+    );
+  }
+
+  async isAuthSessionActive(sessionId: string): Promise<boolean> {
+    const result = await this.pool.query(`SELECT revoked_at FROM mlbox_auth_sessions WHERE session_id = $1`, [sessionId]);
+    const row = result.rows[0];
+    return !row || row.revoked_at == null;
+  }
+
+  async listAuthSessions(userId: string): Promise<AuthSessionRecord[]> {
+    const result = await this.pool.query(
+      `SELECT session_id, user_agent, created_at, last_seen_at FROM mlbox_auth_sessions
+       WHERE user_id = $1 AND revoked_at IS NULL ORDER BY last_seen_at DESC`,
+      [userId],
+    );
+    return result.rows.map((row) => ({
+      sessionId: String(row.session_id),
+      userAgent: String(row.user_agent),
+      createdAt: new Date(String(row.created_at)).toISOString(),
+      lastSeenAt: new Date(String(row.last_seen_at)).toISOString(),
+    }));
+  }
+
+  async revokeAuthSession(userId: string, sessionId: string): Promise<boolean> {
+    const result = await this.pool.query(
+      `UPDATE mlbox_auth_sessions SET revoked_at = now()
+       WHERE user_id = $1 AND session_id = $2 AND revoked_at IS NULL RETURNING session_id`,
+      [userId, sessionId],
+    );
+    return result.rows.length > 0;
+  }
+
+  async revokeOtherAuthSessions(userId: string, currentSessionId: string): Promise<string[]> {
+    const result = await this.pool.query(
+      `UPDATE mlbox_auth_sessions SET revoked_at = now()
+       WHERE user_id = $1 AND session_id <> $2 AND revoked_at IS NULL RETURNING session_id`,
+      [userId, currentSessionId],
+    );
+    return result.rows.map((row) => String(row.session_id));
+  }
+
+  async getProjectArtifactsEnabled(projectId: string): Promise<boolean> {
+    const result = await this.pool.query(`SELECT artifacts_enabled FROM mlbox_projects WHERE id = $1`, [projectId]);
+    return result.rows[0]?.artifacts_enabled === true;
+  }
+
+  async setProjectArtifactsEnabled(projectId: string, enabled: boolean): Promise<void> {
+    await this.pool.query(`UPDATE mlbox_projects SET artifacts_enabled = $2 WHERE id = $1`, [projectId, enabled]);
+  }
+
+  // Ready artifact bytes in the Space, split into this Project and the others.
+  async artifactUsageForSpace(spaceId: string, projectId: string): Promise<{ projectBytes: number; otherProjectBytes: number }> {
+    const result = await this.pool.query(
+      `SELECT (p.id = $2) AS is_current, COALESCE(SUM(a.size_bytes), 0)::bigint AS bytes
+       FROM mlbox_projects p
+       JOIN mlbox_teams t ON t.id = p.team_id
+       LEFT JOIN mlbox_artifacts a ON a.project_id = p.id AND a.status = 'ready'
+       WHERE t.space_id = $1
+       GROUP BY (p.id = $2)`,
+      [spaceId, projectId],
+    );
+    let projectBytes = 0;
+    let otherProjectBytes = 0;
+    for (const row of result.rows) {
+      if (row.is_current === true) projectBytes = Number(row.bytes);
+      else otherProjectBytes += Number(row.bytes);
+    }
+    return { projectBytes, otherProjectBytes };
+  }
+
+  // Plan id of the Space's active subscription, or null when the Space has none (free tier defaults apply).
+  async activePlanIdForSpace(spaceId: string): Promise<string | null> {
+    const result = await this.pool.query(
+      `SELECT plan FROM mlbox_space_subscriptions WHERE space_id = $1 AND status = 'active'`,
+      [spaceId],
+    );
+    return result.rows[0] ? String(result.rows[0].plan) : null;
+  }
+
+  async listArtifactsCreatedBefore(projectId: string, cutoff: Date): Promise<ArtifactRecord[]> {
+    const result = await this.pool.query(
+      `SELECT id, project_id, name, object_key, content_type, size_bytes, status, created_by
+       FROM mlbox_artifacts WHERE project_id = $1 AND created_at < $2`,
+      [projectId, cutoff.toISOString()],
+    );
+    return result.rows.map(artifactFromRow);
+  }
+
+  async deleteArtifactRows(projectId: string, artifactIds: string[]): Promise<void> {
+    if (artifactIds.length === 0) return;
+    await this.pool.query(`DELETE FROM mlbox_artifacts WHERE project_id = $1 AND id = ANY($2::text[])`, [projectId, artifactIds]);
+  }
+
+  // The Hub profile slug of the running (or last started) sandbox of a Project.
+  // Soft delete: the Project row stays so usage history keeps its reference. The name is freed for reuse,
+  // open usage sessions are closed, and artifact and sandbox rows are removed. Callers delete the stored
+  // objects first and make sure the sandbox is not running.
+  async deleteProject(projectId: string): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `UPDATE mlbox_usage_sessions SET ended_at = now() WHERE project_id = $1 AND ended_at IS NULL`,
+        [projectId],
+      );
+      await client.query(`DELETE FROM mlbox_artifacts WHERE project_id = $1`, [projectId]);
+      await client.query(`DELETE FROM mlbox_sandboxes WHERE project_id = $1`, [projectId]);
+      await client.query(
+        `UPDATE mlbox_projects SET deleted_at = now(), name = name || ' [deleted ' || id || ']' WHERE id = $1 AND deleted_at IS NULL`,
+        [projectId],
+      );
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async setSandboxProfile(projectId: string, profile: string): Promise<void> {
+    await this.pool.query(`UPDATE mlbox_sandboxes SET profile = $2 WHERE project_id = $1`, [projectId, profile]);
   }
 
   async close(): Promise<void> {

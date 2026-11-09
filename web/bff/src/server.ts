@@ -8,8 +8,11 @@ import {
   InitiateAuthCommand,
   RevokeTokenCommand,
   ChangePasswordCommand,
+  GetUserCommand,
   ResendConfirmationCodeCommand,
   SignUpCommand,
+  UpdateUserAttributesCommand,
+  VerifyUserAttributeCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
 import { DeleteItemCommand, DynamoDBClient, GetItemCommand, PutItemCommand } from "@aws-sdk/client-dynamodb";
 import cookie from "@fastify/cookie";
@@ -31,8 +34,10 @@ import { UsageStore } from "./usage-store.js";
 import { listSingleuserPods, resourcesByServer } from "./pod-resources.js";
 import { AppStore, INVITATION_NOT_AVAILABLE, LAST_TEAM_LEAD, PROJECT_RUNTIME_OWNER_NOT_READY, TEAM_MANAGEMENT_DENIED, type InvitationRole } from "./app-store.js";
 import { ArtifactStorage } from "./artifact-storage.js";
+import { deleteProjectClaim } from "./project-storage.js";
 import { listSandboxProfiles, resolveSandboxProfile } from "./sandbox-profiles.js";
 import { buildArtifactObjectKey, sanitizeArtifactName, validateArtifactSize } from "./artifacts.js";
+import { describeUserAgent, parseProfileInput, validateAvatarDataUrl } from "./account.js";
 import { verifyTurnstile } from "./turnstile.js";
 import {
   HubIdentityConflictError,
@@ -42,6 +47,7 @@ import {
 } from "./hub-identity-routing.js";
 import type { HubIdentity } from "./hub-identity.js";
 import {
+  artifactPolicyForPlan,
   getMockPlan,
   isMockPaymentMethod,
   isMockPaymentOutcome,
@@ -379,6 +385,15 @@ async function requireSession(request: FastifyRequest, reply: FastifyReply): Pro
   }
   try {
     await ensureAppBootstrap(session);
+    if (appStore) {
+      // A session revoked from the Security page is rejected even while its access token is still valid.
+      if (!(await appStore.isAuthSessionActive(session.sessionId))) {
+        reply.clearCookie(SESSION_COOKIE, { httpOnly: true, secure: runtimeConfig().secureCookies, sameSite: "lax", path: "/" });
+        reply.code(401).send({ error: "UNAUTHENTICATED", message: "Phiên đăng nhập đã bị thu hồi." });
+        return null;
+      }
+      await appStore.touchAuthSession(session.sessionId);
+    }
     return session;
   } catch (error) {
     request.log.error({ err: error }, "Application database bootstrap failed");
@@ -609,6 +624,7 @@ app.post<{ Body: AuthBody }>("/v1/auth/login", async (request, reply) => {
     };
     const refreshToken = result.AuthenticationResult.RefreshToken;
     if (refreshToken) await saveRefreshToken(runtime, session.sessionId, refreshToken);
+    await recordLoginSession(request, session);
     await setSessionCookie(reply, runtime, session);
     setCsrfCookie(reply, runtime.secureCookies);
     return { user: { email: session.email } };
@@ -775,16 +791,244 @@ app.post("/v1/auth/logout", async (request, reply) => {
   return { ok: true, hubLogoutUrl: runtime.hubPublicUrl ? `${runtime.hubPublicUrl}/hub/logout` : null };
 });
 
+// ---- Account: sessions, profile, avatar, email ----
+
+const DB_UNAVAILABLE = { error: "APP_DATABASE_UNAVAILABLE", message: "Dịch vụ ứng dụng tạm thời không khả dụng." };
+
+// Records the login so the Security page can list and revoke it. Failure here must not block sign-in.
+async function recordLoginSession(request: FastifyRequest, session: Session): Promise<void> {
+  if (!appStore) return;
+  try {
+    await ensureAppBootstrap(session);
+    await appStore.recordAuthSession(session.sessionId, session.subject, String(request.headers["user-agent"] ?? ""));
+  } catch (error) {
+    request.log.warn({ err: error }, "Login session could not be recorded");
+  }
+}
+
+// Drops the stored refresh token (so the session cannot refresh) and revokes it at Cognito.
+async function revokeSessionTokens(runtime: RuntimeConfig, log: FastifyRequest["log"], sessionId: string): Promise<void> {
+  const refreshToken = await loadRefreshToken(runtime, sessionId).catch(() => null);
+  await deleteRefreshToken(runtime, sessionId).catch(() => undefined);
+  if (refreshToken) {
+    await cognito.send(new RevokeTokenCommand({ ClientId: runtime.clientId, Token: refreshToken }))
+      .catch((error) => log.warn({ err: error }, "Cognito refresh-token revoke failed"));
+  }
+}
+
+function clearSessionCookie(reply: FastifyReply, runtime: RuntimeConfig): void {
+  reply.clearCookie(SESSION_COOKIE, { httpOnly: true, secure: runtime.secureCookies, sameSite: "lax", path: "/" });
+}
+
+app.get("/v1/account/profile", async (request, reply) => {
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send(DB_UNAVAILABLE);
+  try {
+    const profile = await appStore.getAccountProfile(session.subject);
+    if (!profile) return reply.code(404).send({ error: "NOT_FOUND", message: "Tài khoản không tồn tại." });
+    return { profile };
+  } catch (error) {
+    request.log.error({ err: error }, "Account profile read failed");
+    return reply.code(503).send(DB_UNAVAILABLE);
+  }
+});
+
+app.put<{ Body: Record<string, unknown> | undefined }>("/v1/account/profile", async (request, reply) => {
+  if (!requireCsrf(request, reply)) return;
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send(DB_UNAVAILABLE);
+  const input = parseProfileInput(request.body);
+  if (!input) return reply.code(400).send({ error: "INVALID_INPUT", message: "Thông tin hồ sơ không hợp lệ." });
+  try {
+    await appStore.updateAccountProfile(session.subject, input);
+    return { ok: true };
+  } catch (error) {
+    request.log.error({ err: error }, "Account profile update failed");
+    return reply.code(503).send(DB_UNAVAILABLE);
+  }
+});
+
+// The avatar is a small, browser-resized data URL. The route raises the body limit only for this path.
+app.put<{ Body: { dataUrl?: unknown } | undefined }>("/v1/account/avatar", { bodyLimit: 320 * 1024 }, async (request, reply) => {
+  if (!requireCsrf(request, reply)) return;
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send(DB_UNAVAILABLE);
+  const raw = request.body?.dataUrl;
+  let dataUrl: string | null = null;
+  if (raw !== null) {
+    dataUrl = validateAvatarDataUrl(raw);
+    if (!dataUrl) return reply.code(400).send({ error: "INVALID_INPUT", message: "Ảnh đại diện phải là PNG, JPEG hoặc WebP dưới 200 KB." });
+  }
+  try {
+    await appStore.setAvatarDataUrl(session.subject, dataUrl);
+    return { ok: true, avatarDataUrl: dataUrl };
+  } catch (error) {
+    request.log.error({ err: error }, "Avatar update failed");
+    return reply.code(503).send(DB_UNAVAILABLE);
+  }
+});
+
+// Step 1 of an email change: Cognito emails a code to the new address. The current email stays active until step 2.
+app.post<{ Body: { email?: unknown } | undefined }>("/v1/account/email", async (request, reply) => {
+  if (!requireCsrf(request, reply)) return;
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  const email = normalizeEmail(request.body?.email);
+  if (!email) return reply.code(400).send({ error: "INVALID_INPUT", message: "Email không hợp lệ." });
+  if (email === session.email) return reply.code(400).send({ error: "INVALID_INPUT", message: "Email mới phải khác email hiện tại." });
+  try {
+    await cognito.send(new UpdateUserAttributesCommand({
+      AccessToken: session.accessToken,
+      UserAttributes: [{ Name: "email", Value: email }],
+    }));
+    return { ok: true, pendingEmail: email };
+  } catch (error) {
+    request.log.warn({ err: error }, "Cognito email change request failed");
+    return reply.code(authErrorStatus(error)).send(publicError(error));
+  }
+});
+
+// Step 2: the code proves ownership. The new address is read back from Cognito, never taken from the request.
+app.post<{ Body: { code?: unknown } | undefined }>("/v1/account/email/verify", async (request, reply) => {
+  if (!requireCsrf(request, reply)) return;
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  const code = requiredString(request.body?.code);
+  if (!code) return reply.code(400).send({ error: "INVALID_INPUT", message: "Mã xác nhận là bắt buộc." });
+  const runtime = runtimeConfig();
+  try {
+    await cognito.send(new VerifyUserAttributeCommand({ AccessToken: session.accessToken, AttributeName: "email", Code: code }));
+    const user = await cognito.send(new GetUserCommand({ AccessToken: session.accessToken }));
+    const email = normalizeEmail(user.UserAttributes?.find((attribute) => attribute.Name === "email")?.Value);
+    if (!email) throw new Error("Cognito did not return the verified email");
+    if (appStore) await appStore.setUserEmail(session.subject, email);
+    await setSessionCookie(reply, runtime, { ...session, email, username: email });
+    return { ok: true, user: { email } };
+  } catch (error) {
+    request.log.warn({ err: error }, "Cognito email verification failed");
+    return reply.code(authErrorStatus(error)).send(publicError(error));
+  }
+});
+
+app.get("/v1/account/sessions", async (request, reply) => {
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send(DB_UNAVAILABLE);
+  try {
+    const rows = await appStore.listAuthSessions(session.subject);
+    return {
+      sessions: rows.map((row) => ({
+        id: row.sessionId,
+        label: describeUserAgent(row.userAgent),
+        createdAt: row.createdAt,
+        lastSeenAt: row.lastSeenAt,
+        current: row.sessionId === session.sessionId,
+      })),
+    };
+  } catch (error) {
+    request.log.error({ err: error }, "Session list failed");
+    return reply.code(503).send(DB_UNAVAILABLE);
+  }
+});
+
+app.delete<{ Params: { sessionId: string } }>("/v1/account/sessions/:sessionId", async (request, reply) => {
+  if (!requireCsrf(request, reply)) return;
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send(DB_UNAVAILABLE);
+  const runtime = runtimeConfig();
+  const targetId = request.params.sessionId;
+  try {
+    if (!(await appStore.revokeAuthSession(session.subject, targetId))) {
+      return reply.code(404).send({ error: "NOT_FOUND", message: "Phiên đăng nhập không tồn tại." });
+    }
+    await revokeSessionTokens(runtime, request.log, targetId);
+    const current = targetId === session.sessionId;
+    if (current) clearSessionCookie(reply, runtime);
+    return { ok: true, current };
+  } catch (error) {
+    request.log.error({ err: error }, "Session revoke failed");
+    return reply.code(503).send(DB_UNAVAILABLE);
+  }
+});
+
+app.post("/v1/account/sessions/revoke-others", async (request, reply) => {
+  if (!requireCsrf(request, reply)) return;
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send(DB_UNAVAILABLE);
+  const runtime = runtimeConfig();
+  try {
+    const revokedIds = await appStore.revokeOtherAuthSessions(session.subject, session.sessionId);
+    for (const id of revokedIds) await revokeSessionTokens(runtime, request.log, id);
+    return { ok: true, revoked: revokedIds.length };
+  } catch (error) {
+    request.log.error({ err: error }, "Revoking other sessions failed");
+    return reply.code(503).send(DB_UNAVAILABLE);
+  }
+});
+
 app.get<{ Querystring: { spaceId?: string } }>("/v1/projects", async (request, reply) => {
   const session = await requireSession(request, reply);
   if (!session) return;
   if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Project storage is not configured." });
   const spaceId = requiredString(request.query.spaceId) ?? `personal:${session.subject}`;
   try {
-    return { spaceId, projects: await appStore.listProjects(session.subject, spaceId) };
+    const projects = await appStore.listProjects(session.subject, spaceId);
+    // canManage decides whether the UI offers project deletion; the DELETE route checks it again.
+    const withPermissions = await Promise.all(projects.map(async (project) => ({
+      ...project,
+      canManage: (await appStore!.projectPermission(session.subject, project.id))?.canManage ?? false,
+    })));
+    return { spaceId, projects: withPermissions };
   } catch (error) {
     request.log.error({ err: error }, "Project list failed");
     return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Project storage is temporarily unavailable." });
+  }
+});
+
+// Deleting a Project needs manager rights and a stopped sandbox. Stored artifacts are removed from S3
+// before the rows, so a failure part-way leaves the Project listed and the delete can be retried.
+app.delete<{ Params: { projectId: string } }>("/v1/projects/:projectId", async (request, reply) => {
+  if (!requireCsrf(request, reply)) return;
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Project storage is not configured." });
+  const projectId = request.params.projectId;
+  try {
+    const permission = await appStore.projectPermission(session.subject, projectId);
+    if (!permission) return reply.code(404).send({ error: "NOT_FOUND", message: "Project không tồn tại." });
+    if (!permission.canManage) return reply.code(403).send({ error: "FORBIDDEN", message: "Chỉ người quản lý Project mới được xóa." });
+
+    const runtime = await appStore.getProjectSandboxRuntime(projectId);
+    if (runtime) {
+      const hub = runtimeConfig();
+      const server = await readHubServer(hub, runtime.hubUsername, runtime.serverName).catch((error) => {
+        if (hubStatus(error) === 404) return null;
+        throw error;
+      });
+      const state = mapHubServerState(server);
+      if (state === "ready" || state === "starting") {
+        return reply.code(409).send({ error: "SANDBOX_RUNNING", message: "Dừng sandbox trước khi xóa Project." });
+      }
+    }
+
+    const stored = await appStore.listArtifacts(projectId);
+    if (stored.length > 0) {
+      if (!artifactStorage) return reply.code(503).send({ error: "ARTIFACTS_NOT_CONFIGURED", message: "Artifact storage is not configured." });
+      for (const artifact of stored) await artifactStorage.deleteObject(artifact.objectKey);
+    }
+    // The notebook storage claim goes too, so the files are removed with the Project.
+    await deleteProjectClaim(projectId);
+    await appStore.deleteProject(projectId);
+    return { ok: true, deletedArtifacts: stored.length };
+  } catch (error) {
+    if (handleHubIdentityError(reply, error)) return;
+    request.log.error({ err: error }, "Project delete failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Không thể xóa Project lúc này. Vui lòng thử lại." });
   }
 });
 
@@ -1185,7 +1429,9 @@ app.get<{ Params: { projectId: string } }>("/v1/projects/:projectId/sandbox", as
     if (!(await projectActionAllowed(reply, session.subject, projectId, "read"))) return;
     const permission = await appStore.projectPermission(session.subject, projectId);
     const runtime = await appStore.getProjectSandboxRuntime(projectId);
-    if (!runtime) return { projectId, canOperate: permission?.canOperate ?? false, sandbox: null };
+    // The Project's last started profile; null before its first start, which launches the default.
+    const preferredProfile = runtime?.profile ?? null;
+    if (!runtime) return { projectId, canOperate: permission?.canOperate ?? false, preferredProfile, sandbox: null };
     const hub = runtimeConfig();
     const server = await readHubServer(hub, runtime.hubUsername, runtime.serverName).catch((error) => {
       if (hubStatus(error) === 404) return null;
@@ -1193,13 +1439,17 @@ app.get<{ Params: { projectId: string } }>("/v1/projects/:projectId/sandbox", as
     });
     const observedState = mapHubServerState(server);
     if (observedState !== "ready" && observedState !== "starting") await appStore.closeUsageSessions(projectId);
+    const running = observedState === "ready" || observedState === "starting";
     return {
       projectId,
       canOperate: permission?.canOperate ?? false,
+      preferredProfile,
       sandbox: {
         name: runtime.serverName,
         state: observedState,
         url: server?.ready ? sandboxUrl(hub.hubPublicUrl, runtime.hubUsername, runtime.serverName) : null,
+        // The instance type of the running server; null when stopped, so the UI falls back to the preference.
+        profile: running ? runtime.profile : null,
       },
     };
   } catch (error) {
@@ -1231,8 +1481,12 @@ app.post<{ Params: { projectId: string }; Body: { profile?: unknown } | undefine
   if (!session) return;
   if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Project storage is not configured." });
   const { projectId } = request.params;
-  const resolved = resolveSandboxProfile(request.body?.profile, sandboxGpuProfiles);
-  if (!resolved.ok) return reply.code(400).send({ error: resolved.error, message: "Cấu hình sandbox không hợp lệ hoặc chưa được bật." });
+  // An explicit profile must be valid. Without one, the Project's last started profile is used (see below).
+  const requested = request.body?.profile;
+  if (requested !== undefined) {
+    const check = resolveSandboxProfile(requested, sandboxGpuProfiles);
+    if (!check.ok) return reply.code(400).send({ error: check.error, message: "Cấu hình sandbox không hợp lệ hoặc chưa được bật." });
+  }
   try {
     if (!(await projectActionAllowed(reply, session.subject, projectId, "operate"))) return;
     let runtime;
@@ -1244,6 +1498,11 @@ app.post<{ Params: { projectId: string }; Body: { profile?: unknown } | undefine
       }
       throw error;
     }
+    // No requested profile: launch the Project's last started profile. A Project that has never started
+    // (or whose profile is no longer offered) gets the default, the smallest CPU profile, which the free tier allows.
+    let resolved = resolveSandboxProfile(requested === undefined ? (runtime.profile ?? undefined) : requested, sandboxGpuProfiles);
+    if (!resolved.ok && requested === undefined) resolved = resolveSandboxProfile(undefined, sandboxGpuProfiles);
+    if (!resolved.ok) return reply.code(400).send({ error: resolved.error, message: "Cấu hình sandbox không hợp lệ hoặc chưa được bật." });
     const hub = runtimeConfig();
     const username = runtime.hubUsername;
     const existing = await readHubServer(hub, username, runtime.serverName).catch((error) => {
@@ -1285,7 +1544,11 @@ app.post<{ Params: { projectId: string }; Body: { profile?: unknown } | undefine
       read: async () => readHubServer(hub, username, runtime.serverName),
       audit: (action, metadata) => auditLifecycle(session, action, projectId, metadata),
     });
-    if (lifecycle.state === "ready" || lifecycle.state === "starting") await appStore.openUsageSession(projectId, session.subject);
+    if (lifecycle.state === "ready" || lifecycle.state === "starting") {
+      await appStore.openUsageSession(projectId, session.subject);
+      // The started profile is remembered for the Project and as the user's default for the next start.
+      await appStore.setSandboxProfile(projectId, resolved.profile.slug);
+    }
     return { ok: true, projectId, state: lifecycle.state };
   } catch (error) {
     if (handleHubIdentityError(reply, error)) return;
@@ -1321,17 +1584,56 @@ app.post<{ Params: { projectId: string } }>("/v1/projects/:projectId/sandbox/sto
 const workspaceBucket = process.env.WORKSPACE_BUCKET;
 const artifactStorage = workspaceBucket ? new ArtifactStorage(workspaceBucket) : null;
 
+const GIB = 1024 * 1024 * 1024;
+
+type ArtifactPolicy = { retentionDays: number; storageGb: number | null };
+
+// The Space's plan decides how long artifacts are kept and how much storage the Space may use.
+async function artifactPolicy(store: AppStore, spaceId: string): Promise<ArtifactPolicy> {
+  return artifactPolicyForPlan(await store.activePlanIdForSpace(spaceId));
+}
+
+// Deletes artifacts older than the plan's retention. Runs on read and before uploads, so there is no
+// separate scheduler: an expired file is removed the next time its Project is opened.
+async function sweepExpiredArtifacts(store: AppStore, storage: ArtifactStorage, projectId: string, retentionDays: number): Promise<void> {
+  const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
+  const expired = await store.listArtifactsCreatedBefore(projectId, cutoff);
+  if (expired.length === 0) return;
+  for (const artifact of expired) await storage.deleteObject(artifact.objectKey);
+  await store.deleteArtifactRows(projectId, expired.map((artifact) => artifact.id));
+}
+
+async function artifactSettingsFor(store: AppStore, projectId: string, spaceId: string, policy: ArtifactPolicy) {
+  const enabled = await store.getProjectArtifactsEnabled(projectId);
+  const usage = await store.artifactUsageForSpace(spaceId, projectId);
+  return {
+    enabled,
+    retentionDays: policy.retentionDays,
+    storage: {
+      quotaGb: policy.storageGb,
+      projectBytes: usage.projectBytes,
+      otherProjectBytes: usage.otherProjectBytes,
+    },
+  };
+}
+
 app.get<{ Params: { projectId: string } }>("/v1/projects/:projectId/artifacts", async (request, reply) => {
   const session = await requireSession(request, reply);
   if (!session) return;
   if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Project storage is not configured." });
   try {
-    if (!(await projectActionAllowed(reply, session.subject, request.params.projectId, "read"))) return;
-    const permission = await appStore.projectPermission(session.subject, request.params.projectId);
+    const projectId = request.params.projectId;
+    if (!(await projectActionAllowed(reply, session.subject, projectId, "read"))) return;
+    const permission = await appStore.projectPermission(session.subject, projectId);
+    const spaceId = await appStore.getProjectSpaceId(projectId);
+    if (!spaceId) return reply.code(404).send({ error: "NOT_FOUND", message: "Project không tồn tại." });
+    const policy = await artifactPolicy(appStore, spaceId);
+    if (artifactStorage) await sweepExpiredArtifacts(appStore, artifactStorage, projectId, policy.retentionDays);
     return {
-      projectId: request.params.projectId,
+      projectId,
       canOperate: permission?.canOperate ?? false,
-      artifacts: await appStore.listArtifacts(request.params.projectId),
+      settings: await artifactSettingsFor(appStore, projectId, spaceId, policy),
+      artifacts: await appStore.listArtifacts(projectId),
     };
   } catch (error) {
     request.log.error({ err: error }, "Artifact list failed");
@@ -1357,6 +1659,24 @@ app.post<{ Params: { projectId: string }; Body: { name?: string; contentType?: s
         : "application/octet-stream";
       const spaceId = await appStore.getProjectSpaceId(projectId);
       if (!spaceId) return reply.code(404).send({ error: "NOT_FOUND", message: "Project không tồn tại." });
+      if (!(await appStore.getProjectArtifactsEnabled(projectId))) {
+        return reply.code(409).send({ error: "ARTIFACTS_DISABLED", message: "Lưu trữ artifacts đang tắt. Bật lại trong trang Project để tải lên." });
+      }
+      const policy = await artifactPolicy(appStore, spaceId);
+      if (policy.storageGb !== null) {
+        const usage = await appStore.artifactUsageForSpace(spaceId, projectId);
+        const usedBytes = usage.projectBytes + usage.otherProjectBytes;
+        if (usedBytes + sizeBytes > policy.storageGb * GIB) {
+          return reply.code(429).send({
+            error: "QUOTA_EXCEEDED",
+            metric: "storage",
+            limit: policy.storageGb,
+            current: usedBytes / GIB,
+            requested: sizeBytes / GIB,
+            message: "Đã vượt hạn mức lưu trữ của gói. Xóa bớt artifact hoặc nâng gói để tải thêm.",
+          });
+        }
+      }
       const artifactId = randomUUID();
       const objectKey = buildArtifactObjectKey(spaceId, projectId, artifactId, name);
       const artifact = await appStore.createArtifact({ id: artifactId, projectId, name, objectKey, contentType, sizeBytes, createdBy: session.subject });
@@ -1368,6 +1688,45 @@ app.post<{ Params: { projectId: string }; Body: { name?: string; contentType?: s
     }
   },
 );
+
+// Turning storage off deletes every stored artifact of the Project. Without confirmDeleteAll the
+// server answers 409 with the count, so the browser must ask the user first.
+app.put<{ Params: { projectId: string }; Body: { enabled?: unknown; confirmDeleteAll?: unknown } | undefined }>("/v1/projects/:projectId/artifacts/settings", async (request, reply) => {
+  if (!requireCsrf(request, reply)) return;
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore || !artifactStorage) return reply.code(503).send({ error: "ARTIFACTS_NOT_CONFIGURED", message: "Artifact storage is not configured." });
+  const projectId = request.params.projectId;
+  const enabled = request.body?.enabled;
+  if (typeof enabled !== "boolean") return reply.code(400).send({ error: "INVALID_INPUT", message: "Thiếu trạng thái bật/tắt lưu trữ." });
+  try {
+    if (!(await projectActionAllowed(reply, session.subject, projectId, "operate"))) return;
+    if (enabled) {
+      await appStore.setProjectArtifactsEnabled(projectId, true);
+      return { ok: true, enabled: true, deleted: 0 };
+    }
+    const stored = await appStore.listArtifacts(projectId);
+    if (stored.length > 0 && request.body?.confirmDeleteAll !== true) {
+      return reply.code(409).send({
+        error: "CONFIRMATION_REQUIRED",
+        count: stored.length,
+        message: "Tắt lưu trữ sẽ xóa toàn bộ artifact của Project. Xác nhận để tiếp tục.",
+      });
+    }
+    // Rows go only after their object is gone. If a delete fails midway, the rest stay listed and can be retried.
+    const deletedIds: string[] = [];
+    for (const artifact of stored) {
+      await artifactStorage.deleteObject(artifact.objectKey);
+      deletedIds.push(artifact.id);
+    }
+    await appStore.deleteArtifactRows(projectId, deletedIds);
+    if (deletedIds.length === stored.length) await appStore.setProjectArtifactsEnabled(projectId, false);
+    return { ok: deletedIds.length === stored.length, enabled: deletedIds.length !== stored.length, deleted: deletedIds.length };
+  } catch (error) {
+    request.log.error({ err: error }, "Artifact storage setting update failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Artifact storage is temporarily unavailable." });
+  }
+});
 
 app.post<{ Params: { projectId: string; artifactId: string } }>("/v1/projects/:projectId/artifacts/:artifactId/complete", async (request, reply) => {
   if (!requireCsrf(request, reply)) return;

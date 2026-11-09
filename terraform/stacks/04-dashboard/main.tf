@@ -383,11 +383,19 @@ resource "kubectl_manifest" "bff_pod_reader_role" {
       name      = "bff-pod-reader"
       namespace = "hub"
     }
-    rules = [{
-      apiGroups = [""]
-      resources = ["pods"]
-      verbs     = ["get", "list"]
-    }]
+    rules = [
+      {
+        apiGroups = [""]
+        resources = ["pods"]
+        verbs     = ["get", "list"]
+      },
+      {
+        # Deleting a Project removes its notebook storage claim (mlbox-<project id>).
+        apiGroups = [""]
+        resources = ["persistentvolumeclaims"]
+        verbs     = ["get", "delete"]
+      },
+    ]
   })
 }
 

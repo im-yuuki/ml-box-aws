@@ -649,7 +649,7 @@ body {
 .workspace-list-head,
 .workspace-project-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 22rem) 2.25rem;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 1rem;
 }

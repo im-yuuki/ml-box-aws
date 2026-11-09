@@ -1,26 +1,26 @@
 "use client";
 
-import { Button, Chip } from "@heroui/react";
-import { ExternalLink, Play, Square } from "lucide-react";
+import { Button } from "@heroui/react";
+import { ExternalLink, Play } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useProjectSandbox } from "@/hooks/useProjectSandbox";
-import { runtimeChipColor } from "@/lib/artifacts";
+import InstanceType from "@/components/InstanceType";
 
 /**
- * Runtime state and controls for one Project row. One primary action per state:
- * "Open notebook" while running, "Start" otherwise. Stop is always secondary.
+ * The row's instance type and its single action. While running the action opens the notebook; otherwise
+ * it starts the sandbox without a profile, so the server launches the Project's last profile (or the default).
  */
 export default function ProjectRuntimeControl({ projectId }: { projectId: string }) {
   const t = useTranslations("projectRuntime");
-  const { data, loading, busy, error, stateKey, canOperate, act } = useProjectSandbox(projectId);
+  const { data, loading, busy, error, stateKey, canOperate, profiles, runningProfile, preferredProfile, act } = useProjectSandbox(projectId);
   const url = data?.sandbox?.url ?? null;
   const running = stateKey === "running";
   const starting = stateKey === "starting";
-  const label = loading && !data ? t("loading") : error && !data ? t("loadFailed") : t(`state.${stateKey}`);
+  const slug = running ? runningProfile : preferredProfile;
 
   return (
     <div className="workspace-runtime">
-      <Chip size="sm" variant="soft" color={runtimeChipColor(stateKey)} aria-live="polite">{label}</Chip>
+      {slug ? <InstanceType slug={slug} profiles={profiles} /> : null}
       {running && url ? (
         <Button size="sm" variant="secondary" onPress={() => window.open(url, "_blank", "noopener")}>
           <ExternalLink aria-hidden="true" size={14} />
@@ -37,17 +37,6 @@ export default function ProjectRuntimeControl({ projectId }: { projectId: string
           {t("start")}
         </Button>
       )}
-      {running ? (
-        <Button
-          size="sm"
-          variant="danger-soft"
-          isDisabled={busy || loading || !canOperate}
-          onPress={() => void act("stop")}
-        >
-          <Square aria-hidden="true" size={14} />
-          {t("stop")}
-        </Button>
-      ) : null}
       {error && data ? <p className="workspace-form-error w-full" role="alert">{t(error)}</p> : null}
     </div>
   );

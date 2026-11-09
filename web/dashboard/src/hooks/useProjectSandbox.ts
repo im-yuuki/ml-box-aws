@@ -4,12 +4,20 @@ import { useCallback, useEffect, useState } from "react";
 import { bffFetch } from "@/lib/bffFetch";
 import { runtimeStateKey, type RuntimeStateKey } from "@/lib/artifacts";
 
-export type ProjectSandbox = { name: string; state: string; url: string | null };
+export type ProjectSandbox = {
+  name: string;
+  state: string;
+  url: string | null;
+  // Instance type of the running server; null when stopped.
+  profile?: string | null;
+};
 
 export type ProjectSandboxResponse = {
   projectId: string;
   canOperate: boolean;
   sandbox: ProjectSandbox | null;
+  // The user's last started instance type, used as the default for the next start.
+  preferredProfile?: string | null;
 };
 
 export type SandboxAction = "start" | "stop";
@@ -116,6 +124,8 @@ export function useProjectSandbox(projectId: string) {
     stateKey,
     canOperate: data?.canOperate ?? false,
     profiles,
+    runningProfile: data?.sandbox?.profile ?? null,
+    preferredProfile: data?.preferredProfile ?? null,
     act,
   };
 }
