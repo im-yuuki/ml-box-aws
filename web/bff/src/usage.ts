@@ -1,4 +1,4 @@
-export type UsageTracking = "not-tracked" | "allocated-footprint" | "not-available" | "disabled";
+export type UsageTracking = "not-tracked" | "allocated-footprint" | "not-available" | "disabled" | "measured";
 
 export type UsageServer = {
   name: string;
@@ -20,12 +20,24 @@ export type UsageResponse = {
   generatedAt: string;
   history?: Array<{ sampledAt: string; runningServers: number; cpuCoresAllocated: number | null; ramGbAllocated: number | null }>;
   historyAvailable?: boolean;
-  /** Monthly compute-unit pool of the account's personal Space (see mock-billing COMPUTE_UNIT_RATES). */
-  computeUnits?: { planId: string; limit: number | null; used: number };
+  /** Monthly compute-unit pool of the account's personal Space (see mock-billing CREDIT_RATES). */
+  credits?: { planId: string; limit: number | null; used: number };
+  /** Sessions of the personal Space in the last 30 days, newest first. */
+  creditSessions?: Array<{ id: string; projectName: string; startedAt: string; endedAt: string | null; hours: number; credits: number }>;
+  /** Storage held per Project of the personal Space, largest first. */
+  storageByProject?: Array<{ projectId: string; name: string; storageGb: number }>;
+  /** Daily history of the personal Space's credits and storage, oldest day first. */
+  resourceHistory?: {
+    days: number;
+    credits: Array<{ date: string; credits: number }>;
+    storage: Array<{ date: string; storageGb: number }>;
+  };
+  /** How many sandboxes of the personal Space run at once, against the plan's limit. */
+  concurrentSandboxes?: { limit: number | null; running: number };
   quota: {
     cpuHours: { limit: number; unit: "cpu-hours"; usage: null; tracking: "not-tracked" };
     ramGb: { limit: number; unit: "GB"; usage: number | null; tracking: "allocated-footprint" };
-    storageGb: { limit: number; unit: "GB"; usage: null; tracking: "not-available" };
+    storageGb: { limit: number; unit: "GB"; usage: number | null; tracking: UsageTracking };
     gpuHours: { limit: number; unit: "gpu-hours"; usage: null; tracking: "disabled" };
   };
   footprint: {

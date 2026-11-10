@@ -472,7 +472,7 @@ test("space usage requires an active membership", async () => {
   assert.equal(await store.spaceUsageSummary("outsider", "s1", 30), null);
 });
 
-test("invitations are created only by space owners and admins", async () => {
+test("invitations are created only by owners and admins, with the requested role", async () => {
   const { store, queries } = fakeStore(() => ({ rows: [] }));
   await assert.rejects(() => store.createSpaceInvitation("member-1", "s1", "A@Example.com", "member"), /Team management denied/);
   const insert = queries.at(-1);
@@ -496,7 +496,7 @@ test("project deletion is soft: usage history is kept, the Project is marked del
   assert.equal(statements[0], "BEGIN");
   assert.match(statements[1], /UPDATE mlbox_usage_sessions SET ended_at = now\(\)/);
   assert.doesNotMatch(statements.join("\n"), /DELETE FROM mlbox_usage_sessions/);
-  assert.match(statements[2], /DELETE FROM mlbox_artifacts/);
+  assert.match(statements[2], /UPDATE mlbox_artifacts SET deleted_at = now()/);
   assert.match(statements[3], /DELETE FROM mlbox_sandboxes/);
   assert.match(statements[4], /UPDATE mlbox_projects SET deleted_at = now\(\)/);
   assert.doesNotMatch(statements.join("\n"), /DELETE FROM mlbox_projects/);

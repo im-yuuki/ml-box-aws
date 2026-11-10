@@ -38,6 +38,16 @@ import { deleteProjectClaim } from "./project-storage.js";
 import { listSandboxProfiles, resolveSandboxProfile } from "./sandbox-profiles.js";
 import { buildArtifactObjectKey, sanitizeArtifactName, validateArtifactSize } from "./artifacts.js";
 import { describeUserAgent, parseProfileInput, validateAvatarDataUrl } from "./account.js";
+import {
+  canChangeMemberRole,
+  canDeleteOrganization,
+  canManageMembers,
+  canRemoveMember,
+  canTransferOwnership,
+  deleteConfirmationMatches,
+  isSpaceMemberRole,
+  validateOrganizationName,
+} from "./space-rules.js";
 import { verifyTurnstile } from "./turnstile.js";
 import {
   HubIdentityConflictError,
@@ -57,7 +67,7 @@ import {
   planAllowsRuntime,
   runtimeAccessDecision,
   runtimeClassForProfile,
-  unitsPerHourForRuntime,
+  creditsPerHourForRuntime,
   type MockPaymentMethod,
   type MockPaymentOutcome,
   type SpaceType,
@@ -1110,12 +1120,21 @@ app.get<{ Querystring: { spaceId?: string } }>("/v1/payments", async (request, r
   }
 });
 
+// A personal Space is bought by its user. An organization's subscription is bought by its owner only.
+async function canBuySubscription(userId: string, spaceId: string): Promise<boolean> {
+  if (!appStore || spaceId.startsWith("personal:")) return true;
+  const space = (await appStore.listSpaces(userId)).find((item) => item.id === spaceId);
+  if (!space || space.type !== "organization") return true;
+  return space.role === "owner";
+}
+
 app.post<{ Body: CheckoutBody }>("/v1/subscriptions/mock/checkout", async (request, reply) => {
   if (!requireCsrf(request, reply)) return;
   const session = await requireSession(request, reply);
   if (!session) return;
   if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Subscription storage is not configured." });
   const spaceId = requiredString(request.body?.spaceId) ?? `personal:${session.subject}`;
+  if (!(await canBuySubscription(session.subject, spaceId))) return reply.code(403).send({ error: "FORBIDDEN", message: "Chỉ owner mới mua subscription cho nhóm." });
   const planId = requiredString(request.body?.planId);
   const paymentMethod = request.body?.paymentMethod;
   const mockOutcome = request.body?.mockOutcome;
@@ -1193,6 +1212,7 @@ app.post<{ Body: SubscriptionBody }>("/v1/subscriptions/mock", async (request, r
   if (!session) return;
   if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Subscription storage is not configured." });
   const spaceId = requiredString(request.body?.spaceId) ?? `personal:${session.subject}`;
+  if (!(await canBuySubscription(session.subject, spaceId))) return reply.code(403).send({ error: "FORBIDDEN", message: "Chỉ owner mới mua subscription cho nhóm." });
   const plan = requiredString(request.body?.plan);
   if (!plan) return reply.code(400).send({ error: "INVALID_INPUT", message: "Subscription plan is required." });
   const turnstile = await verifyTurnstile({
@@ -1223,6 +1243,22 @@ app.post<{ Body: ProjectBody }>("/v1/projects", async (request, reply) => {
   const name = requiredString(request.body?.name);
   if (!name) return reply.code(400).send({ error: "INVALID_INPUT", message: "Project name is required." });
   try {
+    // The number of kept Projects is not capped; once the plan's storage is used up, no new Project can be created.
+    const policy = await artifactPolicy(appStore, spaceId);
+    if (policy.storageGb !== null) {
+      const usage = await appStore.artifactUsageForSpace(spaceId, "");
+      const usedBytes = usage.projectBytes + usage.otherProjectBytes;
+      if (usedBytes >= policy.storageGb * GIB) {
+        return reply.code(429).send({
+          error: "QUOTA_EXCEEDED",
+          metric: "storage",
+          limit: policy.storageGb,
+          current: usedBytes / GIB,
+          enforcement: "enforced",
+          message: "Đã hết dung lượng lưu trữ của gói. Xoá bớt file hoặc nâng gói để tạo Project mới.",
+        });
+      }
+    }
     return reply.code(201).send({ project: await appStore.createProject(session.subject, spaceId, teamId, name) });
   } catch (error) {
     if (error instanceof Error && error.message === "Project team access denied") {
@@ -1245,7 +1281,151 @@ app.get("/v1/spaces", async (request, reply) => {
   }
 });
 
-const USAGE_NOTE = "Số giờ được ghi nhận từ lần khởi động/dừng sandbox qua BFF; không phải dữ liệu thanh toán.";
+// ---- Organizations (Spaces). Personal Spaces are not managed through these routes.
+
+app.post<{ Body: { name?: unknown } }>("/v1/spaces", async (request, reply) => {
+  if (!requireCsrf(request, reply)) return;
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Space storage is not configured." });
+  const name = validateOrganizationName(request.body?.name);
+  if (!name.ok) return reply.code(400).send({ error: "INVALID_NAME", message: "Tên nhóm từ 1 đến 60 ký tự." });
+  try {
+    const created = await appStore.createOrganization(session.subject, name.value);
+    return reply.code(201).send({ space: { id: created.spaceId, type: "organization", name: name.value, role: "owner" } });
+  } catch (error) {
+    request.log.error({ err: error }, "Organization create failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Space storage is temporarily unavailable." });
+  }
+});
+
+app.get<{ Params: { spaceId: string } }>("/v1/spaces/:spaceId/members", async (request, reply) => {
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Space storage is not configured." });
+  try {
+    const { spaceId } = request.params;
+    const role = await appStore.activeSpaceRole(session.subject, spaceId);
+    if (!role) return reply.code(404).send({ error: "NOT_FOUND", message: "Nhóm không tồn tại." });
+    return { spaceId, role, members: await appStore.listSpaceMembers(spaceId) };
+  } catch (error) {
+    request.log.error({ err: error }, "Space member list failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Space storage is temporarily unavailable." });
+  }
+});
+
+app.patch<{ Params: { spaceId: string; userId: string }; Body: { role?: unknown } }>("/v1/spaces/:spaceId/members/:userId", async (request, reply) => {
+  if (!requireCsrf(request, reply)) return;
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Space storage is not configured." });
+  const { spaceId, userId } = request.params;
+  const next = request.body?.role;
+  if (!isSpaceMemberRole(next)) return reply.code(400).send({ error: "INVALID_ROLE", message: "Vai trò không hợp lệ." });
+  try {
+    const actor = await appStore.activeSpaceRole(session.subject, spaceId);
+    if (!canManageMembers(actor)) return reply.code(403).send({ error: "FORBIDDEN", message: "Chỉ owner hoặc admin mới quản lý thành viên." });
+    const target = (await appStore.listSpaceMembers(spaceId)).find((member) => member.userId === userId);
+    if (!target) return reply.code(404).send({ error: "NOT_FOUND", message: "Thành viên không tồn tại." });
+    if (!canChangeMemberRole(actor, target.role, next)) return reply.code(403).send({ error: "FORBIDDEN", message: "Bạn không thể đổi vai trò này." });
+    await appStore.setSpaceMemberRole(spaceId, userId, next);
+    return { ok: true };
+  } catch (error) {
+    request.log.error({ err: error }, "Space member role update failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Space storage is temporarily unavailable." });
+  }
+});
+
+app.post<{ Params: { spaceId: string }; Body: { userId?: unknown } }>("/v1/spaces/:spaceId/transfer-ownership", async (request, reply) => {
+  if (!requireCsrf(request, reply)) return;
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Space storage is not configured." });
+  const { spaceId } = request.params;
+  const userId = typeof request.body?.userId === "string" ? request.body.userId : "";
+  if (!userId) return reply.code(400).send({ error: "INVALID_USER", message: "Chọn admin nhận quyền owner." });
+  try {
+    const actor = await appStore.activeSpaceRole(session.subject, spaceId);
+    const target = (await appStore.listSpaceMembers(spaceId)).find((member) => member.userId === userId);
+    if (!target) return reply.code(404).send({ error: "NOT_FOUND", message: "Thành viên không tồn tại." });
+    if (!canTransferOwnership(actor, target.role)) return reply.code(403).send({ error: "FORBIDDEN", message: "Chỉ owner mới chuyển quyền owner cho một admin." });
+    await appStore.transferSpaceOwnership(spaceId, session.subject, userId);
+    return { ok: true };
+  } catch (error) {
+    request.log.error({ err: error }, "Space ownership transfer failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Space storage is temporarily unavailable." });
+  }
+});
+
+app.delete<{ Params: { spaceId: string; userId: string } }>("/v1/spaces/:spaceId/members/:userId", async (request, reply) => {
+  if (!requireCsrf(request, reply)) return;
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Space storage is not configured." });
+  const { spaceId, userId } = request.params;
+  try {
+    const actor = await appStore.activeSpaceRole(session.subject, spaceId);
+    if (!canManageMembers(actor)) return reply.code(403).send({ error: "FORBIDDEN", message: "Chỉ owner hoặc admin mới quản lý thành viên." });
+    const target = (await appStore.listSpaceMembers(spaceId)).find((member) => member.userId === userId);
+    if (!target) return reply.code(404).send({ error: "NOT_FOUND", message: "Thành viên không tồn tại." });
+    if (!canRemoveMember(actor, target.role)) return reply.code(403).send({ error: "FORBIDDEN", message: "Bạn không thể xoá thành viên này." });
+    await appStore.removeSpaceMember(spaceId, userId);
+    return { ok: true };
+  } catch (error) {
+    request.log.error({ err: error }, "Space member removal failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Space storage is temporarily unavailable." });
+  }
+});
+
+// Deleting an organization ends it for everyone. Running sandboxes block it; the owner must type the name.
+app.post<{ Params: { spaceId: string }; Body: { confirmName?: unknown } }>("/v1/spaces/:spaceId/delete", async (request, reply) => {
+  if (!requireCsrf(request, reply)) return;
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Space storage is not configured." });
+  const { spaceId } = request.params;
+  try {
+    const actor = await appStore.activeSpaceRole(session.subject, spaceId);
+    if (!canDeleteOrganization(actor)) return reply.code(403).send({ error: "FORBIDDEN", message: "Chỉ owner mới xoá nhóm." });
+    const space = (await appStore.listSpaces(session.subject)).find((item) => item.id === spaceId);
+    if (!space || space.type !== "organization") return reply.code(404).send({ error: "NOT_FOUND", message: "Nhóm không tồn tại." });
+    if (!deleteConfirmationMatches(space.name, request.body?.confirmName)) {
+      return reply.code(400).send({ error: "CONFIRMATION_MISMATCH", message: "Tên xác nhận không khớp." });
+    }
+
+    const projectIds = await appStore.listProjectIdsInSpace(spaceId);
+    const hub = runtimeConfig();
+    for (const projectId of projectIds) {
+      const runtime = await appStore.getProjectSandboxRuntime(projectId);
+      if (!runtime) continue;
+      const server = await readHubServer(hub, runtime.hubUsername, runtime.serverName).catch((error) => {
+        if (hubStatus(error) === 404) return null;
+        throw error;
+      });
+      const state = mapHubServerState(server);
+      if (state === "ready" || state === "starting") {
+        return reply.code(409).send({ error: "SANDBOX_RUNNING", message: "Dừng tất cả sandbox trước khi xoá nhóm." });
+      }
+    }
+
+    for (const projectId of projectIds) {
+      const stored = await appStore.listArtifacts(projectId);
+      if (stored.length > 0) {
+        if (!artifactStorage) return reply.code(503).send({ error: "ARTIFACTS_NOT_CONFIGURED", message: "Artifact storage is not configured." });
+        for (const artifact of stored) await artifactStorage.deleteObject(artifact.objectKey);
+      }
+      await deleteProjectClaim(projectId);
+    }
+    await appStore.deleteOrganization(spaceId);
+    return { ok: true, deletedProjects: projectIds.length };
+  } catch (error) {
+    if (handleHubIdentityError(reply, error)) return;
+    request.log.error({ err: error }, "Organization delete failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Không thể xoá nhóm lúc này. Vui lòng thử lại." });
+  }
+});
+
+const USAGE_NOTE ="Số giờ được ghi nhận từ lần khởi động/dừng sandbox qua BFF; không phải dữ liệu thanh toán.";
 
 app.get<{ Params: { projectId: string } }>("/v1/projects/:projectId/usage", async (request, reply) => {
   const session = await requireSession(request, reply);
@@ -1289,7 +1469,7 @@ app.post<{ Params: { spaceId: string }; Body: { email?: string; role?: string } 
     return reply.code(201).send({ invitation: await appStore.createSpaceInvitation(session.subject, request.params.spaceId, email, role as InvitationRole) });
   } catch (error) {
     if (error instanceof Error && error.message === TEAM_MANAGEMENT_DENIED) {
-      return reply.code(403).send({ error: "FORBIDDEN", message: "Chỉ owner hoặc admin mới được mời thành viên." });
+      return reply.code(403).send({ error: "FORBIDDEN", message: "Bạn không có quyền mời thành viên vào nhóm này." });
     }
     request.log.error({ err: error }, "Invitation create failed");
     return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Invitation storage is temporarily unavailable." });
@@ -1571,13 +1751,18 @@ app.post<{ Params: { projectId: string }; Body: { profile?: unknown } | undefine
     const runtimeClass = runtimeClassForProfile(resolved.profile.kind);
     // Sessions left open by a crashed runtime are closed at the cap before the balance is read.
     await appStore.closeStaleUsageSessions(spacePlan.spaceId, MAX_USAGE_SESSION_HOURS);
-    const unitsUsed = plan.computeUnits === null ? 0 : await appStore.computeUnitsUsedThisMonth(spacePlan.spaceId);
+    const unitsUsed = plan.credits === null ? 0 : await appStore.creditsUsedThisMonth(spacePlan.spaceId);
     const access = runtimeAccessDecision(plan, runtimeClass, unitsUsed);
     if (!access.allowed) {
-      if (access.code === "COMPUTE_UNITS_EXHAUSTED") {
-        return reply.code(429).send({ error: "QUOTA_EXCEEDED", metric: "compute_units", limit: plan.computeUnits, current: unitsUsed, enforcement: "enforced" });
+      if (access.code === "CREDITS_EXHAUSTED") {
+        return reply.code(429).send({ error: "QUOTA_EXCEEDED", metric: "credits", limit: plan.credits, current: unitsUsed, enforcement: "enforced" });
       }
       return reply.code(403).send({ error: access.code, message: "Profile này cần gói trả phí. Hãy nâng cấp gói để dùng." });
+    }
+    // Projects are kept without a count limit; the plan limits how many sandboxes run at the same time.
+    const runningNow = await appStore.openUsageSessionCount(spacePlan.spaceId);
+    if (plan.concurrentSandboxes !== null && runningNow >= plan.concurrentSandboxes) {
+      return reply.code(429).send({ error: "QUOTA_EXCEEDED", metric: "concurrent_sandboxes", limit: plan.concurrentSandboxes, current: runningNow, enforcement: "enforced", message: "Gói đã đạt số sandbox chạy đồng thời tối đa. Dừng một sandbox hoặc nâng gói." });
     }
     // RAM quota: the Hub user's other servers count, and the chosen profile's RAM is the request.
     // A 404 means the Hub user was never created (the Hub record and the BFF's identity can disagree), so
@@ -1618,7 +1803,7 @@ app.post<{ Params: { projectId: string }; Body: { profile?: unknown } | undefine
       audit: (action, metadata) => auditLifecycle(session, action, projectId, metadata),
     });
     if (lifecycle.state === "ready" || lifecycle.state === "starting") {
-      await appStore.openUsageSession(projectId, session.subject, unitsPerHourForRuntime(runtimeClass));
+      await appStore.openUsageSession(projectId, session.subject, creditsPerHourForRuntime(runtimeClass));
       // The started profile is remembered for the Project and as the user's default for the next start.
       await appStore.setSandboxProfile(projectId, resolved.profile.slug);
     }
@@ -1932,7 +2117,38 @@ app.get("/v1/usage", async (request, reply) => {
       await appStore.closeStaleUsageSessions(spaceId, MAX_USAGE_SESSION_HOURS);
       const planId = await appStore.activePlanIdForSpace(spaceId);
       const plan = getMockPlan(planId ?? FREE_PLAN_ID) ?? getMockPlan(FREE_PLAN_ID)!;
-      result.computeUnits = { planId: plan.id, limit: plan.computeUnits, used: await appStore.computeUnitsUsedThisMonth(spaceId) };
+      result.credits = { planId: plan.id, limit: plan.credits, used: await appStore.creditsUsedThisMonth(spaceId) };
+      // Storage is measured from artifact bytes in the Space against the plan's storage limit.
+      const stored = await appStore.artifactUsageForSpace(spaceId, "");
+      result.quota.storageGb = {
+        limit: plan.storageGb ?? 0,
+        unit: "GB",
+        usage: (stored.projectBytes + stored.otherProjectBytes) / GIB,
+        tracking: "measured",
+      };
+      result.concurrentSandboxes = { limit: plan.concurrentSandboxes, running: await appStore.openUsageSessionCount(spaceId) };
+      // Each usage session with the credits it used, for the detailed list.
+      result.creditSessions = (await appStore.creditSessions(spaceId, 30, 200)).map((session) => ({
+        id: session.id,
+        projectName: session.projectName,
+        startedAt: session.startedAt.toISOString(),
+        endedAt: session.endedAt ? session.endedAt.toISOString() : null,
+        hours: session.hours,
+        credits: session.credits,
+      }));
+      // Storage per Project, so the user can see which Project holds how much.
+      result.storageByProject = (await appStore.storageByProject(spaceId)).map((project) => ({
+        projectId: project.projectId,
+        name: project.name,
+        storageGb: project.bytes / GIB,
+      }));
+      // Last 30 days, one point per day: credits used that day, and storage held at the end of that day.
+      const storageDays = await appStore.storageHistory(spaceId, 30);
+      result.resourceHistory = {
+        days: 30,
+        credits: await appStore.creditHistory(spaceId, 30),
+        storage: storageDays.map((day) => ({ date: day.date, storageGb: day.bytes / GIB })),
+      };
     }
     if (usageStore) {
       try {

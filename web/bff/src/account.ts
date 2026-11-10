@@ -6,7 +6,28 @@ export const JOB_TITLE_MAX = 120;
 export const AVATAR_MAX_BYTES = 200 * 1024;
 const AVATAR_DATA_URL = /^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$/;
 
-export type ProfileInput = { fullName: string | null; jobTitle: string | null; timezone: string | null };
+export const GENDERS = ["female", "male", "other", "prefer_not_to_say"] as const;
+export type Gender = (typeof GENDERS)[number];
+
+export type ProfileInput = {
+  fullName: string | null;
+  jobTitle: string | null;
+  timezone: string | null;
+  birthDate: string | null;
+  gender: Gender | null;
+};
+
+// A calendar date as YYYY-MM-DD, not in the future and not before 1900. Empty clears it.
+export function parseBirthDate(value: unknown, today: Date = new Date()): string | null | undefined {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return undefined;
+  if (year < 1900) return undefined;
+  if (value > today.toISOString().slice(0, 10)) return undefined;
+  return value;
+}
 
 function optionalText(value: unknown, max: number): string | null | undefined {
   if (value === undefined || value === null) return null;
@@ -26,7 +47,14 @@ export function parseProfileInput(body: Record<string, unknown> | undefined): Pr
     if (typeof body.timezone !== "string" || !isKnownTimezone(body.timezone)) return null;
     timezone = body.timezone;
   }
-  return { fullName, jobTitle, timezone };
+  const birthDate = parseBirthDate(body?.birthDate);
+  if (birthDate === undefined) return null;
+  let gender: Gender | null = null;
+  if (body?.gender !== undefined && body.gender !== null && body.gender !== "") {
+    if (typeof body.gender !== "string" || !(GENDERS as readonly string[]).includes(body.gender)) return null;
+    gender = body.gender as Gender;
+  }
+  return { fullName, jobTitle, timezone, birthDate, gender };
 }
 
 // Accepts any IANA name the runtime understands, including aliases such as Asia/Ho_Chi_Minh.

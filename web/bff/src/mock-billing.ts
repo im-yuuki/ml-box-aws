@@ -22,9 +22,9 @@ export type MockPlan = {
   status: MockPlanStatus;
   // How long Project artifacts are kept before the sweep deletes them. Null: plan not offered yet.
   artifactRetentionDays: number | null;
-  /** One monthly pool of compute units shared by all runtimes in the Space (see COMPUTE_UNIT_RATES). */
-  computeUnits: number | null;
-  projects: number | null;
+  /** One monthly pool of compute units shared by all runtimes in the Space (see CREDIT_RATES). */
+  credits: number | null;
+  concurrentSandboxes: number | null;
   storageGb: number | null;
   /** GPU runtimes are included from the cheapest paid plan upward. */
   gpuAccess: boolean;
@@ -35,7 +35,7 @@ export type MockPlan = {
  * Compute units consumed per runtime-hour. Keep this table the single place to tune the model.
  * Values are demo assumptions, not final prices.
  */
-export const COMPUTE_UNIT_RATES = {
+export const CREDIT_RATES = {
   cpuShared: 1,
   gpu: 10,
 } as const;
@@ -47,14 +47,11 @@ export const COMPUTE_UNIT_RATES = {
 export const MAX_USAGE_SESSION_HOURS = 24;
 
 const plans: readonly MockPlan[] = [
-  { id: "personal_free", spaceType: "personal", name: "Personal Free", amountCents: 0, currency: "USD", billingInterval: "month", status: "active", artifactRetentionDays: 7, computeUnits: 20, projects: 1, storageGb: 5, gpuAccess: false },
-  { id: "personal_plus", spaceType: "personal", name: "Personal Plus", amountCents: 800, currency: "USD", billingInterval: "month", status: "active", artifactRetentionDays: 14, computeUnits: 100, projects: 5, storageGb: 25, gpuAccess: true },
-  { id: "personal_pro", spaceType: "personal", name: "Personal Pro", amountCents: 1900, currency: "USD", billingInterval: "month", status: "active", artifactRetentionDays: 30, computeUnits: 300, projects: 20, storageGb: 100, gpuAccess: true },
-  { id: "personal_power", spaceType: "personal", name: "Personal Power", amountCents: 3900, currency: "USD", billingInterval: "month", status: "coming_soon", artifactRetentionDays: null, computeUnits: null, projects: null, storageGb: null, gpuAccess: true },
-  { id: "org_team", spaceType: "organization", name: "Organization Team", amountCents: 1900, currency: "USD", billingInterval: "month", status: "active", artifactRetentionDays: 14, computeUnits: 300, projects: 10, storageGb: 100, gpuAccess: true, members: 3 },
-  { id: "org_growth", spaceType: "organization", name: "Organization Growth", amountCents: 800, currency: "USD", billingInterval: "month", status: "active", artifactRetentionDays: 30, computeUnits: 1000, projects: 50, storageGb: 500, gpuAccess: true, members: null },
-  { id: "org_scale", spaceType: "organization", name: "Organization Scale", amountCents: 1500, currency: "USD", billingInterval: "month", status: "coming_soon", artifactRetentionDays: null, computeUnits: null, projects: null, storageGb: null, gpuAccess: true, members: null },
-  { id: "org_enterprise", spaceType: "organization", name: "Organization Enterprise", amountCents: 0, currency: "USD", billingInterval: "month", status: "coming_soon", artifactRetentionDays: null, computeUnits: null, projects: null, storageGb: null, gpuAccess: true, members: null },
+  { id: "personal_free", spaceType: "personal", name: "Personal Free", amountCents: 0, currency: "USD", billingInterval: "month", status: "active", artifactRetentionDays: 7, credits: 20, concurrentSandboxes: 1, storageGb: 5, gpuAccess: false },
+  { id: "personal_plus", spaceType: "personal", name: "Personal Plus", amountCents: 800, currency: "USD", billingInterval: "month", status: "active", artifactRetentionDays: 14, credits: 100, concurrentSandboxes: 2, storageGb: 25, gpuAccess: true },
+  { id: "personal_pro", spaceType: "personal", name: "Personal Pro", amountCents: 1900, currency: "USD", billingInterval: "month", status: "active", artifactRetentionDays: 30, credits: 300, concurrentSandboxes: 5, storageGb: 100, gpuAccess: true },
+  { id: "org_team", spaceType: "organization", name: "Organization Team", amountCents: 1900, currency: "USD", billingInterval: "month", status: "active", artifactRetentionDays: 14, credits: 300, concurrentSandboxes: 5, storageGb: 100, gpuAccess: true, members: 3 },
+  { id: "org_growth", spaceType: "organization", name: "Organization Growth", amountCents: 800, currency: "USD", billingInterval: "month", status: "active", artifactRetentionDays: 30, credits: 1000, concurrentSandboxes: 15, storageGb: 500, gpuAccess: true, members: null },
 ];
 
 // Storage and retention for a Space. Without an active subscription the Space has the free tier.
@@ -87,8 +84,8 @@ export function resolveSubscriptionStatus(outcome: MockPaymentOutcome): Subscrip
 
 export function entitlementsForPlan(plan: MockPlan): Record<string, number | null> {
   const values: Record<string, number | null> = {
-    compute_units: plan.computeUnits,
-    projects: plan.projects,
+    credits: plan.credits,
+    concurrent_sandboxes: plan.concurrentSandboxes,
     storage_gb: plan.storageGb,
     gpu_access: plan.gpuAccess ? 1 : 0,
   };
@@ -100,19 +97,19 @@ export function entitlementsForPlan(plan: MockPlan): Record<string, number | nul
 export type RuntimeClass = "cpuShared" | "gpu";
 
 /** Monthly compute-unit cost of running one runtime for `hours`. */
-export function computeUnitsForRuntime(runtimeClass: RuntimeClass, hours: number): number {
-  return Math.max(0, hours) * COMPUTE_UNIT_RATES[runtimeClass];
+export function creditsForRuntime(runtimeClass: RuntimeClass, hours: number): number {
+  return Math.max(0, hours) * CREDIT_RATES[runtimeClass];
 }
 
 export function runtimeClassForProfile(kind: "cpu" | "gpu"): RuntimeClass {
   return kind === "gpu" ? "gpu" : "cpuShared";
 }
 
-export function unitsPerHourForRuntime(runtimeClass: RuntimeClass): number {
-  return COMPUTE_UNIT_RATES[runtimeClass];
+export function creditsPerHourForRuntime(runtimeClass: RuntimeClass): number {
+  return CREDIT_RATES[runtimeClass];
 }
 
-export type RuntimeAccessCode = "GPU_NOT_IN_PLAN" | "COMPUTE_UNITS_EXHAUSTED";
+export type RuntimeAccessCode = "GPU_NOT_IN_PLAN" | "CREDITS_EXHAUSTED";
 
 /** Plan-level permission for a runtime class, independent of how many units are left. */
 export function planAllowsRuntime(plan: MockPlan, runtimeClass: RuntimeClass): RuntimeAccessCode | null {
@@ -124,6 +121,6 @@ export function planAllowsRuntime(plan: MockPlan, runtimeClass: RuntimeClass): R
 export function runtimeAccessDecision(plan: MockPlan, runtimeClass: RuntimeClass, unitsUsed: number): { allowed: true } | { allowed: false; code: RuntimeAccessCode } {
   const planCode = planAllowsRuntime(plan, runtimeClass);
   if (planCode) return { allowed: false, code: planCode };
-  if (plan.computeUnits !== null && unitsUsed >= plan.computeUnits) return { allowed: false, code: "COMPUTE_UNITS_EXHAUSTED" };
+  if (plan.credits !== null && unitsUsed >= plan.credits) return { allowed: false, code: "CREDITS_EXHAUSTED" };
   return { allowed: true };
 }

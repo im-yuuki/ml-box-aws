@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
+import type { ProfileInput } from "./account.js";
 import { resolveProjectPermission, type ProjectPermission } from "./access.js";
 import type { HubIdentity } from "./hub-identity.js";
 import { buildHubIdentityMigrationReport, type HubIdentityMigrationReport } from "./hub-identity-migration.js";
@@ -34,6 +35,7 @@ export type BootstrapContext = {
 };
 
 export const TEAM_MANAGEMENT_DENIED = "Team management denied";
+export const SPACE_MEMBER_NOT_FOUND = "Space member not found";
 export const LAST_TEAM_LEAD = "Team must keep at least one lead";
 
 export type SpaceSummary = {
@@ -121,6 +123,8 @@ export type AccountProfileRecord = {
   fullName: string | null;
   jobTitle: string | null;
   timezone: string | null;
+  birthDate: string | null;
+  gender: string | null;
   avatarDataUrl: string | null;
   preferredSandboxProfile: string | null;
 };
@@ -364,6 +368,8 @@ export class AppStore {
         email text NOT NULL,
         created_at timestamptz NOT NULL DEFAULT now()
       );
+      ALTER TABLE mlbox_users ADD COLUMN IF NOT EXISTS birth_date date;
+      ALTER TABLE mlbox_users ADD COLUMN IF NOT EXISTS gender text CHECK (gender IN ('female', 'male', 'other', 'prefer_not_to_say'));
       CREATE TABLE IF NOT EXISTS mlbox_spaces (
         id text PRIMARY KEY,
         type text NOT NULL CHECK (type IN ('personal', 'organization')),
@@ -430,6 +436,7 @@ export class AppStore {
         created_by text NOT NULL REFERENCES mlbox_users(id) ON DELETE RESTRICT,
         created_at timestamptz NOT NULL DEFAULT now()
       );
+      ALTER TABLE mlbox_artifacts ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
       CREATE INDEX IF NOT EXISTS mlbox_artifacts_project_idx ON mlbox_artifacts(project_id);
 
       CREATE TABLE IF NOT EXISTS mlbox_usage_sessions (
@@ -1020,7 +1027,7 @@ export class AppStore {
   async listArtifacts(projectId: string): Promise<ArtifactRecord[]> {
     const result = await this.pool.query(
       `SELECT id, project_id, name, object_key, content_type, size_bytes, status, created_by
-       FROM mlbox_artifacts WHERE project_id = $1 ORDER BY created_at DESC`,
+       FROM mlbox_artifacts WHERE project_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC`,
       [projectId],
     );
     return result.rows.map(artifactFromRow);
@@ -1029,7 +1036,7 @@ export class AppStore {
   async getArtifact(projectId: string, artifactId: string): Promise<ArtifactRecord | null> {
     const result = await this.pool.query(
       `SELECT id, project_id, name, object_key, content_type, size_bytes, status, created_by
-       FROM mlbox_artifacts WHERE project_id = $1 AND id = $2`,
+       FROM mlbox_artifacts WHERE project_id = $1 AND id = $2 AND deleted_at IS NULL`,
       [projectId, artifactId],
     );
     const row = result.rows[0];
@@ -1137,7 +1144,7 @@ export class AppStore {
 
   // Compute units consumed in the current calendar month (UTC) across all runtimes of the Space.
   // Open sessions count up to now, so a running runtime is charged as it runs.
-  async computeUnitsUsedThisMonth(spaceId: string): Promise<number> {
+  async creditsUsedThisMonth(spaceId: string): Promise<number> {
     const result = await this.pool.query(
       `SELECT COALESCE(sum(
          EXTRACT(EPOCH FROM (COALESCE(ended_at, now()) - GREATEST(started_at, date_trunc('month', now())))) / 3600.0 * units_per_hour
@@ -1317,6 +1324,167 @@ export class AppStore {
     return { id: String(row.id), spaceId: String(row.space_id), name: String(row.name) };
   }
 
+  // ---- Organization (Space) management. Personal Spaces are never changed through these methods.
+
+  async createOrganization(userId: string, name: string): Promise<{ spaceId: string; teamId: string }> {
+    const spaceId = `org:${randomUUID()}`;
+    const teamId = randomUUID();
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(`INSERT INTO mlbox_spaces (id, type, name) VALUES ($1, 'organization', $2)`, [spaceId, name]);
+      await client.query(
+        `INSERT INTO mlbox_space_memberships (space_id, user_id, role, status) VALUES ($1, $2, 'owner', 'active')`,
+        [spaceId, userId],
+      );
+      // Projects always belong to a Team, so every organization starts with a default one.
+      await client.query(`INSERT INTO mlbox_teams (id, space_id, name) VALUES ($1, $2, 'General')`, [teamId, spaceId]);
+      await client.query(`INSERT INTO mlbox_team_members (team_id, user_id, role) VALUES ($1, $2, 'lead')`, [teamId, userId]);
+      await client.query("COMMIT");
+      return { spaceId, teamId };
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async activeSpaceRole(userId: string, spaceId: string): Promise<SpaceRole | null> {
+    const result = await this.pool.query(
+      `SELECT role FROM mlbox_space_memberships WHERE space_id = $1 AND user_id = $2 AND status = 'active'`,
+      [spaceId, userId],
+    );
+    const row = result.rows[0];
+    return row ? (String(row.role) as SpaceRole) : null;
+  }
+
+  async listSpaceMembers(spaceId: string): Promise<Array<{ userId: string; role: SpaceRole; email: string | null }>> {
+    const result = await this.pool.query(
+      `SELECT sm.user_id, sm.role, u.email
+       FROM mlbox_space_memberships sm
+       LEFT JOIN mlbox_users u ON u.id = sm.user_id
+       WHERE sm.space_id = $1 AND sm.status = 'active'
+       ORDER BY CASE sm.role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 WHEN 'member' THEN 2 ELSE 3 END, u.email`,
+      [spaceId],
+    );
+    return result.rows.map((row) => ({
+      userId: String(row.user_id),
+      role: String(row.role) as SpaceRole,
+      email: row.email === null || row.email === undefined ? null : String(row.email),
+    }));
+  }
+
+  // The role of a member changes here. The owner row is never touched: ownership moves via transferSpaceOwnership.
+  async setSpaceMemberRole(spaceId: string, targetUserId: string, role: SpaceRole): Promise<void> {
+    const result = await this.pool.query(
+      `UPDATE mlbox_space_memberships SET role = $3
+       WHERE space_id = $1 AND user_id = $2 AND status = 'active' AND role <> 'owner'
+       RETURNING user_id`,
+      [spaceId, targetUserId, role],
+    );
+    if (!result.rows[0]) throw new Error(SPACE_MEMBER_NOT_FOUND);
+  }
+
+  // The owner becomes an admin and the target admin becomes the owner, in one transaction.
+  async transferSpaceOwnership(spaceId: string, fromUserId: string, toUserId: string): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const demoted = await client.query(
+        `UPDATE mlbox_space_memberships SET role = 'admin'
+         WHERE space_id = $1 AND user_id = $2 AND status = 'active' AND role = 'owner'
+         RETURNING user_id`,
+        [spaceId, fromUserId],
+      );
+      if (!demoted.rows[0]) throw new Error(TEAM_MANAGEMENT_DENIED);
+      const promoted = await client.query(
+        `UPDATE mlbox_space_memberships SET role = 'owner'
+         WHERE space_id = $1 AND user_id = $2 AND status = 'active' AND role = 'admin'
+         RETURNING user_id`,
+        [spaceId, toUserId],
+      );
+      if (!promoted.rows[0]) throw new Error(SPACE_MEMBER_NOT_FOUND);
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  // Removing a member also takes them out of every Team in the Space.
+  async removeSpaceMember(spaceId: string, targetUserId: string): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const result = await client.query(
+        `UPDATE mlbox_space_memberships SET status = 'revoked'
+         WHERE space_id = $1 AND user_id = $2 AND status = 'active' AND role <> 'owner'
+         RETURNING user_id`,
+        [spaceId, targetUserId],
+      );
+      if (!result.rows[0]) throw new Error(SPACE_MEMBER_NOT_FOUND);
+      await client.query(
+        `DELETE FROM mlbox_team_members tm USING mlbox_teams t
+         WHERE tm.team_id = t.id AND t.space_id = $1 AND tm.user_id = $2`,
+        [spaceId, targetUserId],
+      );
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async listProjectIdsInSpace(spaceId: string): Promise<string[]> {
+    const result = await this.pool.query(
+      `SELECT p.id FROM mlbox_projects p JOIN mlbox_teams t ON t.id = p.team_id
+       WHERE t.space_id = $1 AND p.deleted_at IS NULL`,
+      [spaceId],
+    );
+    return result.rows.map((row) => String(row.id));
+  }
+
+  // Ends the organization for everyone: its Projects are soft-deleted (like deleteProject), its
+  // memberships and pending invitations are revoked, and its usage is closed. The rows stay for billing history.
+  // The caller checks for running sandboxes and removes artifact objects and notebook claims first.
+  async deleteOrganization(spaceId: string): Promise<void> {
+    const client = await this.pool.connect();
+    const projects = `SELECT p.id FROM mlbox_projects p JOIN mlbox_teams t ON t.id = p.team_id WHERE t.space_id = $1`;
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `UPDATE mlbox_usage_sessions SET ended_at = now() WHERE project_id IN (${projects}) AND ended_at IS NULL`,
+        [spaceId],
+      );
+      await client.query(`UPDATE mlbox_artifacts SET deleted_at = now() WHERE project_id IN (${projects}) AND deleted_at IS NULL`, [spaceId]);
+      await client.query(`DELETE FROM mlbox_sandboxes WHERE project_id IN (${projects})`, [spaceId]);
+      await client.query(
+        `UPDATE mlbox_projects SET deleted_at = now(), name = name || ' [deleted ' || id || ']'
+         WHERE id IN (${projects}) AND deleted_at IS NULL`,
+        [spaceId],
+      );
+      await client.query(
+        `UPDATE mlbox_space_invitations SET status = 'revoked' WHERE space_id = $1 AND status = 'pending'`,
+        [spaceId],
+      );
+      await client.query(
+        `UPDATE mlbox_space_memberships SET status = 'revoked' WHERE space_id = $1 AND status = 'active'`,
+        [spaceId],
+      );
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   // Any active Space member can see who belongs to a team in their Space.
   async listTeamMembers(userId: string, spaceId: string, teamId: string): Promise<TeamMemberRecord[]> {
     const result = await this.pool.query(
@@ -1392,7 +1560,8 @@ export class AppStore {
   // Account profile. Stored on the user row so every Space and page reads the same values.
   async getAccountProfile(userId: string): Promise<AccountProfileRecord | null> {
     const result = await this.pool.query(
-      `SELECT email, full_name, job_title, timezone, avatar_data_url, preferred_sandbox_profile
+      `SELECT email, full_name, job_title, timezone, avatar_data_url, preferred_sandbox_profile,
+              to_char(birth_date, 'YYYY-MM-DD') AS birth_date, gender
        FROM mlbox_users WHERE id = $1`,
       [userId],
     );
@@ -1403,15 +1572,17 @@ export class AppStore {
       fullName: nullableText(row.full_name),
       jobTitle: nullableText(row.job_title),
       timezone: nullableText(row.timezone),
+      birthDate: nullableText(row.birth_date),
+      gender: nullableText(row.gender),
       avatarDataUrl: nullableText(row.avatar_data_url),
       preferredSandboxProfile: nullableText(row.preferred_sandbox_profile),
     };
   }
 
-  async updateAccountProfile(userId: string, input: { fullName: string | null; jobTitle: string | null; timezone: string | null }): Promise<void> {
+  async updateAccountProfile(userId: string, input: ProfileInput): Promise<void> {
     await this.pool.query(
-      `UPDATE mlbox_users SET full_name = $2, job_title = $3, timezone = $4 WHERE id = $1`,
-      [userId, input.fullName, input.jobTitle, input.timezone],
+      `UPDATE mlbox_users SET full_name = $2, job_title = $3, timezone = $4, birth_date = $5, gender = $6 WHERE id = $1`,
+      [userId, input.fullName, input.jobTitle, input.timezone, input.birthDate, input.gender],
     );
   }
 
@@ -1494,12 +1665,94 @@ export class AppStore {
   }
 
   // Ready artifact bytes in the Space, split into this Project and the others.
+  // Ready, undeleted artifact bytes per Project in a Space, largest first.
+  async storageByProject(spaceId: string): Promise<Array<{ projectId: string; name: string; bytes: number }>> {
+    const result = await this.pool.query(
+      `SELECT p.id, p.name, COALESCE(SUM(a.size_bytes), 0)::float AS bytes
+       FROM mlbox_projects p
+       JOIN mlbox_teams t ON t.id = p.team_id
+       JOIN mlbox_artifacts a ON a.project_id = p.id AND a.status = 'ready' AND a.deleted_at IS NULL
+       WHERE t.space_id = $1
+       GROUP BY p.id, p.name
+       ORDER BY bytes DESC`,
+      [spaceId],
+    );
+    return result.rows.map((row) => ({ projectId: String(row.id), name: String(row.name), bytes: Number(row.bytes) }));
+  }
+
+  // Usage sessions of a Space in the last `days` days, newest first, with the credits each one used.
+  async creditSessions(spaceId: string, days: number, limit: number): Promise<Array<{
+    id: string; projectName: string; startedAt: Date; endedAt: Date | null; hours: number; credits: number;
+  }>> {
+    const result = await this.pool.query(
+      `SELECT s.id, p.name AS project_name, s.started_at, s.ended_at,
+              EXTRACT(EPOCH FROM (COALESCE(s.ended_at, now()) - s.started_at)) / 3600.0 AS hours,
+              (EXTRACT(EPOCH FROM (COALESCE(s.ended_at, now()) - s.started_at)) / 3600.0 * s.units_per_hour)::float AS credits
+       FROM mlbox_usage_sessions s
+       JOIN mlbox_projects p ON p.id = s.project_id
+       WHERE s.space_id = $1
+         AND COALESCE(s.ended_at, now()) > date_trunc('day', now()) - ($2::int - 1) * interval '1 day'
+       ORDER BY s.started_at DESC
+       LIMIT $3`,
+      [spaceId, days, limit],
+    );
+    return result.rows.map((row) => ({
+      id: String(row.id),
+      projectName: String(row.project_name),
+      startedAt: new Date(String(row.started_at)),
+      endedAt: row.ended_at ? new Date(String(row.ended_at)) : null,
+      hours: Number(row.hours),
+      credits: Number(row.credits),
+    }));
+  }
+
+  // Daily credits used by a Space over the last `days` days (UTC). Each usage session is split across the days it overlaps.
+  async creditHistory(spaceId: string, days: number): Promise<Array<{ date: string; credits: number }>> {
+    const result = await this.pool.query(
+      `SELECT to_char(d.day, 'YYYY-MM-DD') AS date,
+              COALESCE(SUM(EXTRACT(EPOCH FROM (LEAST(COALESCE(s.ended_at, now()), d.day + interval '1 day') - GREATEST(s.started_at, d.day))) / 3600.0 * s.units_per_hour), 0)::float AS credits
+       FROM generate_series(date_trunc('day', now()) - ($2::int - 1) * interval '1 day', date_trunc('day', now()), interval '1 day') AS d(day)
+       LEFT JOIN mlbox_usage_sessions s ON s.space_id = $1 AND s.started_at < d.day + interval '1 day' AND COALESCE(s.ended_at, now()) > d.day
+       GROUP BY d.day ORDER BY d.day`,
+      [spaceId, days],
+    );
+    return result.rows.map((row) => ({ date: String(row.date), credits: Number(row.credits) }));
+  }
+
+  // Bytes of ready artifacts in a Space at the end of each day: stored from the day they were created until deleted.
+  async storageHistory(spaceId: string, days: number): Promise<Array<{ date: string; bytes: number }>> {
+    const result = await this.pool.query(
+      `SELECT to_char(d.day, 'YYYY-MM-DD') AS date,
+              COALESCE((
+                SELECT SUM(a.size_bytes) FROM mlbox_artifacts a
+                JOIN mlbox_projects p ON p.id = a.project_id
+                JOIN mlbox_teams t ON t.id = p.team_id
+                WHERE t.space_id = $1 AND a.status = 'ready'
+                  AND a.created_at < d.day + interval '1 day'
+                  AND (a.deleted_at IS NULL OR a.deleted_at >= d.day + interval '1 day')
+              ), 0)::float AS bytes
+       FROM generate_series(date_trunc('day', now()) - ($2::int - 1) * interval '1 day', date_trunc('day', now()), interval '1 day') AS d(day)
+       ORDER BY d.day`,
+      [spaceId, days],
+    );
+    return result.rows.map((row) => ({ date: String(row.date), bytes: Number(row.bytes) }));
+  }
+
+  // Sandboxes running in a Space right now: a usage session is open from start until stop.
+  async openUsageSessionCount(spaceId: string): Promise<number> {
+    const result = await this.pool.query(
+      `SELECT count(*)::int AS running FROM mlbox_usage_sessions WHERE space_id = $1 AND ended_at IS NULL`,
+      [spaceId],
+    );
+    return Number(result.rows[0]?.running ?? 0);
+  }
+
   async artifactUsageForSpace(spaceId: string, projectId: string): Promise<{ projectBytes: number; otherProjectBytes: number }> {
     const result = await this.pool.query(
       `SELECT (p.id = $2) AS is_current, COALESCE(SUM(a.size_bytes), 0)::bigint AS bytes
        FROM mlbox_projects p
        JOIN mlbox_teams t ON t.id = p.team_id
-       LEFT JOIN mlbox_artifacts a ON a.project_id = p.id AND a.status = 'ready'
+       LEFT JOIN mlbox_artifacts a ON a.project_id = p.id AND a.status = 'ready' AND a.deleted_at IS NULL
        WHERE t.space_id = $1
        GROUP BY (p.id = $2)`,
       [spaceId, projectId],
@@ -1525,7 +1778,7 @@ export class AppStore {
   async listArtifactsCreatedBefore(projectId: string, cutoff: Date): Promise<ArtifactRecord[]> {
     const result = await this.pool.query(
       `SELECT id, project_id, name, object_key, content_type, size_bytes, status, created_by
-       FROM mlbox_artifacts WHERE project_id = $1 AND created_at < $2`,
+       FROM mlbox_artifacts WHERE project_id = $1 AND deleted_at IS NULL AND created_at < $2`,
       [projectId, cutoff.toISOString()],
     );
     return result.rows.map(artifactFromRow);
@@ -1533,7 +1786,7 @@ export class AppStore {
 
   async deleteArtifactRows(projectId: string, artifactIds: string[]): Promise<void> {
     if (artifactIds.length === 0) return;
-    await this.pool.query(`DELETE FROM mlbox_artifacts WHERE project_id = $1 AND id = ANY($2::text[])`, [projectId, artifactIds]);
+    await this.pool.query(`UPDATE mlbox_artifacts SET deleted_at = now() WHERE project_id = $1 AND id = ANY($2::text[]) AND deleted_at IS NULL`, [projectId, artifactIds]);
   }
 
   // The Hub profile slug of the running (or last started) sandbox of a Project.
@@ -1548,7 +1801,7 @@ export class AppStore {
         `UPDATE mlbox_usage_sessions SET ended_at = now() WHERE project_id = $1 AND ended_at IS NULL`,
         [projectId],
       );
-      await client.query(`DELETE FROM mlbox_artifacts WHERE project_id = $1`, [projectId]);
+      await client.query(`UPDATE mlbox_artifacts SET deleted_at = now() WHERE project_id = $1 AND deleted_at IS NULL`, [projectId]);
       await client.query(`DELETE FROM mlbox_sandboxes WHERE project_id = $1`, [projectId]);
       await client.query(
         `UPDATE mlbox_projects SET deleted_at = now(), name = name || ' [deleted ' || id || ']' WHERE id = $1 AND deleted_at IS NULL`,
