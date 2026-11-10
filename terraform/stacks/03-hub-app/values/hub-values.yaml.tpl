@@ -163,8 +163,28 @@ proxy:
   service:
     type: ClusterIP # ALB comes in via the TargetGroupBinding; no LoadBalancer service
 
+# The pre-puller (prePuller in this chart) pre-pulls the single-user profile images
+# on the nodes that run user pods. Without tolerations it skipped the tainted GPU
+# nodes, so the first GPU spawn had to pull the multi-GB image itself and hit the
+# spawn timeout.
+prePuller:
+  extraTolerations:
+    - key: tier
+      operator: Equal
+      value: shared
+      effect: NoSchedule
+    - key: tier
+      operator: Equal
+      value: dedicated
+      effect: NoSchedule
+
 singleuser:
   defaultUrl: /lab
+  # The GPU image is several GB: on a cold GPU node the first pull exceeded the
+  # default 300s and JupyterHub gave up ("did not start in 300 seconds"), so the
+  # spawn failed. The image puller pre-pulls the profile images on the node; this
+  # timeout covers the remaining cold-start cases.
+  startTimeout: 900
   cpu:
     limit: 4
     guarantee: 0.5
@@ -249,7 +269,10 @@ singleuser:
           vram.example.com/ceiling-mib: "${vram_ceiling_mib}"
         extra_labels:
           plan: shared
-        extra_env:
+        # kubespawner has no `extra_env` attribute: an unknown key in kubespawner_override
+        # makes the spawn fail with AttributeError ('KubeSpawner' object has no attribute 'extra_env').
+        # The spawner option is `environment` (a dict of env vars).
+        environment:
           VRAM_COMMIT_MIB: "${vram_commit_mib}"
           VRAM_CEILING_MIB: "${vram_ceiling_mib}"
     - display_name: "GPU dedicated (1 full GPU)"

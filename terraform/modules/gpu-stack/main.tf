@@ -23,16 +23,20 @@ resource "helm_release" "device_plugin" {
   # gpu-shared-l4 or kubectl label — verify the label key per chart version).
   # Chart 0.20.1 reads top-level `config` (not under `devicePlugin`). Nodes without the label
   # fall back to `default` = "none" (no sharing) so dedicated GPU nodes keep a whole GPU.
+  #
+  # The plugin must run on BOTH GPU pools: the shared one (time-slicing) and the dedicated one
+  # (whole GPU). Pinning it to tier=shared left dedicated nodes without nvidia.com/gpu, so every
+  # GPU pod there failed with "Insufficient nvidia.com/gpu". The chart's default affinity
+  # (nvidia.com/gpu.present=true) already restricts the DaemonSet to GPU nodes, so only the
+  # tolerations for the tier taints are needed here.
   values = [yamlencode({
     config = {
       name    = "time-slicing-shared"
       default = "none"
     }
-    nodeSelector = {
-      "tier" = "shared"
-    }
     tolerations = [
-      { key = "tier", operator = "Equal", value = "shared", effect = "NoSchedule" }
+      { key = "tier", operator = "Equal", value = "shared", effect = "NoSchedule" },
+      { key = "tier", operator = "Equal", value = "dedicated", effect = "NoSchedule" },
     ]
   })]
 
