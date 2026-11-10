@@ -392,3 +392,327 @@ các component consume từ đó ⇒ 1 request, 1 nguồn sự thật.
   (kỳ vọng xóa cả PVC + access point EFS — bước này **chưa** verify vì cần xác nhận xóa project).
 - Máy test không có AWS credentials ⇒ chưa verify được: pod spec/EFS access point ở tầng kubectl, và
   việc xóa Project có xóa PVC/access point hay không (TODO "BFF xóa PVC của Project khi xóa Project").
+
+---
+
+# Kết quả verify E2E lần 5 — 2026-11-11 (sau deploy `f19bc22`, có thêm tính năng mới)
+
+Deploy: `mlbox-{dashboard,bff}:f19bc22b061dbef15b5e9058f1641d7cdf59f154` (tfvars `04-dashboard`).
+Lần này verify **cả lỗi thiết kế giao diện** (terminology, layout, trạng thái, responsive, i18n).
+Công cụ: chrome-devtools (`evaluate_script`, a11y snapshot, viewport 360/1440) + browser panel.
+
+Tính năng mới trong bản này: logo/brand mới, Organization (owner/admin/member) + tạo organization,
+Account pages mới (profile/subscription/quota/security), quota theo credits + lịch sử credit, project list
+hiện instance đang chạy, toast thay cho feedback inline, toàn bộ route account chuyển sang
+`/quota`, `/security`, `/subscription` (URL cũ `/account/*` → 404, nhưng không còn link nào trỏ vào).
+
+## ✅ Chức năng mới chạy đúng (đã kiểm trên production)
+
+- Tạo organization: switcher → "Create team" → dialog "New team" → tạo `e2e-org-2026-11-11` → tự chuyển
+  sang org, toast báo thành công, danh sách project của org rỗng + empty state.
+- Trang Teams của organization: Members (role Owner), Invite members (ghi lời mời, hiện pending + Revoke),
+  Danger zone "Delete team".
+- Tạo project trong organization (không cần chọn team) → project detail → **start sandbox trong org OK**
+  (`starting` → `ready`) → stop OK.
+- Toast: bật/tắt "Keep artifacts" → toast "Artifact storage is off." góc dưới phải, có live region.
+- Interface settings: đổi **English → Tiếng Việt** (dịch đúng) và **Dark → Light** (render sạch, không vỡ layout).
+- Trang profile (tên, chức danh, ngày sinh, giới tính, múi giờ, avatar), security (đổi mật khẩu + danh sách phiên),
+  subscription, quota — tất cả render và tải dữ liệu thật.
+- Tìm kiếm ở navbar lọc được danh sách project.
+
+## ☐ Bug 10 (cao) — Trang Quota/Usage luôn hiện Space **cá nhân**, bỏ qua Space đang chọn
+
+- **Chứng minh:** `GET /api/bff/usage` với `?spaceId=org:…`, `?spaceId=personal:…` và không có param
+  trả **cùng một kết quả**: `planId personal_pro, limit 300`, cùng danh sách credit session (chỉ project
+  của personal space), `concurrentSandboxes {limit 5, running 1}` — không tính sandbox đang chạy trong org.
+- **Nguyên nhân:** `web/bff/src/server.ts:2116` — `const spaceId = \`personal:${session.subject}\`` (hard-code).
+  Trong khi route start (`server.ts:1748-1765`) lại dùng `spacePlan.spaceId` (đúng Space của project) cho
+  credit pool và giới hạn sandbox đồng thời ⇒ **hai phạm vi tính phí khác nhau trong cùng sản phẩm**.
+- **Hệ quả giao diện:** đang ở org mà trang Quota vẫn hiện "Credits left 293.2 / 300" (gói `personal_pro`),
+  trong khi project của org chạy trên gói Free (20 credit, 1 sandbox, 5 GB, 7 ngày) — hai con số mâu thuẫn
+  ngay trên cùng màn hình.
+- **Gợi ý sửa:** `/v1/usage` nhận `spaceId` (đã có sẵn ở các route khác) và mặc định theo Space đang chọn;
+  dashboard truyền `spaceId` của active space; ghi rõ trên trang "Quota của Space X".
+
+## ☐ Bug 11 (cao) — Subscription hiện raw API key + sai đơn vị
+
+- `web/dashboard/src/app/(app)/subscription/BillingPanel.tsx:187-202` (`quotaLabel`) chỉ map
+  `projects`/`storage_gb`/`credits`/`members`; `concurrent_sandboxes` và `gpu_access` rơi vào nhánh
+  `return resource` ⇒ lộ raw key.
+- `BillingPanel.tsx:253-260` dùng `t("billingHours")` cho mọi resource khác ⇒ "concurrent_sandboxes: **5 hours**",
+  "Credits: **300 hours**", "gpu_access: **1 hours**".
+- Quan sát được cả ở bản en và vi (vi hiện "5 giờ", "300 giờ", "1 giờ").
+
+## ☐ Bug 12 (trung bình) — Thanh tiến độ ngược nghĩa với nhãn
+
+- `web/dashboard/src/components/UsagePanel.tsx:104`: `creditsPercent = creditsUsed / creditsLimit` ⇒ thanh
+  hiển thị **phần đã dùng**, nhưng tiêu đề là "Credits left this month 293.2" và dòng phụ "293.2 of 300 credits
+  left" ⇒ ở 98% còn lại thanh vẫn gần như trống. Tương tự với storage.
+- Gợi ý: vẽ phần **còn lại**, hoặc đổi nhãn thành "Used" cho khớp.
+
+## ☐ Bug 13 (trung bình) — Lẫn lộn "team" và "organization"
+
+- Switcher dùng icon tòa nhà + tên org, nhưng action là "**Create team**", dialog "**New team**", field
+  "**Team name**", trang là "**Teams**", danger zone "**Delete team**", copy "members and invitations of the
+  **selected team**". Mô hình mới là Organization (Space) — user không biết "team" và "organization" có phải
+  là hai thứ khác nhau không.
+- Gợi ý: thống nhất "Organization" cho Space/đội phẳng (tên action, dialog, tiêu đề, copy), dùng "Team" chỉ
+  khi nói về nhóm con thực sự.
+
+## ☐ Bug 14 (trung bình) — Project của organization bị gắn nhãn "Personal Space"
+
+- `web/dashboard/src/components/ProjectDetail.tsx:125-131` dùng `t("personalSpace")` cho trường Space của
+  mọi project ⇒ project trong org hiện "**Personal Space**" với giá trị `org:79c6539d-…` (và nhãn này cũng
+  được dùng làm aria-label của nút copy).
+
+## ☐ Bug 15 (trung bình) — Chọn gói không phản ánh gói hiện tại
+
+- Gói hiện tại là `personal_pro`, nhưng radio "Personal Free" đang được chọn và CTA ghi "**Pay for Personal
+  Free**" ⇒ bấm là **hạ gói** (kèm giao dịch mock $0).
+- Gợi ý: preselect gói hiện tại, hoặc disable CTA khi đang ở gói đó.
+
+## ☐ Bug 16–24 (thấp/trung bình) — Vấn đề giao diện khác đã quan sát
+
+| # | Vấn đề | Vị trí / bằng chứng |
+|---|---|---|
+| 16 | Project list hiện chip instance của project **đang dừng** mà không nói rõ là "next launch" (chi tiết có ghi "Next launch:", list thì không) | `/projects` → "test1 · d1.xlarge · GPU instance · Start" |
+| 17 | Raw plan id trong copy người dùng: "personal_pro" làm tên gói hiện tại, "personal_pro - Succeeded" trong lịch sử thanh toán; các dòng thanh toán **không có ngày** | trang `/subscription` |
+| 18 | Card "Sandboxes running at once" là banner full-width, canh giữa, lệch style với 2 stat card phía trên (canh trái, số lớn) | trang `/quota` |
+| 19 | Số liệu storage format không nhất quán: project page "32 B of 100 GB used" vs Quota "Storage by project: **0 GB** · 0% of quota" | `/quota` (bytes bị làm tròn về 0) |
+| 20 | **Mobile 360px tràn ngang** ở trang Subscription: `scrollWidth 379 > 360`, 3 card gói bị cắt tên | đo bằng `document.documentElement.scrollWidth` |
+| 21 | Trang login/register không canh giữa dọc: card nằm ở 1/3 trên, còn lại trống | `/login`, `/register` |
+| 22 | Landing page không nhận biết đã đăng nhập (vẫn hiện "Sign in / Create account"); danh sách feature chỉ còn tiêu đề (chuỗi `features.*.body` không dùng); không có footer | `src/app/page.tsx` |
+| 23 | Switch "Keep artifacts" nằm **trên** nhãn; khi tắt, nhãn bị làm mờ trông như lỗi | card Artifacts |
+| 24 | Lời mời pending không có tiêu đề hiển thị (chỉ có aria-label), role hiện raw lowercase "member" trong khi badge member viết "Owner" | trang Teams của org |
+
+### Ghi chú a11y
+
+- Searchbox chứa nút "Close" bên trong (`button "Close"` trong `search`) — nhãn a11y lạ cho nút xoá.
+- Toaster có live region (`role=status`/`log`) — tốt.
+- Focus vào dialog: đã kiểm — mở "New project" thì focus vào ô tên (đúng), đóng bằng Escape thì focus trả về
+  nút "New project" (đúng).
+- Cần kiểm tra thêm: contrast ở light theme, focus trap khi mở menu.
+
+## ☐ Bug 25–36 — Rà soát thiết kế ở tầng code (agent phụ, đã đối chiếu lại với bản live)
+
+Ký hiệu: **[đã xác minh live]** = quan sát được trên production; *(chỉ code)* = suy ra từ mã nguồn.
+
+### Cao
+
+- **☐ Bug 25 [đã xác minh live] — Khoá JSON trùng làm mất nhãn mới.**
+  `web/dashboard/src/messages/en.json:196` và `:230` đều là `usage.historyHeading` ("Last 30 days" vs
+  "Usage history"); `vi.json:196`/`:230` tương tự. `JSON.parse` giữ giá trị sau ⇒ trang Quota hiện
+  "Usage history" (đã quan sát live) và nhãn "Last 30 days" / "30 ngày gần nhất" là code chết.
+  *Cách sửa:* xoá dòng 230 ở cả 2 file, thêm CI check trùng khoá JSON.
+- **☐ Bug 26 [đã xác minh live] — Lỗi inline bị đổi thành toast 4 giây.**
+  `web/dashboard/src/components/FeedbackAlert.tsx:20-32` render `null` và bắn toast; các form
+  (`LoginForm.tsx:91`, `RegisterForm.tsx:103`, `VerifyForm.tsx:146`, `PasswordRecoveryForm.tsx:107`,
+  `CreateOrganizationDialog.tsx:66`, `OrganizationDangerZone.tsx:81`, `ProjectDeleteButton.tsx:57`) mất hết
+  lỗi tại chỗ. Live: sai mật khẩu trên trang `/login` (bản English) **chỉ** có toast ở góc dưới phải, không
+  có lỗi cạnh form. Thêm nữa, toast được raise trong `useEffect` phụ thuộc `children` ⇒ lần lỗi thứ hai
+  cùng nội dung không hiện gì.
+  *Cách sửa:* giữ `Alert` cho lỗi form/inline, toast chỉ dùng cho kết quả nền; nếu cần toast thì thêm key.
+- **☐ Bug 27 [đã xác minh live] — Thông báo lỗi của BFF hard-code tiếng Việt, lọt sang UI tiếng Anh.**
+  Live: sai mật khẩu trên trang login English hiện "**Email hoặc mật khẩu không đúng.**"; các lỗi khác
+  ("Dịch vụ ứng dụng tạm thời không khả dụng.", "Chủ Project cần đăng nhập dashboard một lần để khởi tạo
+  runtime.") cũng là tiếng Việt trong `web/bff/src/server.ts`.
+  *Cách sửa:* BFF trả `error` code + message tiếng Anh hoặc chỉ trả code, dashboard tự dịch theo locale.
+
+### Trung bình
+
+- **☐ Bug 28 (chỉ code) — Dropdown role rỗng với admin.** `components/OrganizationMembers.tsx:150-167`:
+  option `admin` chỉ được thêm khi `actor === "owner"`, nhưng Select hiển thị cho mọi manager ⇒ admin thấy
+  trigger trống trên dòng của chính mình.
+- **☐ Bug 29 (chỉ code) — Từ vựng role không nhất quán trong vi.** `vi.json:364-365` dùng "Quản trị"/"Người
+  xem" ở card Members nhưng `:487-488` dùng "Quản trị viên"/"Chỉ xem" ở card Lời mời; navbar lại dùng "Chủ
+  sở hữu" cho Owner.
+- **☐ Bug 30 (chỉ code) — Sau khi chuyển quyền sở hữu, chủ cũ vẫn thấy danger zone.** `TeamBoard.tsx:66` +
+  `OrganizationMembers.tsx:109-120` không gọi `notifySpacesChanged()` ⇒ `activeSpace.role` vẫn "owner" ⇒
+  "Delete team" vẫn hiện (bấm thì mới nhận lỗi forbidden).
+- **☐ Bug 31 (chỉ code) — Xoá member không cần xác nhận.** `OrganizationMembers.tsx:178-188` nút ghost gọi
+  DELETE ngay, chỉ có toast; trong khi xoá team bắt nhập tên (đúng pattern). Không nhất quán với hành vi
+  destructive khác.
+- **☐ Bug 32 (chỉ code) — Danger zone báo sai lỗi.** `OrganizationDangerZone.tsx:12-16,86`: lỗi FORBIDDEN
+  khi xoá team lại map sang `memberForbidden` ("You cannot manage members of this team"); nút Delete bị vô
+  hiệu khi chưa gõ đúng tên mà không có chú thích giải thích.
+- **☐ Bug 33 (chỉ code) — "Storage by project: % of quota"** (`UsagePanel.tsx:192`) tính theo quota của cả
+  workspace ⇒ gợi ý sai rằng mỗi project có hạn riêng.
+- **☐ Bug 34 (chỉ code) — Chart chỉ hiện giá trị khi hover, bỏ qua series storage.**
+  `ResourceHistory.tsx:36,52-59`: giá trị nằm trong `<title>` (không dùng được trên touch) và API trả
+  `resourceHistory.storage` nhưng không được vẽ.
+
+### Thấp
+
+- **☐ Bug 35 (chỉ code) — Dialog tạo team:** `CreateOrganizationDialog.tsx:62` chỉ có placeholder (không có
+  `<Label>`), không `autoFocus`, và chuỗi `"Team created."` tồn tại nhưng không được raise.
+- **☐ Bug 36 (chỉ code) — Member không có email hiện UUID bị cắt:** `OrganizationMembers.tsx:122,141` dùng
+  `member.userId` rồi `truncate` không kèm `title`/copy.
+
+### Những điểm tốt (không cần sửa)
+
+- `CreditSessionList.tsx:31-32` — bảng session có `overflow-x-auto` + `min-w-[32rem]` ⇒ cuộn ngang thay vì
+  vỡ layout ở 360px (đúng pattern).
+- `OrganizationDangerZone.tsx:25,77-88` — xoá team bắt nhập đúng tên, disable nút cho tới khi khớp, reset state
+  khi đóng: pattern xác nhận destructive tốt.
+- `Toaster.tsx` + `FeedbackAlert.tsx:7-19` — một vùng toast toàn cục, có dedupe chống double-fire StrictMode.
+- `OrganizationMembers.tsx:144-148` + `AccountMenu.tsx:15-20` — phân biệt role bằng màu + icon + chữ, không phụ
+  thuộc màu đơn thuần.
+- `ProjectRow.tsx:20-26` — đưa loại instance đang chạy lên ngay dưới tên project là cải thiện thật.
+
+## Chưa verify được
+
+- Xóa Project → xoá PVC + access point EFS (cần kubectl/AWS credentials).
+- Cross-tenant với hai danh tính thật (cần tài khoản thứ hai).
+- Luồng nhận lời mời bởi user khác (cần tài khoản thứ hai).
+
+---
+
+# Kết quả verify — GPU & Artifacts (2026-11-11 ~01:20–02:10, deploy `f19bc22`)
+
+## ☐ Bug 37 (cao) — GPU không spawn được: Hub báo "Spawn failed" cho cả 2 profile GPU
+
+**Đã kiểm chứng live:**
+
+| Profile | Kết quả |
+|---|---|
+| `cpu-small` (c1.large) | ✅ `starting` → `ready` (~10 s) |
+| `gpu-l4-shared` (g1.xlarge, T4 time-slicing) | ❌ Hub: **"Spawn failed"** (màn hình /hub/spawn) |
+| `gpu-dedicated` (d1.xlarge) | ❌ kẹt `starting` ~2 phút rồi rơi về `stopped` (spawn timeout) |
+
+- Plan gate GPU **đúng**: project thuộc Space Free (org) bị chặn `403 GPU_NOT_IN_PLAN`; Space cá nhân
+  (gói `personal_pro`, có GPU) được phép qua gate ⇒ lỗi nằm sau plan gate, ở tầng Hub/cluster.
+- Hub tạo server record nhưng không có pod nào chạy (`/hub/home` liệt kê server ở trạng thái stopped,
+  "Last activity … 3 minutes ago").
+- **Nguyên nhân chưa xác định** (máy test không có kubectl): khả năng cao là *node GPU không được
+  provision/schedule* (Karpenter NodePool `gpu-shared-l4` đã từng phải patch tay label
+  `nvidia.com/device-plugin.config=any`; quota G/VT = 8 vCPU) hoặc *image GPU không pull được*.
+  Cần: `kubectl -n hub logs deploy/hub` (lý do spawn fail), `kubectl get pods -n hub` (ImagePullBackOff
+  vs Unschedulable), `kubectl get nodepools` (Karpenter), `aws service-quotas` (G quota).
+- Lưu ý: image singleuser đang chạy là `ghcr.io/im-yuuki/mlbox-cpu:dbcd98f…` (biến env `JUPYTER_IMAGE`
+  trong pod) ⇒ **tag ảnh runtime đang lệch 1 release** so với dashboard/BFF (`f19bc22`); nên kiểm tra
+  cả image `mlbox-gpu` ở tag tương ứng.
+
+## ☐ Bug 38 (trung bình) — Start bị no-op im lặng khi sandbox đang chạy
+
+- `POST /v1/projects/:id/sandbox/start` với profile khác khi server đang `ready` trả **200 với state của
+  server cũ** (`server.ts:1744-1746` — `if (!shouldStartHubSandbox(existing)) return { ok: true, state: … }`),
+  **bỏ qua profile được yêu cầu** và không có thông báo nào cho UI.
+- Quan sát live: yêu cầu `gpu-dedicated` trong khi sandbox CPU đang chạy ⇒ trả `state: ready`, profile vẫn
+  là `cpu-small`, không có cảnh báo. Người dùng tưởng đã đổi sang GPU.
+- Gợi ý: trả 409 `ALREADY_RUNNING` kèm profile hiện tại, hoặc cho phép đổi profile khi đang chạy.
+
+## ☐ Bug 39 (trung bình, sản phẩm) — Artifact (S3) không thể truy cập được từ trong sandbox
+
+Kiểm tra trực tiếp trong pod (terminal Jupyter qua WebSocket):
+
+- `/home/jovyan` là **mount EFS**: `127.0.0.1:/ on /home/jovyan type nfs4 (rw,…)`, `df -h` → `8.0E` ⇒ đúng
+  "shared storage" như mô tả.
+- File `e2e-proof.txt` (27 B, tạo 10/11 11:24) **vẫn còn** sau khi pod restart (server started 10/11 18:45)
+  ⇒ **persistence EFS xác nhận lại trên bản deploy hiện tại**.
+- Nhưng artifact của dashboard **không có đường vào sandbox**: `/mnt` rỗng, không có file nào chứa
+  "artifact" trong home, **không có AWS CLI** (`aws: No such file or directory`), không có `/etc/aws`,
+  không có biến môi trường MLBOX/S3 ⇒ **không thể tải artifact từ trong notebook**, và file trong
+  notebook cũng không xuất hiện trong danh sách artifact.
+- ⇒ Hai kho dữ liệu (EFS của notebook và S3 của dashboard) hoàn toàn tách rời. Nếu sản phẩm muốn
+  "artifact trong dashboard = file trong notebook" thì còn thiếu cầu nối (mount S3 vào pod, sidecar đồng bộ,
+  hoặc API đọc artifact từ notebook).
+
+## ✅ Artifacts — luồng UI hoạt động đầy đủ (đã kiểm chứng live qua giao diện)
+
+| Bước | Kết quả |
+|---|---|
+| Upload qua UI (nút "Choose a file to upload") | ✅ file `mlbox-artifact-ui-test.txt` (85 B) vào danh sách, storage "117 B of 100 GB used", toast "File uploaded." |
+| Download qua UI (nút "Download") | ✅ file tải về `~/Downloads/mlbox-artifact-ui-test.txt` (85 B, đúng nội dung) |
+| Tắt storage | ✅ hỏi xác nhận "Turn off artifact storage? This permanently deletes 2 stored artifacts…" → Cancel giữ nguyên dữ liệu; "Delete files and turn off" → xoá hẳn (list rỗng, 0 B) + toast "Artifact storage is off." |
+| Bật lại + upload | ✅ khôi phục được (storage ON, 1 artifact `ready`) |
+
+Ghi chú thiết kế liên quan (xem Bug 16–24): tiêu đề card là "Storage" nhưng nhãn switch là "Keep artifacts";
+switch nằm trên nhãn; số liệu storage ở Quota hiện "0 GB" cho 32 B.
+
+## Dữ liệu còn lại
+
+- Project `e2e-verify-2026-11-10`: storage **bật**, 1 artifact `mlbox-artifact-ui-test.txt` (85 B); sandbox đã
+  **dừng** sau các phép thử GPU.
+- Trong sandbox còn file `untitled.txt` (12 B, tạo bởi phiên khác — không phải của lần verify này) và
+  `e2e-proof.txt` (27 B) trên EFS.
+
+---
+
+# Kết quả sửa (2026-11-11 ~02:00–02:40) — GPU đã chạy được
+
+Đã có AWS credentials (SSO profile `AdministratorAccess-451058046864`) + kubectl ⇒ chẩn đoán và sửa
+trực tiếp trên production.
+
+## ✅ Bug 37 (GPU không spawn được) — ĐÃ SỬA & DEPLOY, verify bằng `nvidia-smi`
+
+Ba nguyên nhân độc lập (mỗi nguyên nhân chặn GPU theo cách khác nhau):
+
+1. **`extra_env` không hợp lệ trong `kubespawner_override`** (mọi profile GPU).
+   Log Hub: `AttributeError: 'KubeSpawner' object has no attribute 'extra_env'` — spawn chết trước khi
+   tạo pod. Sửa: `terraform/stacks/03-hub-app/values/hub-values.yaml.tpl` → dùng `environment` (option
+   đúng của kubespawner).
+2. **Device plugin chỉ chạy trên `tier=shared`** ⇒ node GPU dedicated không advertise `nvidia.com/gpu`
+   ⇒ pod `Unschedulable: 1 Insufficient nvidia.com/gpu`. Sửa: `terraform/modules/gpu-stack/main.tf` bỏ
+   `nodeSelector: tier=shared`, thêm toleration cho cả `tier=shared` và `tier=dedicated` (ConfigMap
+   time-slicing vẫn `default: none` ⇒ node dedicated giữ nguyên 1 GPU).
+3. **Pre-puller bỏ qua node GPU có taint** ⇒ lần spawn đầu phải tự pull image GPU (nhiều GB) và vượt
+   `startTimeout 300s` ⇒ Hub bỏ pod ("did not start in 300 seconds"). Sửa: `prePuller.extraTolerations`
+   (đúng key của chart 4.4.2, không phải `imagePuller`) + `singleuser.startTimeout: 900`.
+
+**Kết quả verify trên production:**
+- `gpu-dedicated` → pod Running trên node `ip-10-0-1-49` (tier=dedicated); `nvidia-smi` → **Tesla T4,
+  15360 MiB**, driver 580.178.04; `torch 2.11.0+cu128` → `cuda True`, device "Tesla T4".
+- `gpu-l4-shared` → Karpenter tự tạo node GPU shared mới (`ip-10-0-0-82`, tier=shared, gpu-family=T4),
+  pod Running, `nvidia-smi -L` → **GPU 0: Tesla T4** ✓ (time-slicing hoạt động).
+- Device plugin giờ chạy trên cả 2 node GPU; dcgm-exporter chạy trên node shared.
+
+## ✅ Bug 38 (start no-op khi sandbox đang chạy) — đã sửa trong code (chưa deploy)
+
+`web/bff/src/server.ts` (route start của project): trước đây trả `200 {ok:true, state:"ready"}` và **bỏ qua
+profile được yêu cầu**; nay trả `409 SANDBOX_ALREADY_RUNNING` kèm state hiện tại, dashboard hiện thông báo
+`projectRuntime.alreadyRunning`.
+
+## ✅ Bug 37b (spawn fail bị nuốt im lặng) — đã sửa trong code (chưa deploy)
+
+Route start nay trả `502 SANDBOX_START_FAILED` khi vòng đời spawn không đạt `ready`/`starting`, thay vì
+báo `state: "stopped"` (UI tưởng mọi thứ bình thường).
+
+## ✅ Bug 11 / 12 / 14 / 15 / 25 — đã sửa trong code (chưa deploy)
+
+- **Bug 11**: `BillingPanel.quotaLabel` giờ map đủ resource của BFF (`concurrent_sandboxes`, `cpu_hours`,
+  `gpu_hours`, `gpu_access`) + `quotaUnit` trả đúng đơn vị (trước: "5 hours" cho số sandbox,
+  "300 hours" cho credit, raw key `concurrent_sandboxes`).
+- **Bug 12**: `UsagePanel` vẽ thanh tiến độ theo **phần còn lại** (trước vẽ phần đã dùng ⇒ 293/300 credit
+  còn lại nhưng thanh gần như trống); card storage dùng caption "còn X / Y GB" thay vì "đã dùng".
+- **Bug 14**: nhãn "Personal Space" ở project detail đổi thành "Workspace" (trước gắn nhãn cá nhân cho
+  project của organization).
+- **Bug 15**: trang Subscription preselect **gói đang dùng** (trước chọn gói đầu tiên trong catalog ⇒ nút
+  "Pay for Personal Free" trong khi account dùng Personal Pro).
+- **Bug 25**: xoá khoá JSON trùng `usage.historyHeading` (en + vi) ⇒ nhãn "Last 30 days" mới không còn bị
+  khoá cũ đè mất.
+
+## ⚠️ Sự cố phát hiện khi sửa: Hub sập do state `02-platform` giữ password RDS cũ
+
+- RDS event 14:09Z hôm nay: **"Reset master credentials"** cho `jhub-gpu-sandbox-dev-apse2-hub`.
+- `02-platform` dùng `manage_master_user_password = true` ⇒ mật khẩu nằm trong Secrets Manager, nhưng
+  output `db_url` trong state vẫn là bản cũ (hash khác secret hiện tại) ⇒ Hub restart với URL cũ ⇒
+  **CrashLoopBackOff**: "Failed to connect to db".
+- Sửa: `terraform apply 02-platform` (chỉ refresh output `db_url`, 0 thay đổi hạ tầng) rồi apply lại
+  `03-hub-app` ⇒ Hub trở lại "JupyterHub is now running".
+- **Bài học cho vận hành:** sau khi RDS reset master credentials, phải apply lại `02-platform` để refresh
+  `db_url`, nếu không Hub sẽ crash-loop với lỗi DB (nhìn rất giống lỗi cấu hình).
+
+## ✅ Ngoài ra
+
+- `03-hub-app/terraform.tfvars` (file local, gitignored) vẫn trỏ image **ECR đã bị xoá**; đã cập nhật sang
+  GHCR (`ghcr.io/im-yuuki/mlbox-{cpu,gpu}:dbcd98f…`) để không vô tình revert image khi apply.
+- Plan `02-platform` chỉ đổi output, plan `05-gpu` chỉ đổi device plugin + replicas time-slicing (3→2),
+  plan `03-hub-app` chỉ update Helm release — không có destroy/recreate.
+
+## Dữ liệu còn lại từ lần verify này
+
+- Organization `e2e-org-2026-11-11` (id `org:79c6539d-8b4e-411b-8f87-3d08baa979b3`) + project `org-project-e2e`
+  (`67c74720-e6f9-4651-9f39-0a319ab87528`, sandbox đã **stop**), 1 lời mời pending
+  `e2e-invite-2026-11-11@example.com`.
+- Sandbox personal `e2e-verify-2026-11-10` vẫn **đang chạy** (từ 11/11 01:08) — stop trên trang project nếu
+  không dùng nữa.
