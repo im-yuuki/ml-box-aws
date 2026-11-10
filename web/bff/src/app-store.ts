@@ -250,6 +250,11 @@ export class AppStore {
       : connectionStringOrDatabase;
   }
 
+  // Readiness probe: proves the app database answers, not just that the process has config.
+  async ping(): Promise<void> {
+    await this.pool.query("SELECT 1");
+  }
+
   async recordAuditEvent(
     userId: string,
     spaceId: string,
@@ -543,9 +548,63 @@ export class AppStore {
       );
       CREATE INDEX IF NOT EXISTS mlbox_auth_sessions_user_idx ON mlbox_auth_sessions(user_id);
       CREATE INDEX IF NOT EXISTS mlbox_space_memberships_user_idx ON mlbox_space_memberships(user_id, status);
-      CREATE INDEX IF NOT EXISTS mlbox_projects_team_idx ON mlbox_projects(team_id);
       CREATE INDEX IF NOT EXISTS mlbox_project_access_user_idx ON mlbox_project_access(user_id);
       CREATE INDEX IF NOT EXISTS mlbox_payment_transactions_space_idx ON mlbox_payment_transactions(space_id, created_at DESC);
+    `);
+    // Must run after the CREATE TABLE block: a pre-team_id mlbox_projects table is kept as-is by
+    // CREATE TABLE IF NOT EXISTS, so team_id only exists once the legacy migration has run.
+    await this.migrateLegacyProjects();
+    await this.pool.query(`
+      CREATE INDEX IF NOT EXISTS mlbox_projects_team_idx ON mlbox_projects(team_id);
+      CREATE UNIQUE INDEX IF NOT EXISTS mlbox_projects_team_name_key ON mlbox_projects(team_id, name);
+    `);
+  }
+
+  // Projects used to belong to a Space (mlbox_projects.space_id). They now belong to a Team.
+  // Each legacy Space gets one Team (the owner's personal team for personal Spaces) and its
+  // Projects are moved there. The whole step is one transaction and is skipped once team_id exists.
+  private async migrateLegacyProjects(): Promise<void> {
+    await this.pool.query(`
+      DO $$
+      BEGIN
+        IF EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_schema = current_schema() AND table_name = 'mlbox_projects' AND column_name = 'space_id')
+           AND NOT EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_schema = current_schema() AND table_name = 'mlbox_projects' AND column_name = 'team_id') THEN
+          INSERT INTO mlbox_teams (id, space_id, name)
+          SELECT CASE WHEN s.type = 'personal' AND o.user_id IS NOT NULL THEN 'personal-team:' || o.user_id
+                      ELSE 'team:' || s.id END,
+                 s.id,
+                 CASE WHEN s.type = 'personal' THEN 'Personal' ELSE 'Default' END
+          FROM (SELECT DISTINCT space_id FROM mlbox_projects) ps
+          JOIN mlbox_spaces s ON s.id = ps.space_id
+          LEFT JOIN LATERAL (
+            SELECT sm.user_id FROM mlbox_space_memberships sm
+            WHERE sm.space_id = s.id AND sm.role = 'owner' AND sm.status = 'active'
+            ORDER BY sm.user_id LIMIT 1
+          ) o ON true
+          ON CONFLICT DO NOTHING;
+
+          -- Keep access: active Space owners lead the team, Space members keep working on its Projects.
+          INSERT INTO mlbox_team_members (team_id, user_id, role)
+          SELECT t.id, sm.user_id, CASE WHEN sm.role = 'owner' THEN 'lead' ELSE 'member' END
+          FROM mlbox_teams t
+          JOIN mlbox_space_memberships sm ON sm.space_id = t.space_id AND sm.status = 'active'
+          WHERE (t.id LIKE 'personal-team:%' OR t.id LIKE 'team:%') AND sm.role IN ('owner', 'member')
+          ON CONFLICT DO NOTHING;
+
+          ALTER TABLE mlbox_projects ADD COLUMN team_id text;
+          UPDATE mlbox_projects p SET team_id = (
+            SELECT t.id FROM mlbox_teams t WHERE t.space_id = p.space_id ORDER BY t.created_at, t.id LIMIT 1
+          );
+          ALTER TABLE mlbox_projects ALTER COLUMN team_id SET NOT NULL;
+          ALTER TABLE mlbox_projects ADD CONSTRAINT mlbox_projects_team_id_fkey
+            FOREIGN KEY (team_id) REFERENCES mlbox_teams(id) ON DELETE RESTRICT;
+          -- space_id is no longer written. Keep the column for data safety but stop requiring it.
+          ALTER TABLE mlbox_projects DROP CONSTRAINT IF EXISTS mlbox_projects_space_id_name_key;
+          ALTER TABLE mlbox_projects ALTER COLUMN space_id DROP NOT NULL;
+        END IF;
+      END $$;
     `);
   }
 

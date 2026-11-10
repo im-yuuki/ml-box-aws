@@ -7,10 +7,11 @@ import {
   useState,
   type ChangeEvent,
 } from "react";
-import { Alert, Button, Card, Label, Modal, Spinner, Switch } from "@heroui/react";
+import { Button, Card, Label, Modal, Spinner, Switch } from "@heroui/react";
 import { Download, Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
+import FeedbackAlert from "@/components/FeedbackAlert";
 import {
   formatBytes,
   validateUploadFile,
@@ -40,6 +41,7 @@ export default function ProjectArtifactsPanel({
   // Number of stored files awaiting the user's confirmation to turn storage off; null when closed.
   const [confirmCount, setConfirmCount] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [canWrite, setCanWrite] = useState(true);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -74,6 +76,7 @@ export default function ProjectArtifactsPanel({
   const setStorage = async (enabled: boolean, confirmDeleteAll = false) => {
     setToggling(true);
     setError(null);
+    setNotice(null);
     try {
       const response = await bffFetch(`${base}/settings`, {
         method: "PUT",
@@ -90,6 +93,7 @@ export default function ProjectArtifactsPanel({
         return;
       }
       setConfirmCount(null);
+      setNotice(t(enabled ? "storageEnabled" : "storageDisabled"));
       await load();
     } catch {
       setError(t("toggleFailed"));
@@ -109,6 +113,7 @@ export default function ProjectArtifactsPanel({
     }
     setBusy(true);
     setError(null);
+    setNotice(null);
     try {
       const created = await bffFetch(base, {
         method: "POST",
@@ -152,6 +157,7 @@ export default function ProjectArtifactsPanel({
         setError(t("uploadFailed"));
         return;
       }
+      setNotice(t("uploaded"));
       await load();
     } catch {
       setError(t("uploadFailed"));
@@ -273,13 +279,8 @@ export default function ProjectArtifactsPanel({
             <span>{t("uploading")}</span>
           </div>
         ) : null}
-        {error ? (
-          <Alert status="danger">
-            <Alert.Content>
-              <Alert.Description>{error}</Alert.Description>
-            </Alert.Content>
-          </Alert>
-        ) : null}
+        {notice ? <FeedbackAlert status="success">{notice}</FeedbackAlert> : null}
+        {error ? <FeedbackAlert status="danger">{error}</FeedbackAlert> : null}
 
         <Modal
           isOpen={confirmCount !== null}

@@ -11,7 +11,9 @@ mặc định dùng account `451058046864`, region `ap-southeast-2` và cluster
 - Luồng bắt buộc đã được redeploy fresh; CPU baseline đang chạy trên cluster
   `jhub-gpu-sandbox-dev-apse2`.
 - Dashboard production đã được xác nhận qua ALB: `/` và `/login` trả `200`, target healthy,
-  không còn lỗi `DYNAMIC_SERVER_USAGE`. BFF readiness nội bộ `/v1/health` trả `200`.
+  không còn lỗi `DYNAMIC_SERVER_USAGE`. BFF readiness nội bộ `/v1/health` trả `200` **và** ping được
+  Postgres (trả `503` khi DB không truy cập được). Liveness dùng `/v1/health/live` (chỉ kiểm tra config,
+  không chạm DB, để DB sự cố không làm kubelet restart pod).
 - Authenticated Cognito và sandbox lifecycle chưa được test end-to-end trên trình duyệt với tài khoản thật.
 - GPU: stack `05-gpu` (tên cũ `99-unverified-gpu`) đã apply; profile GPU trong hub đã bật. Shared L4 (g6) phụ thuộc
   capacity AWS; đã kiểm chứng time-slicing trên g4dn (T4). Không apply `01-foundation` khi chưa reconcile state.

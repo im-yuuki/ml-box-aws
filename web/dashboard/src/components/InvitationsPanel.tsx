@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Alert, Button, Card, Form, Input, ListBox, Select, TextField } from "@heroui/react";
+import { Button, Card, Form, Input, ListBox, Select, TextField } from "@heroui/react";
 import { Check, Send, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
+import FeedbackAlert from "@/components/FeedbackAlert";
 import { canManageTeams, type SpaceSummary } from "@/lib/spaces";
 
 type Invitation = { id: string; email: string; role: "admin" | "member" | "viewer"; status: string };
@@ -19,6 +20,7 @@ export default function InvitationsPanel({ space }: { space: SpaceSummary }) {
   const [role, setRole] = useState("member");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const manager = canManageTeams(space.role);
 
   const load = useCallback(async () => {
@@ -51,6 +53,7 @@ export default function InvitationsPanel({ space }: { space: SpaceSummary }) {
     }
     setBusy(true);
     setError(null);
+    setNotice(null);
     try {
       const response = await bffFetch(`/api/bff/spaces/${encodeURIComponent(space.id)}/invitations`, {
         method: "POST",
@@ -62,6 +65,7 @@ export default function InvitationsPanel({ space }: { space: SpaceSummary }) {
         return;
       }
       setEmail("");
+      setNotice(t("inviteSent", { email: value }));
       await load();
     } finally {
       setBusy(false);
@@ -70,9 +74,12 @@ export default function InvitationsPanel({ space }: { space: SpaceSummary }) {
 
   const revoke = async (id: string) => {
     setBusy(true);
+    setError(null);
+    setNotice(null);
     try {
       const response = await bffFetch(`/api/bff/spaces/${encodeURIComponent(space.id)}/invitations/${encodeURIComponent(id)}`, { method: "DELETE" });
       if (!response.ok) setError(t("revokeFailed"));
+      else setNotice(t("invitationRevoked"));
       await load();
     } finally {
       setBusy(false);
@@ -81,9 +88,12 @@ export default function InvitationsPanel({ space }: { space: SpaceSummary }) {
 
   const accept = async (id: string) => {
     setBusy(true);
+    setError(null);
+    setNotice(null);
     try {
       const response = await bffFetch(`/api/bff/invitations/${encodeURIComponent(id)}/accept`, { method: "POST" });
       if (!response.ok) setError(t("acceptFailed"));
+      else setNotice(t("invitationAccepted"));
       await load();
     } finally {
       setBusy(false);
@@ -137,7 +147,8 @@ export default function InvitationsPanel({ space }: { space: SpaceSummary }) {
         </ul>
       ) : null}
 
-      {error ? <Alert status="danger"><Alert.Content><Alert.Description>{error}</Alert.Description></Alert.Content></Alert> : null}
+      {notice ? <FeedbackAlert status="success">{notice}</FeedbackAlert> : null}
+      {error ? <FeedbackAlert status="danger">{error}</FeedbackAlert> : null}
     </Card>
   );
 }

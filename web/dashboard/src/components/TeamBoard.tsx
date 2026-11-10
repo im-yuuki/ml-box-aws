@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { Alert, Button, Card, Form, Input, ListBox, Select, Spinner, TextField } from "@heroui/react";
+import { Button, Card, Form, Input, ListBox, Select, Spinner, TextField } from "@heroui/react";
+import FeedbackAlert from "@/components/FeedbackAlert";
 import { ArrowLeft, LogIn, Plus, RotateCcw, UserMinus, UserPlus, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
@@ -35,6 +36,8 @@ export default function TeamBoard() {
   const [memberId, setMemberId] = useState("");
   const [memberRole, setMemberRole] = useState("member");
   const [memberError, setMemberError] = useState<string | null>(null);
+  const [teamNotice, setTeamNotice] = useState<string | null>(null);
+  const [memberNotice, setMemberNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const loadMembers = useCallback(async (space: string, teamId: string) => {
@@ -73,12 +76,14 @@ export default function TeamBoard() {
   const selectTeam = async (teamId: string) => {
     setSelectedTeamId(teamId);
     setMemberError(null);
+    setMemberNotice(null);
     if (spaceId) await loadMembers(spaceId, teamId);
   };
 
   const createTeam = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setTeamError(null);
+    setTeamNotice(null);
     const validated = validateTeamName(teamName);
     if (!validated.ok || !spaceId) {
       setTeamError(t("teamNameRequired"));
@@ -96,6 +101,7 @@ export default function TeamBoard() {
         return;
       }
       setTeamName("");
+      setTeamNotice(t("teamCreated"));
       await loadTeams(spaceId);
     } finally {
       setBusy(false);
@@ -105,6 +111,7 @@ export default function TeamBoard() {
   const addMember = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setMemberError(null);
+    setMemberNotice(null);
     const validated = validateMemberId(memberId);
     const role = parseTeamRole(memberRole);
     if (!validated.ok || !role || !spaceId || !selectedTeamId) {
@@ -123,6 +130,7 @@ export default function TeamBoard() {
         return;
       }
       setMemberId("");
+      setMemberNotice(t("memberAdded"));
       await loadMembers(spaceId, selectedTeamId);
     } finally {
       setBusy(false);
@@ -132,6 +140,7 @@ export default function TeamBoard() {
   const removeMember = async (userId: string) => {
     if (!spaceId || !selectedTeamId) return;
     setMemberError(null);
+    setMemberNotice(null);
     setBusy(true);
     try {
       const response = await bffFetch(`/api/bff/spaces/${encodeURIComponent(spaceId)}/teams/${encodeURIComponent(selectedTeamId)}/members/${encodeURIComponent(userId)}`, { method: "DELETE" });
@@ -139,6 +148,7 @@ export default function TeamBoard() {
         setMemberError(response.status === 403 ? t("memberForbidden") : t("memberRemoveFailed"));
         return;
       }
+      setMemberNotice(t("memberRemoved"));
       await loadMembers(spaceId, selectedTeamId);
     } finally {
       setBusy(false);
@@ -192,7 +202,8 @@ export default function TeamBoard() {
           <Button type="submit" variant="primary" isPending={busy} isDisabled={busy}><Plus aria-hidden="true" size={16} />{t("createTeam")}</Button>
         </Form>
       </section>
-      {teamError ? <Alert status="danger"><Alert.Content><Alert.Description>{teamError}</Alert.Description></Alert.Content></Alert> : null}
+      {teamNotice ? <FeedbackAlert status="success">{teamNotice}</FeedbackAlert> : null}
+      {teamError ? <FeedbackAlert status="danger">{teamError}</FeedbackAlert> : null}
 
       {teams.length === 0 ? (
         <Card className="p-6">
@@ -214,7 +225,7 @@ export default function TeamBoard() {
           {selectedTeam ? (
             <Card className="p-6" aria-labelledby="team-detail-title">
               <h2 id="team-detail-title">{selectedTeam.name}</h2>
-              {membersError ? <Alert status="danger"><Alert.Content><Alert.Description>{membersError}</Alert.Description></Alert.Content></Alert> : null}
+              {membersError ? <FeedbackAlert status="danger">{membersError}</FeedbackAlert> : null}
               {members.length === 0 && !membersError ? <p>{t("noMembers")}</p> : null}
               <ul aria-label={t("memberList")} className="flex flex-col gap-2">
                 {members.map((member) => (
@@ -243,7 +254,8 @@ export default function TeamBoard() {
                 </Select>
                 <Button type="submit" variant="primary" isPending={busy} isDisabled={busy}><UserPlus aria-hidden="true" size={16} />{t("addMember")}</Button>
               </Form>
-              {memberError ? <Alert status="danger"><Alert.Content><Alert.Description>{memberError}</Alert.Description></Alert.Content></Alert> : null}
+              {memberNotice ? <FeedbackAlert status="success">{memberNotice}</FeedbackAlert> : null}
+              {memberError ? <FeedbackAlert status="danger">{memberError}</FeedbackAlert> : null}
             </Card>
           ) : null}
         </div>

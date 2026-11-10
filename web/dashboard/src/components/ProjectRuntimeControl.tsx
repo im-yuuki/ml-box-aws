@@ -5,6 +5,7 @@ import { ExternalLink, Play } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useProjectSandbox } from "@/hooks/useProjectSandbox";
 import InstanceType from "@/components/InstanceType";
+import FeedbackAlert from "@/components/FeedbackAlert";
 
 /**
  * The row's instance type and its single action. While running the action opens the notebook; otherwise
@@ -37,7 +38,7 @@ export default function ProjectRuntimeControl({ projectId }: { projectId: string
           {t("start")}
         </Button>
       )}
-      {error && data ? <p className="workspace-form-error w-full" role="alert">{t(error)}</p> : null}
+      {error && data ? <div className="w-full"><FeedbackAlert status="danger">{t(error)}</FeedbackAlert></div> : null}
     </div>
   );
 }

@@ -16,6 +16,7 @@ export type ActiveSpaceState = {
   loading: boolean;
   failed: boolean;
   setActiveSpaceId: (id: string) => void;
+  reload: () => void;
 };
 
 function readStoredSpaceId(): string | null {
@@ -31,6 +32,7 @@ export function useActiveSpace(): ActiveSpaceState {
   const [storedId, setStoredId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,7 +41,10 @@ export function useActiveSpace(): ActiveSpaceState {
         const response = await bffFetch("/api/bff/spaces", { cache: "no-store" });
         if (!response.ok) throw new Error("spaces unavailable");
         const body = await response.json() as SpaceListResponse;
-        if (!cancelled) setSpaces(Array.isArray(body.spaces) ? body.spaces : []);
+        if (!cancelled) {
+          setSpaces(Array.isArray(body.spaces) ? body.spaces : []);
+          setFailed(false);
+        }
       } catch {
         if (!cancelled) setFailed(true);
       } finally {
@@ -57,6 +62,12 @@ export function useActiveSpace(): ActiveSpaceState {
       window.clearTimeout(task);
       window.removeEventListener(ACTIVE_SPACE_EVENT, onChange);
     };
+  }, [attempt]);
+
+  // Retry after a failed load. Without this a failure would stay on screen until a full page reload.
+  const reload = useCallback(() => {
+    setLoading(true);
+    setAttempt((value) => value + 1);
   }, []);
 
   const setActiveSpaceId = useCallback((id: string) => {
@@ -75,5 +86,6 @@ export function useActiveSpace(): ActiveSpaceState {
     loading,
     failed,
     setActiveSpaceId,
+    reload,
   };
 }

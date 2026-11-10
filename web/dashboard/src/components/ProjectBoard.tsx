@@ -47,7 +47,12 @@ export default function ProjectBoard() {
   const searchParams = useSearchParams();
   const urlQuery = searchParams.get("q") ?? "";
   const [projects, setProjects] = useState<ProjectRecord[]>([]);
-  const { activeSpace } = useActiveSpace();
+  const {
+    activeSpace,
+    loading: spacesLoading,
+    failed: spacesFailed,
+    reload: reloadSpaces,
+  } = useActiveSpace();
   const [teams, setTeams] = useState<TeamOption[]>([]);
   const [loadState, setLoadState] = useState<ProjectLoadState | "loading">(
     "loading",
@@ -166,6 +171,20 @@ export default function ProjectBoard() {
       setCreating(false);
     }
   };
+
+  // Projects load only once a Space is known. If the Spaces request failed (or returned none), the
+  // Projects request never starts, so this must be an error state, not an endless spinner.
+  const spacesUnavailable = !spacesLoading && (spacesFailed || !activeSpace);
+  if (spacesUnavailable) {
+    return (
+      <StatePanel
+        title={t("unavailableTitle")}
+        body={t("unavailableBody")}
+        action={t("retry")}
+        onAction={reloadSpaces}
+      />
+    );
+  }
 
   if (loadState === "loading") {
     return (
