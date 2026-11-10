@@ -1,5 +1,5 @@
 import { getTranslations } from "next-intl/server";
-import BillingPanel from "../BillingPanel";
+import BillingPanel from "./BillingPanel";
 
 export async function generateMetadata() {
   const t = await getTranslations("account");

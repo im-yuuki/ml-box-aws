@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Alert, Button, FieldError, Form, Input, Label, Modal, TextField } from "@heroui/react";
+import { Button, FieldError, Form, Input, Label, Modal, TextField } from "@heroui/react";
 import { Mail } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
+import FeedbackAlert from "@/components/FeedbackAlert";
 
 type Step = "address" | "code";
 
@@ -128,11 +129,7 @@ export default function EmailCard({ email, onChanged }: { email: string; onChang
                         </TextField>
                       )}
                       {notice && step === "code" ? (
-                        <Alert status="success">
-                          <Alert.Content>
-                            <Alert.Description>{notice}</Alert.Description>
-                          </Alert.Content>
-                        </Alert>
+                        <FeedbackAlert status="success">{notice}</FeedbackAlert>
                       ) : null}
                     </Modal.Body>
                     <Modal.Footer className="flex justify-end gap-2">

@@ -2,7 +2,6 @@
 
 import { useState, type FormEvent } from "react";
 import {
-  Alert,
   Button,
   Card,
   Description,
@@ -14,10 +13,10 @@ import {
 import { KeyRound } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
-import ProfileCard from "@/components/account/ProfileCard";
+import FeedbackAlert from "@/components/FeedbackAlert";
 
-/** Profile and password. Login sessions live on the Security page. */
-export default function AccountPanel() {
+/** Change the sign-in password. Lives on the Security page next to the sessions list. */
+export default function PasswordCard() {
   const t = useTranslations("account");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -73,14 +72,12 @@ export default function AccountPanel() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <ProfileCard />
-      <Card className="flex flex-col gap-4 p-5">
+    <Card className="flex flex-col gap-4 p-5">
         <div className="flex flex-col gap-1">
           <h2 className="text-base font-medium">{t("passwordHeading")}</h2>
         </div>
         <Form
-          className="flex max-w-md flex-col gap-4"
+          className="flex flex-col gap-4"
           onSubmit={changePassword}>
           <TextField
             type="password"
@@ -108,18 +105,10 @@ export default function AccountPanel() {
             <Input variant="secondary" fullWidth />
           </TextField>
           {formError ? (
-            <Alert status="danger">
-              <Alert.Content>
-                <Alert.Description>{formError}</Alert.Description>
-              </Alert.Content>
-            </Alert>
+            <FeedbackAlert status="danger">{formError}</FeedbackAlert>
           ) : null}
           {message ? (
-            <Alert status="success">
-              <Alert.Content>
-                <Alert.Description>{message}</Alert.Description>
-              </Alert.Content>
-            </Alert>
+            <FeedbackAlert status="success">{message}</FeedbackAlert>
           ) : null}
           <Button
             type="submit"
@@ -131,7 +120,6 @@ export default function AccountPanel() {
             {t("changePassword")}
           </Button>
         </Form>
-      </Card>
-    </div>
+    </Card>
   );
 }

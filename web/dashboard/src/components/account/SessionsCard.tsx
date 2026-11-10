@@ -95,7 +95,6 @@ export default function SessionsCard() {
     <Card className="flex flex-col gap-4 p-5">
       <div className="flex flex-col gap-1">
         <h2 className="text-base font-medium">{t("securityHeading")}</h2>
-        <p className="text-sm" style={{ color: "var(--muted)" }}>{t("securityBody")}</p>
       </div>
 
       {loading ? (
@@ -154,8 +153,6 @@ export default function SessionsCard() {
 
       {notice ? <FeedbackAlert status="success">{notice}</FeedbackAlert> : null}
       {error ? <FeedbackAlert status="danger">{error}</FeedbackAlert> : null}
-
-      <p className="text-xs" style={{ color: "var(--muted)" }}>{t("sessionsLegacyNote")}</p>
     </Card>
   );
 }

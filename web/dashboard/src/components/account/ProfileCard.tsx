@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
-import { Alert, Avatar, Button, Card, Form, Input, Label, ListBox, Select, Spinner, TextField } from "@heroui/react";
+import { Avatar, Button, Card, Form, Input, Label, ListBox, Select, Spinner, TextField } from "@heroui/react";
 import { ImagePlus, Save, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
@@ -13,8 +13,11 @@ import {
   type AccountProfile,
 } from "@/lib/account";
 import EmailCard from "./EmailCard";
+import FeedbackAlert from "@/components/FeedbackAlert";
 
 type ProfileResponse = { profile?: AccountProfile };
+
+const GENDER_OPTIONS = ["female", "male", "other", "prefer_not_to_say"] as const;
 
 /** Personal details shown across MLBox, with the sign-in email. */
 export default function ProfileCard() {
@@ -25,6 +28,8 @@ export default function ProfileCard() {
   const [fullName, setFullName] = useState("");
   const [jobTitle, setJobTitle] = useState("");
   const [timezone, setTimezone] = useState("");
+  const [birthDate, setBirthDate] = useState("");
+  const [gender, setGender] = useState("prefer_not_to_say");
   const [saving, setSaving] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -37,6 +42,8 @@ export default function ProfileCard() {
     setJobTitle(next.jobTitle ?? "");
     const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     setTimezone(next.timezone ?? ((PROFILE_TIMEZONES as readonly string[]).includes(browserZone) ? browserZone : "UTC"));
+    setBirthDate(next.birthDate ?? "");
+    setGender(next.gender ?? "prefer_not_to_say");
   }, []);
 
   const load = useCallback(async () => {
@@ -69,11 +76,18 @@ export default function ProfileCard() {
       const response = await bffFetch("/api/bff/account/profile", {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ fullName, jobTitle, timezone }),
+        body: JSON.stringify({ fullName, jobTitle, timezone, birthDate, gender }),
       });
       if (response.status === 400) throw new Error("profileInvalid");
       if (!response.ok) throw new Error("profileFailed");
-      setProfile((current) => (current ? { ...current, fullName: fullName.trim() || null, jobTitle: jobTitle.trim() || null, timezone } : current));
+      setProfile((current) => (current ? {
+        ...current,
+        fullName: fullName.trim() || null,
+        jobTitle: jobTitle.trim() || null,
+        timezone,
+        birthDate: birthDate || null,
+        gender,
+      } : current));
       setMessage(t("profileSaved"));
     } catch (failure) {
       setError(t(failure instanceof Error && failure.message === "profileInvalid" ? "profileInvalid" : "profileFailed"));
@@ -131,11 +145,7 @@ export default function ProfileCard() {
   if (loadError || !profile) {
     return (
       <Card className="flex flex-wrap items-center gap-3 p-5">
-        <Alert status="danger">
-          <Alert.Content>
-            <Alert.Description>{t("loadFailed")}</Alert.Description>
-          </Alert.Content>
-        </Alert>
+        <FeedbackAlert status="danger">{t("loadFailed")}</FeedbackAlert>
         <Button size="sm" variant="secondary" onPress={() => void load()}>
           {t("retry")}
         </Button>
@@ -151,7 +161,6 @@ export default function ProfileCard() {
     <Card className="flex flex-col gap-5 p-5">
       <div className="flex flex-col gap-1">
         <h2 className="text-base font-medium">{t("profileHeading")}</h2>
-        <p className="text-sm" style={{ color: "var(--muted)" }}>{t("profileBody")}</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-4">
@@ -185,7 +194,7 @@ export default function ProfileCard() {
         </div>
       </div>
 
-      <Form className="flex max-w-md flex-col gap-4" onSubmit={saveProfile}>
+      <Form className="flex flex-col gap-4" onSubmit={saveProfile}>
         <TextField value={fullName} onChange={setFullName} autoComplete="name">
           <Label>{t("fullNameLabel")}</Label>
           <Input variant="secondary" fullWidth />
@@ -194,6 +203,27 @@ export default function ProfileCard() {
           <Label>{t("jobTitleLabel")}</Label>
           <Input variant="secondary" fullWidth />
         </TextField>
+        <TextField type="date" value={birthDate} onChange={setBirthDate} autoComplete="bday">
+          <Label>{t("birthDateLabel")}</Label>
+          <Input variant="secondary" fullWidth />
+        </TextField>
+        <Select selectedKey={gender} onSelectionChange={(key) => key && setGender(String(key))} variant="secondary">
+          <Label>{t("genderLabel")}</Label>
+          <Select.Trigger>
+            <Select.Value />
+            <Select.Indicator />
+          </Select.Trigger>
+          <Select.Popover>
+            <ListBox>
+              {GENDER_OPTIONS.map((option) => (
+                <ListBox.Item key={option} id={option} textValue={t(`gender.${option}`)}>
+                  {t(`gender.${option}`)}
+                  <ListBox.ItemIndicator />
+                </ListBox.Item>
+              ))}
+            </ListBox>
+          </Select.Popover>
+        </Select>
         <Select selectedKey={timezone} onSelectionChange={(key) => key && setTimezone(String(key))} variant="secondary">
           <Label>{t("timezoneLabel")}</Label>
           <Select.Trigger>
@@ -212,18 +242,10 @@ export default function ProfileCard() {
           </Select.Popover>
         </Select>
         {error ? (
-          <Alert status="danger">
-            <Alert.Content>
-              <Alert.Description>{error}</Alert.Description>
-            </Alert.Content>
-          </Alert>
+          <FeedbackAlert status="danger">{error}</FeedbackAlert>
         ) : null}
         {message ? (
-          <Alert status="success">
-            <Alert.Content>
-              <Alert.Description>{message}</Alert.Description>
-            </Alert.Content>
-          </Alert>
+          <FeedbackAlert status="success">{message}</FeedbackAlert>
         ) : null}
         <Button type="submit" variant="primary" isPending={saving} isDisabled={saving} fullWidth>
           <Save aria-hidden="true" size={16} />

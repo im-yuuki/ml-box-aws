@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Alert, Button, Card } from "@heroui/react";
-import { Ban, Circle, CircleCheck, CreditCard, RotateCcw } from "lucide-react";
+import { Button, Card } from "@heroui/react";
+import { Ban, Check, Circle, CircleCheck, CreditCard, RotateCcw } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
+import FeedbackAlert from "@/components/FeedbackAlert";
 
 type SpaceType = "personal" | "organization";
 type PlanStatus = "active" | "coming_soon";
@@ -20,8 +21,8 @@ type Plan = {
   currency: string;
   billingInterval: string;
   status: PlanStatus;
-  computeUnits: number | null;
-  projects: number | null;
+  credits: number | null;
+  concurrentSandboxes: number | null;
   storageGb: number | null;
   gpuAccess: boolean;
   members?: number | null;
@@ -121,7 +122,7 @@ export default function BillingPanel() {
       setMessage(
         result === "succeeded" ? t("resultSucceeded") : t("resultFailed"),
       );
-      router.replace("/account/subscription");
+      router.replace("/subscription");
     }, 0);
     return () => window.clearTimeout(task);
   }, [result, router, t]);
@@ -134,9 +135,6 @@ export default function BillingPanel() {
     (plan) => !details || plan.spaceType === details.spaceType,
   );
   const activePlans = visiblePlans.filter((plan) => plan.status === "active");
-  const upcomingPlans = visiblePlans.filter(
-    (plan) => plan.status === "coming_soon",
-  );
   const alreadySubscribed =
     !!selectedPlan &&
     details?.subscription?.plan === selectedPlan.name &&
@@ -191,12 +189,12 @@ export default function BillingPanel() {
       string,
       | "billingQuotaProjects"
       | "billingQuotaStorageGb"
-      | "billingQuotaComputeUnits"
+      | "billingQuotaCredits"
       | "billingQuotaMembers"
     > = {
       projects: "billingQuotaProjects",
       storage_gb: "billingQuotaStorageGb",
-      compute_units: "billingQuotaComputeUnits",
+      credits: "billingQuotaCredits",
       members: "billingQuotaMembers",
     };
     const key = labels[resource];
@@ -216,18 +214,10 @@ export default function BillingPanel() {
   return (
     <div id="billing" className="flex scroll-mt-24 flex-col gap-6">
       {error ? (
-        <Alert status="danger">
-          <Alert.Content>
-            <Alert.Description>{error}</Alert.Description>
-          </Alert.Content>
-        </Alert>
+        <FeedbackAlert status="danger">{error}</FeedbackAlert>
       ) : null}
       {message ? (
-        <Alert status="success">
-          <Alert.Content>
-            <Alert.Description>{message}</Alert.Description>
-          </Alert.Content>
-        </Alert>
+        <FeedbackAlert status="success">{message}</FeedbackAlert>
       ) : null}
 
       <Card>
@@ -296,10 +286,10 @@ export default function BillingPanel() {
           <Card.Title>{t("choosePlan")}</Card.Title>
         </Card.Header>
         <Card.Content className="flex flex-col gap-4">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div className="flex gap-3">
             {activePlans.map((plan) => (
               <button
-                className="flex flex-col gap-3 rounded-lg border p-4 text-left transition hover:border-accent"
+                className="flex min-w-0 flex-1 flex-col gap-3 rounded-lg border p-4 text-left transition hover:border-accent"
                 style={{
                   borderColor:
                     selectedPlanId === plan.id
@@ -322,47 +312,24 @@ export default function BillingPanel() {
                   </span>
                   <span className="text-sm">{formatPrice(plan)}</span>
                 </div>
-                <div
-                  className="grid grid-cols-2 gap-1 text-xs"
+                <ul
+                  className="flex flex-col gap-1.5 text-xs"
                   style={{ color: "var(--muted)" }}>
-                  <span>
-                    {formatQuota(plan.computeUnits, t("billingComputeUnits"))}
-                  </span>
-                  <span>
-                    {formatQuota(plan.projects, t("billingProjects"))}
-                  </span>
-                  <span>
-                    {formatQuota(plan.storageGb, t("billingGb"))}
-                  </span>
-                  <span>
-                    {plan.gpuAccess ? t("billingGpuIncluded") : t("billingGpuNotIncluded")}
-                  </span>
-                </div>
+                  {[
+                    formatQuota(plan.credits, t("billingCredits")),
+                    formatQuota(plan.concurrentSandboxes, t("billingConcurrentSandboxes")),
+                    formatQuota(plan.storageGb, t("billingGb")),
+                    ...(plan.gpuAccess ? [t("billingGpuIncluded")] : []),
+                  ].map((benefit) => (
+                    <li key={benefit} className="flex items-start gap-2">
+                      <Check aria-hidden="true" size={14} className="mt-px shrink-0" style={{ color: "var(--accent)" }} />
+                      <span>{benefit}</span>
+                    </li>
+                  ))}
+                </ul>
               </button>
             ))}
           </div>
-          {upcomingPlans.length ? (
-            <div>
-              <p
-                className="mb-2 text-xs font-medium"
-                style={{ color: "var(--muted)" }}>
-                {t("comingSoon")}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {upcomingPlans.map((plan) => (
-                  <span
-                    className="rounded-full border px-3 py-1 text-xs"
-                    style={{
-                      borderColor: "var(--border)",
-                      color: "var(--muted)",
-                    }}
-                    key={plan.id}>
-                    {plan.name} · {t("comingSoon")}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ) : null}
           <div>
             {selectedPlan && !alreadySubscribed ? (
               <Button

@@ -5,6 +5,8 @@ export type AccountProfile = {
   fullName: string | null;
   jobTitle: string | null;
   timezone: string | null;
+  birthDate: string | null;
+  gender: string | null;
   avatarDataUrl: string | null;
   preferredSandboxProfile: string | null;
 };

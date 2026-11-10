@@ -1,12 +1,13 @@
 import { getTranslations } from "next-intl/server";
 import SessionsCard from "@/components/account/SessionsCard";
+import PasswordCard from "@/components/account/PasswordCard";
 
 export async function generateMetadata() {
   const t = await getTranslations("account");
   return { title: `${t("tabs.security")} · MLBox` };
 }
 
-/** Sign-in sessions: see each signed-in device and sign it out. */
+/** Password and sign-in sessions: change the password, and see and sign out each signed-in device. */
 export default async function SecurityPage() {
   const t = await getTranslations("account");
 
@@ -15,6 +16,7 @@ export default async function SecurityPage() {
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">{t("tabs.security")}</h1>
       </header>
+      <PasswordCard />
       <SessionsCard />
     </div>
   );
