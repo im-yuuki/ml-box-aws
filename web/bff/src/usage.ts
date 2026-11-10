@@ -20,6 +20,8 @@ export type UsageResponse = {
   generatedAt: string;
   history?: Array<{ sampledAt: string; runningServers: number; cpuCoresAllocated: number | null; ramGbAllocated: number | null }>;
   historyAvailable?: boolean;
+  /** Monthly compute-unit pool of the account's personal Space (see mock-billing COMPUTE_UNIT_RATES). */
+  computeUnits?: { planId: string; limit: number | null; used: number };
   quota: {
     cpuHours: { limit: number; unit: "cpu-hours"; usage: null; tracking: "not-tracked" };
     ramGb: { limit: number; unit: "GB"; usage: number | null; tracking: "allocated-footprint" };

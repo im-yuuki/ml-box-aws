@@ -254,7 +254,7 @@ resource "kubectl_manifest" "bff_deployment" {
               periodSeconds       = 10
             }
             livenessProbe = {
-              httpGet             = { path = "/v1/health", port = 4000 }
+              httpGet             = { path = "/v1/health/live", port = 4000 }
               initialDelaySeconds = 15
               periodSeconds       = 20
             }

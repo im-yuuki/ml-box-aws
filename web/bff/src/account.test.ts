@@ -27,5 +27,5 @@ test("avatar accepts only small PNG, JPEG and WebP data URLs", () => {
 test("user agents become short device labels", () => {
   assert.equal(describeUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"), "Chrome · Windows");
   assert.equal(describeUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"), "Safari · macOS");
-  assert.equal(describeUserAgent("curl/8.0"), "Trình duyệt không xác định");
+  assert.equal(describeUserAgent("curl/8.0"), null);
 });

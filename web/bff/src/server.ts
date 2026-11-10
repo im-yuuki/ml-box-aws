@@ -47,11 +47,17 @@ import {
 } from "./hub-identity-routing.js";
 import type { HubIdentity } from "./hub-identity.js";
 import {
+  FREE_PLAN_ID,
+  MAX_USAGE_SESSION_HOURS,
   artifactPolicyForPlan,
   getMockPlan,
   isMockPaymentMethod,
   isMockPaymentOutcome,
   listMockPlans,
+  planAllowsRuntime,
+  runtimeAccessDecision,
+  runtimeClassForProfile,
+  unitsPerHourForRuntime,
   type MockPaymentMethod,
   type MockPaymentOutcome,
   type SpaceType,
@@ -351,6 +357,8 @@ async function verifyIdToken(runtime: RuntimeConfig, token: string): Promise<JWT
   return payload;
 }
 
+class AppDatabaseUnavailableError extends Error {}
+
 async function ensureAppBootstrap(session: Session): Promise<void> {
   if (!appStore) return;
   appSchemaReady ??= appStore.ensureSchema();
@@ -359,7 +367,7 @@ async function ensureAppBootstrap(session: Session): Promise<void> {
     await appStore.ensureUserBootstrap(session.subject, session.email);
   } catch (error) {
     appSchemaReady = null;
-    throw new Error("Application database unavailable", { cause: error });
+    throw new AppDatabaseUnavailableError("Application database unavailable", { cause: error });
   }
 }
 
@@ -532,7 +540,9 @@ app.addHook("onRequest", async (request, reply) => {
   requireCsrf(request, reply);
 });
 
-app.get("/v1/health", async (_request, reply) => {
+// Liveness: the process is up and its runtime configuration is complete. Does not touch the database,
+// so a database outage cannot make the kubelet restart a healthy pod.
+app.get("/v1/health/live", async (_request, reply) => {
   try {
     runtimeConfig();
     return { status: "ok", configured: true };
@@ -545,6 +555,30 @@ app.get("/v1/health", async (_request, reply) => {
       message: error instanceof Error ? error.message : "Invalid runtime configuration",
     });
   }
+});
+
+// Readiness: configuration is complete AND the app database answers. Traffic is withheld while it does not.
+app.get("/v1/health", async (request, reply) => {
+  try {
+    runtimeConfig();
+  } catch (error) {
+    const missing = missingConfig();
+    return reply.code(503).send({
+      status: "degraded",
+      configured: false,
+      missing,
+      message: error instanceof Error ? error.message : "Invalid runtime configuration",
+    });
+  }
+  if (appStore) {
+    try {
+      await appStore.ping();
+    } catch (error) {
+      request.log.error({ err: error }, "Readiness check: app database unreachable");
+      return reply.code(503).send({ status: "degraded", configured: true, database: "unavailable" });
+    }
+  }
+  return { status: "ok", configured: true, database: appStore ? "ok" : "not_configured" };
 });
 
 app.get("/v1/auth/csrf", async (_request, reply) => {
@@ -622,13 +656,19 @@ app.post<{ Body: AuthBody }>("/v1/auth/login", async (request, reply) => {
       subject,
       expiresAt: Math.floor(Date.now() / 1000) + (result.AuthenticationResult.ExpiresIn ?? 3600),
     };
+    // Record the session first: if the app database is down, sign-in is refused up front instead of
+    // issuing a cookie whose Security-page row and every authenticated call would then fail.
+    await recordLoginSession(request, session);
     const refreshToken = result.AuthenticationResult.RefreshToken;
     if (refreshToken) await saveRefreshToken(runtime, session.sessionId, refreshToken);
-    await recordLoginSession(request, session);
     await setSessionCookie(reply, runtime, session);
     setCsrfCookie(reply, runtime.secureCookies);
     return { user: { email: session.email } };
   } catch (error) {
+    if (error instanceof AppDatabaseUnavailableError) {
+      request.log.error({ err: error }, "Login refused: app database unavailable");
+      return reply.code(503).send(DB_UNAVAILABLE);
+    }
     request.log.warn({ err: error }, "Cognito login failed");
     return reply.code(authErrorStatus(error)).send(publicError(error));
   }
@@ -795,14 +835,15 @@ app.post("/v1/auth/logout", async (request, reply) => {
 
 const DB_UNAVAILABLE = { error: "APP_DATABASE_UNAVAILABLE", message: "Dịch vụ ứng dụng tạm thời không khả dụng." };
 
-// Records the login so the Security page can list and revoke it. Failure here must not block sign-in.
+// Records the login so the Security page can list and revoke it. Errors propagate: a session that is
+// not recorded would be rejected by requireSession later, so sign-in must fail instead of succeeding.
 async function recordLoginSession(request: FastifyRequest, session: Session): Promise<void> {
   if (!appStore) return;
+  await ensureAppBootstrap(session);
   try {
-    await ensureAppBootstrap(session);
     await appStore.recordAuthSession(session.sessionId, session.subject, String(request.headers["user-agent"] ?? ""));
   } catch (error) {
-    request.log.warn({ err: error }, "Login session could not be recorded");
+    throw new AppDatabaseUnavailableError("Login session could not be recorded", { cause: error });
   }
 }
 
@@ -923,6 +964,7 @@ app.get("/v1/account/sessions", async (request, reply) => {
       sessions: rows.map((row) => ({
         id: row.sessionId,
         label: describeUserAgent(row.userAgent),
+        // null → the dashboard shows its localized "unknown browser" text.
         createdAt: row.createdAt,
         lastSeenAt: row.lastSeenAt,
         current: row.sessionId === session.sessionId,
@@ -1468,7 +1510,14 @@ app.get<{ Params: { projectId: string } }>("/v1/projects/:projectId/sandbox/prof
   if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Project storage is not configured." });
   try {
     if (!(await projectActionAllowed(reply, session.subject, request.params.projectId, "read"))) return;
-    return { projectId: request.params.projectId, profiles: listSandboxProfiles(sandboxGpuProfiles) };
+    // Profiles the Space's plan cannot run are listed as unavailable, so the UI does not offer a start that will be refused.
+    const spacePlan = await appStore.spaceAndPlanForProject(request.params.projectId);
+    const plan = getMockPlan(spacePlan?.planId ?? FREE_PLAN_ID) ?? getMockPlan(FREE_PLAN_ID)!;
+    const profiles = listSandboxProfiles(sandboxGpuProfiles).map((profile) => ({
+      ...profile,
+      available: profile.available && planAllowsRuntime(plan, runtimeClassForProfile(profile.kind)) === null,
+    }));
+    return { projectId: request.params.projectId, profiles };
   } catch (error) {
     request.log.error({ err: error }, "Sandbox profile list failed");
     return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Project storage is temporarily unavailable." });
@@ -1489,6 +1538,9 @@ app.post<{ Params: { projectId: string }; Body: { profile?: unknown } | undefine
   }
   try {
     if (!(await projectActionAllowed(reply, session.subject, projectId, "operate"))) return;
+    // Persist this user's Hub identity before creating the runtime row. Otherwise a first sign-in that starts
+    // a Project right away (without visiting Usage/Quota first) gets PROJECT_OWNER_NOT_READY.
+    await persistSessionHubIdentity(await resolveSessionHubIdentity(session));
     let runtime;
     try {
       runtime = await appStore.ensureProjectSandboxRuntime(projectId);
@@ -1512,9 +1564,30 @@ app.post<{ Params: { projectId: string }; Body: { profile?: unknown } | undefine
     if (!shouldStartHubSandbox(existing)) {
       return { ok: true, projectId, state: mapHubServerState(existing) };
     }
+    // Plan gate: GPU profiles need a GPU-enabled plan, and a Space that has used its monthly compute units cannot start more runtimes.
+    const spacePlan = await appStore.spaceAndPlanForProject(projectId);
+    if (!spacePlan) return reply.code(404).send({ error: "NOT_FOUND", message: "Project không tồn tại." });
+    const plan = getMockPlan(spacePlan.planId ?? FREE_PLAN_ID) ?? getMockPlan(FREE_PLAN_ID)!;
+    const runtimeClass = runtimeClassForProfile(resolved.profile.kind);
+    // Sessions left open by a crashed runtime are closed at the cap before the balance is read.
+    await appStore.closeStaleUsageSessions(spacePlan.spaceId, MAX_USAGE_SESSION_HOURS);
+    const unitsUsed = plan.computeUnits === null ? 0 : await appStore.computeUnitsUsedThisMonth(spacePlan.spaceId);
+    const access = runtimeAccessDecision(plan, runtimeClass, unitsUsed);
+    if (!access.allowed) {
+      if (access.code === "COMPUTE_UNITS_EXHAUSTED") {
+        return reply.code(429).send({ error: "QUOTA_EXCEEDED", metric: "compute_units", limit: plan.computeUnits, current: unitsUsed, enforcement: "enforced" });
+      }
+      return reply.code(403).send({ error: access.code, message: "Profile này cần gói trả phí. Hãy nâng cấp gói để dùng." });
+    }
     // RAM quota: the Hub user's other servers count, and the chosen profile's RAM is the request.
+    // A 404 means the Hub user was never created (the Hub record and the BFF's identity can disagree), so
+    // the start must provision the user first. Hard-coding "exists" made every start fail with 404.
+    let hubUserExists = true;
     const hubUser = await hubRequest<HubUser>(hub, "GET", `/hub/api/users/${usernamePath(username)}`).catch((error) => {
-      if (hubStatus(error) === 404) return { servers: {} } as HubUser;
+      if (hubStatus(error) === 404) {
+        hubUserExists = false;
+        return { servers: {} } as HubUser;
+      }
       throw error;
     });
     const otherServers = (Object.entries(hubUser.servers ?? {}) as Array<[string, HubServer]>)
@@ -1533,7 +1606,7 @@ app.post<{ Params: { projectId: string }; Body: { profile?: unknown } | undefine
     }
     const lifecycle = await resolveStartLifecycle({
       start: () => startHubSandbox({
-        userExists: true,
+        userExists: hubUserExists,
         ensureUser: async () => {
           await ensureRuntimeHubUser(hub, username);
         },
@@ -1545,7 +1618,7 @@ app.post<{ Params: { projectId: string }; Body: { profile?: unknown } | undefine
       audit: (action, metadata) => auditLifecycle(session, action, projectId, metadata),
     });
     if (lifecycle.state === "ready" || lifecycle.state === "starting") {
-      await appStore.openUsageSession(projectId, session.subject);
+      await appStore.openUsageSession(projectId, session.subject, unitsPerHourForRuntime(runtimeClass));
       // The started profile is remembered for the Project and as the user's default for the next start.
       await appStore.setSandboxProfile(projectId, resolved.profile.slug);
     }
@@ -1853,6 +1926,14 @@ app.get("/v1/usage", async (request, reply) => {
     const servers = Object.entries(user.servers ?? {}).map(([key, server]) => usageServer(key, server));
     await fillPodResources(servers, hubUsername, request.log);
     const result = buildUsageResponse(servers, quotas);
+    if (appStore) {
+      // Compute units are a Space pool; the personal Space is the one this account's runtimes bill to.
+      const spaceId = `personal:${session.subject}`;
+      await appStore.closeStaleUsageSessions(spaceId, MAX_USAGE_SESSION_HOURS);
+      const planId = await appStore.activePlanIdForSpace(spaceId);
+      const plan = getMockPlan(planId ?? FREE_PLAN_ID) ?? getMockPlan(FREE_PLAN_ID)!;
+      result.computeUnits = { planId: plan.id, limit: plan.computeUnits, used: await appStore.computeUnitsUsedThisMonth(spaceId) };
+    }
     if (usageStore) {
       try {
         usageSchemaReady ??= usageStore.ensureSchema();

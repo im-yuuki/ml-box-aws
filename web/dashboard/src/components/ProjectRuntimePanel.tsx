@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Alert, Button, Card, Chip, Label, ListBox, Select, Spinner } from "@heroui/react";
+import { Button, Card, Chip, Label, ListBox, Select, Spinner } from "@heroui/react";
+import FeedbackAlert from "@/components/FeedbackAlert";
 import { ExternalLink, Play, Square } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 import { useProjectSandbox } from "@/hooks/useProjectSandbox";
 import { runtimeChipColor } from "@/lib/artifacts";
+import { openNotebookViaHandoff } from "@/lib/notebookHandoff";
 
 type UsageSummary = { hours: number; sessions: number; openSession: boolean; windowDays: number };
 
@@ -18,6 +20,7 @@ export default function ProjectRuntimePanel({ projectId }: { projectId: string }
   const [chosenProfile, setChosenProfile] = useState<string | null>(null);
   const profile = chosenProfile ?? preferredProfile ?? "cpu-small";
   const [usage, setUsage] = useState<UsageSummary | null>(null);
+  const [openFailed, setOpenFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,7 +49,8 @@ export default function ProjectRuntimePanel({ projectId }: { projectId: string }
       <Card.Content className="flex flex-col gap-4">
         {loading && !data ? <div className="flex items-center gap-2 text-sm" role="status"><Spinner size="sm" /><span>{t("loading")}</span></div> : null}
         {data ? <Chip size="sm" variant="soft" color={runtimeChipColor(stateKey)} aria-live="polite" className="w-fit">{t(`state.${stateKey}`)}</Chip> : null}
-        {error ? <Alert status="danger"><Alert.Content><Alert.Description>{t(error)}</Alert.Description></Alert.Content></Alert> : null}
+        {error ? <FeedbackAlert status="danger">{t(error)}</FeedbackAlert> : null}
+        {openFailed ? <FeedbackAlert status="danger">{t("openFailed")}</FeedbackAlert> : null}
         <Select
             selectedKey={running && runningProfile ? runningProfile : profile}
             onSelectionChange={(key) => key && setChosenProfile(String(key))}
@@ -74,7 +78,7 @@ export default function ProjectRuntimePanel({ projectId }: { projectId: string }
           </Select>
         <div className="flex flex-wrap gap-2">
           {running && url ? (
-            <Button variant="secondary" size="sm" onPress={() => window.open(url, "_blank", "noopener")} fullWidth><ExternalLink aria-hidden="true" size={14} />{t("open")}</Button>
+            <Button variant="secondary" size="sm" onPress={() => { setOpenFailed(false); void openNotebookViaHandoff(url).then((ok) => { if (!ok) setOpenFailed(true); }); }} fullWidth><ExternalLink aria-hidden="true" size={14} />{t("open")}</Button>
           ) : (
             <Button variant="primary" size="sm" isDisabled={busy || loading || !canOperate || stateKey === "starting"} onPress={() => void act("start", profile)} fullWidth>
               <Play aria-hidden="true" size={14} />

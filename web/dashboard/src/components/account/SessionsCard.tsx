@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Button, Card, Chip, Spinner } from "@heroui/react";
+import { Button, Card, Chip, Spinner } from "@heroui/react";
 import { LogOut, MonitorSmartphone, RotateCcw } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { bffFetch } from "@/lib/bffFetch";
+import FeedbackAlert from "@/components/FeedbackAlert";
 import type { LoginSession } from "@/lib/account";
 
 type SessionsResponse = { sessions?: LoginSession[] };
@@ -20,6 +21,7 @@ export default function SessionsCard() {
   const [loadError, setLoadError] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -47,6 +49,7 @@ export default function SessionsCard() {
   const revoke = async (session: LoginSession) => {
     setBusyId(session.id);
     setError(null);
+    setNotice(null);
     try {
       const response = await bffFetch(`/api/bff/account/sessions/${encodeURIComponent(session.id)}`, { method: "DELETE" });
       if (!response.ok) {
@@ -58,6 +61,7 @@ export default function SessionsCard() {
         router.push("/login");
         return;
       }
+      setNotice(t("sessionRevoked"));
       await load();
     } catch {
       setError(t("revokeFailed"));
@@ -69,12 +73,14 @@ export default function SessionsCard() {
   const revokeOthers = async () => {
     setBusyId("others");
     setError(null);
+    setNotice(null);
     try {
       const response = await bffFetch("/api/bff/account/sessions/revoke-others", { method: "POST" });
       if (!response.ok) {
         setError(t("revokeFailed"));
         return;
       }
+      setNotice(t("otherSessionsRevoked"));
       await load();
     } catch {
       setError(t("revokeFailed"));
@@ -101,11 +107,7 @@ export default function SessionsCard() {
 
       {loadError ? (
         <div className="flex flex-wrap items-center gap-3">
-          <Alert status="danger">
-            <Alert.Content>
-              <Alert.Description>{t("loadFailed")}</Alert.Description>
-            </Alert.Content>
-          </Alert>
+          <FeedbackAlert status="danger">{t("loadFailed")}</FeedbackAlert>
           <Button size="sm" variant="secondary" onPress={() => void load()}>
             <RotateCcw aria-hidden="true" size={14} />
             {t("retry")}
@@ -125,7 +127,7 @@ export default function SessionsCard() {
                 <MonitorSmartphone aria-hidden="true" size={18} className="mt-0.5 shrink-0" />
                 <div className="flex min-w-0 flex-col gap-1">
                   <span className="flex flex-wrap items-center gap-2 text-sm font-medium">
-                    {session.label}
+                    {session.label ?? t("unknownBrowser")}
                     {session.current ? <Chip size="sm" variant="soft" color="success">{t("currentSession")}</Chip> : null}
                   </span>
                   <span className="text-xs" style={{ color: "var(--muted)" }}>
@@ -150,13 +152,8 @@ export default function SessionsCard() {
         </Button>
       ) : null}
 
-      {error ? (
-        <Alert status="danger">
-          <Alert.Content>
-            <Alert.Description>{error}</Alert.Description>
-          </Alert.Content>
-        </Alert>
-      ) : null}
+      {notice ? <FeedbackAlert status="success">{notice}</FeedbackAlert> : null}
+      {error ? <FeedbackAlert status="danger">{error}</FeedbackAlert> : null}
 
       <p className="text-xs" style={{ color: "var(--muted)" }}>{t("sessionsLegacyNote")}</p>
     </Card>

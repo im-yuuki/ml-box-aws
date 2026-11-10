@@ -7,6 +7,10 @@ import {
   listMockPlans,
   resolveSubscriptionStatus,
   entitlementsForPlan,
+  computeUnitsForRuntime,
+  runtimeClassForProfile,
+  runtimeAccessDecision,
+  unitsPerHourForRuntime,
 } from "./mock-billing.js";
 
 test("mock catalog exposes five active plans and three coming-soon plans", () => {
@@ -59,16 +63,45 @@ test("payment input guards accept only the mock catalog values", () => {
 
 test("plan entitlements are demo-only values", () => {
   assert.deepEqual(entitlementsForPlan(getMockPlan("personal_free")!), {
+    compute_units: 20,
     projects: 1,
     storage_gb: 5,
-    cpu_hours: 10,
-    gpu_hours: 0,
+    gpu_access: 0,
   });
   assert.deepEqual(entitlementsForPlan(getMockPlan("org_team")!), {
+    compute_units: 300,
     projects: 10,
     storage_gb: 100,
-    cpu_hours: 300,
-    gpu_hours: 0,
+    gpu_access: 1,
     members: 3,
   });
+});
+
+test("GPU is included from the cheapest paid plan upward, never on Free", () => {
+  const paid = listMockPlans("personal").filter((plan) => plan.status === "active" && plan.amountCents > 0);
+  assert.ok(paid.length > 0);
+  assert.ok(paid.every((plan) => plan.gpuAccess));
+  assert.equal(getMockPlan("personal_free")?.gpuAccess, false);
+});
+
+test("compute units convert runtime hours using the single rate table", () => {
+  assert.equal(computeUnitsForRuntime("cpuShared", 3), 3);
+  assert.equal(computeUnitsForRuntime("gpu", 0.5), 5);
+  assert.equal(computeUnitsForRuntime("gpu", -1), 0);
+});
+
+test("runtime class follows the profile kind: GPU or shared CPU", () => {
+  assert.equal(runtimeClassForProfile("gpu"), "gpu");
+  assert.equal(runtimeClassForProfile("cpu"), "cpuShared");
+  assert.equal(unitsPerHourForRuntime("cpuShared"), 1);
+});
+
+test("runtime access: GPU needs a paid plan; units block once exhausted", () => {
+  const free = getMockPlan("personal_free")!;
+  const plus = getMockPlan("personal_plus")!;
+  assert.deepEqual(runtimeAccessDecision(free, "gpu", 0), { allowed: false, code: "GPU_NOT_IN_PLAN" });
+  assert.deepEqual(runtimeAccessDecision(plus, "gpu", 0), { allowed: true });
+  assert.deepEqual(runtimeAccessDecision(free, "cpuShared", 19.9), { allowed: true });
+  assert.deepEqual(runtimeAccessDecision(free, "cpuShared", 20), { allowed: false, code: "COMPUTE_UNITS_EXHAUSTED" });
+  assert.equal(unitsPerHourForRuntime("gpu"), 10);
 });

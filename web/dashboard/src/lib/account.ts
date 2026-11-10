@@ -11,7 +11,8 @@ export type AccountProfile = {
 
 export type LoginSession = {
   id: string;
-  label: string;
+  /** null when the User-Agent is not recognised; the UI shows a localized fallback. */
+  label: string | null;
   createdAt: string;
   lastSeenAt: string;
   current: boolean;
