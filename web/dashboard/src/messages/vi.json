@@ -59,8 +59,6 @@
     "unavailableBody": "Dịch vụ workspace tạm thời không khả dụng.",
     "retry": "Thử lại",
     "noResultsTitle": "Không có dự án phù hợp",
-    "projectTeam": "Nhóm",
-    "personalTeam": "Cá nhân",
     "projectId": "Mã dự án",
     "runtimeStatus": "Trạng thái runtime",
     "openProject": "Mở dự án",
@@ -338,7 +336,6 @@
   },
   "projectRuntime": {
     "title": "Sandbox",
-    "body": "File trong notebook được giữ cho Project này trên bộ nhớ dùng chung. Xóa Project sẽ xóa các file này.",
     "loading": "Đang kiểm tra sandbox...",
     "loadFailed": "Không tải được trạng thái sandbox.",
     "start": "Khởi động",
@@ -359,8 +356,6 @@
     "usage": "Thời gian chạy đã ghi nhận: {hours} giờ trong {days} ngày gần nhất",
     "profileLabel": "Cấu hình",
     "quotaExceeded": "Không đủ hạn mức RAM cho cấu hình này. Hãy dừng sandbox khác hoặc chọn cấu hình nhỏ hơn.",
-    "instanceLabel": "Loại instance",
-    "instanceDefault": "Lần khởi động tới:",
     "instanceCpu": "Instance CPU",
     "instanceGpu": "Instance GPU"
   },
@@ -384,7 +379,6 @@
       "name": "Tên tệp không hợp lệ."
     },
     "storageHeading": "Lưu trữ",
-    "storageBody": "Artifact được lưu thành file trong bucket workspace trên AWS S3, theo thư mục của Project này. Danh sách được ghi trong cơ sở dữ liệu MLBox. File quá thời hạn lưu của gói sẽ được xóa vào lần mở Project này tiếp theo.",
     "enableLabel": "Lưu trữ artifacts",
     "enableHint": "Khi tắt, không thể tải lên. Tắt lưu trữ sẽ xóa toàn bộ artifact đã lưu.",
     "retention": "Lưu tối đa {days} ngày. File cũ hơn được xóa khi mở Project này.",

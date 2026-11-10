@@ -59,8 +59,6 @@
     "unavailableBody": "The workspace service is temporarily unavailable.",
     "retry": "Try again",
     "noResultsTitle": "No matching projects",
-    "projectTeam": "Team",
-    "personalTeam": "Personal team",
     "projectId": "Project ID",
     "runtimeStatus": "Runtime status",
     "openProject": "Open project",
@@ -338,7 +336,6 @@
   },
   "projectRuntime": {
     "title": "Sandbox",
-    "body": "Files in the notebook are kept for this Project on shared storage. Deleting the Project deletes them.",
     "loading": "Checking sandbox...",
     "loadFailed": "Could not load sandbox status.",
     "start": "Start",
@@ -359,8 +356,6 @@
     "usage": "Recorded runtime: {hours} h in the last {days} days",
     "profileLabel": "Configuration",
     "quotaExceeded": "Not enough RAM quota for this configuration. Stop another sandbox or choose a smaller one.",
-    "instanceLabel": "Instance type",
-    "instanceDefault": "Next launch:",
     "instanceCpu": "CPU instance",
     "instanceGpu": "GPU instance"
   },
@@ -384,7 +379,6 @@
       "name": "The file name is not valid."
     },
     "storageHeading": "Storage",
-    "storageBody": "Artifacts are stored as files in the workspace bucket on AWS S3, under this Project's folder. Their list is kept in the MLBox database. Files older than your plan's retention period are removed the next time this Project is opened.",
     "enableLabel": "Keep artifacts",
     "enableHint": "When off, uploads are blocked. Turning it off deletes every stored artifact.",
     "retention": "Kept for {days} days. Files older than that are deleted when this Project is opened.",

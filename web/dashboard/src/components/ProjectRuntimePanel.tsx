@@ -7,7 +7,6 @@ import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 import { useProjectSandbox } from "@/hooks/useProjectSandbox";
 import { runtimeChipColor } from "@/lib/artifacts";
-import InstanceType from "@/components/InstanceType";
 
 type UsageSummary = { hours: number; sessions: number; openSession: boolean; windowDays: number };
 
@@ -47,19 +46,12 @@ export default function ProjectRuntimePanel({ projectId }: { projectId: string }
       <Card.Content className="flex flex-col gap-4">
         {loading && !data ? <div className="flex items-center gap-2 text-sm" role="status"><Spinner size="sm" /><span>{t("loading")}</span></div> : null}
         {data ? <Chip size="sm" variant="soft" color={runtimeChipColor(stateKey)} aria-live="polite" className="w-fit">{t(`state.${stateKey}`)}</Chip> : null}
-        <p className="workspace-muted-copy">{t("body")}</p>
-        {running && runningProfile ? (
-          <p className="text-sm" aria-live="polite"><span style={{ color: "var(--muted)" }}>{t("instanceLabel")}: </span><InstanceType slug={runningProfile} profiles={profiles} /></p>
-        ) : !running && preferredProfile ? (
-          <p className="text-sm" style={{ color: "var(--muted)" }}>{t("instanceDefault")} <InstanceType slug={preferredProfile} profiles={profiles} /></p>
-        ) : null}
         {error ? <Alert status="danger"><Alert.Content><Alert.Description>{t(error)}</Alert.Description></Alert.Content></Alert> : null}
-        {!running ? (
-          <Select
-            selectedKey={profile}
+        <Select
+            selectedKey={running && runningProfile ? runningProfile : profile}
             onSelectionChange={(key) => key && setChosenProfile(String(key))}
             variant="secondary"
-            isDisabled={busy || loading || !canOperate || stateKey === "starting"}
+            isDisabled={running || busy || loading || !canOperate || stateKey === "starting"}
           >
             <Label>{t("profileLabel")}</Label>
             <Select.Trigger>
@@ -80,7 +72,6 @@ export default function ProjectRuntimePanel({ projectId }: { projectId: string }
               </ListBox>
             </Select.Popover>
           </Select>
-        ) : null}
         <div className="flex flex-wrap gap-2">
           {running && url ? (
             <Button variant="secondary" size="sm" onPress={() => window.open(url, "_blank", "noopener")} fullWidth><ExternalLink aria-hidden="true" size={14} />{t("open")}</Button>
