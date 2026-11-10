@@ -709,6 +709,77 @@ báo `state: "stopped"` (UI tưởng mọi thứ bình thường).
 - Plan `02-platform` chỉ đổi output, plan `05-gpu` chỉ đổi device plugin + replicas time-slicing (3→2),
   plan `03-hub-app` chỉ update Helm release — không có destroy/recreate.
 
+## ✅ Deploy code dashboard/BFF (image `2096906`) và verify lại trên production
+
+Sau khi CI build xong (PR #12 + 3 commit của lần sửa này), `04-dashboard` được apply với image
+`ghcr.io/im-yuuki/mlbox-{dashboard,bff}:2096906dfa7ef9f69b9c61652000b2971e825e1f`.
+
+| Kiểm tra | Kết quả |
+|---|---|
+| Bug 11 — nhãn/đơn vị entitlement | ✅ "Sandboxes running at once — 5 sandboxes running at once", "Credits — 300 credits / month", "GPU access — 1 GPU access", "Storage — 100 GB storage" (không còn raw key, không còn "5 hours") |
+| Bug 15 — chọn gói | ✅ radio **Personal Pro** được chọn, CTA "Pay for Personal Pro" (trước: Personal Free ⇒ hạ gói) |
+| Bug 17 (một phần) — tên gói hiện tại | ✅ "Current subscription: **Personal Pro**" (trước "personal_pro"). Lịch sử thanh toán vẫn hiện plan id (`personal_pro · Succeeded`) — chưa sửa |
+| Bug 12 — thanh tiến độ + caption | ✅ "283.8 of 300 credits left", "100 of 100 GB left" (đồng nhất với tiêu đề "… left") |
+| Bug 25 — khoá JSON trùng | ✅ tiêu đề "Last 30 days" hiện đúng (trước bị "Usage history" đè) |
+| Bug 14 — nhãn Space | ✅ "Workspace" (trước "Personal Space" cho project của organization) |
+| Bug 38 — start khi đang chạy | ✅ `409 SANDBOX_ALREADY_RUNNING` (start với profile khác không còn bị bỏ qua im lặng) |
+| GPU sau khi deploy BFF mới | ✅ `gpu-l4-shared` → pod Running, `nvidia-smi` → Tesla T4 15360 MiB, home = EFS (`8.0E`), file `e2e-proof.txt` còn nguyên |
+
+Còn lại (chưa xử lý, đã ghi ở trên): Bug 13 (thuật ngữ team ↔ organization) và nhóm lỗi
+UI/thiết kế 16–24: cần chốt tên gọi với bạn.
+
+---
+
+# Lần sửa tiếp (2026-11-11 ~03:00) — quota theo Space, lỗi form inline, thông báo theo locale
+
+Yêu cầu đã chốt: **project thuộc Space nào thì quota/resource/subscription phải thuộc Space đó.**
+
+## ✅ Bug 10 — Quota, credits, storage và subscription theo Space đang chọn
+
+- BFF `GET /v1/usage` nhận `?spaceId=`, kiểm tra user là thành viên của Space đó (không thuộc → 403),
+  mặc định là Space cá nhân. Mọi số liệu (credits pool, storage của Space, số sandbox chạy đồng thời,
+  credit sessions, storage theo project, lịch sử 30 ngày) lấy theo Space đó.
+- Footprint của Hub cũng lọc theo Space: mỗi server Hub đặt tên theo Project, nên server thuộc Space
+  nào được suy từ Project đó (server legacy "default" thuộc Space cá nhân).
+- Dashboard: `/quota` (UsagePanel) và `/subscription` (BillingPanel) gửi `spaceId` của Space đang chọn
+  trong switcher; `/api/bff/usage` forward query string; danh sách gói lọc theo `spaceType` của Space.
+- Route start vốn đã tính theo Space của project (`spaceAndPlanForProject`), nên nay số hiển thị và số
+  bị tính cùng một phạm vi.
+
+## ✅ Bug 26 — Lỗi form hiện inline, không biến thành toast biến mất
+
+`FeedbackAlert` giờ render `Alert` (role="alert") cho lỗi/cảnh báo tại chỗ, còn **thành công** vẫn là
+toast. Trước đó mọi lỗi (kể cả lỗi đăng nhập) chỉ là toast 4 giây ở góc màn hình.
+
+## ✅ Bug 27 — Thông báo lỗi theo locale thay vì tiếng Việt của BFF
+
+- BFF trả `error` (mã) + `message` (tiếng Việt). Dashboard giờ dùng mã để tra bản dịch
+  (namespace `bffErrors`, en + vi) và chỉ rơi về `message` của server khi mã lạ.
+- Áp dụng cho login, register, verify (gửi lại mã), forgot/reset password.
+
+## ✅ Bug 17 (phần lịch sử thanh toán) — Hiện tên gói thay vì plan id
+
+Dòng lịch sử thanh toán hiện "Personal Pro · Succeeded" thay vì "personal_pro · Succeeded".
+
+## ✅ Bug 13 — Thống nhất thuật ngữ: dùng **Team**, bỏ mô hình organization phân cấp
+
+Quyết định: mô hình organization phân cấp đã bị bỏ, giữ mô hình đơn giản — mỗi Space (cá nhân hoặc
+tổ chức) chứa một nhóm phẳng, và UI gọi nhóm đó là **Team**.
+
+- `en.json` đã gọi "Team" ở navbar/switcher; `vi.json` còn trộn "Tổ chức" với "nhóm" → đã thống nhất
+  "Nhóm" (navbar.organization, noOrganizations, home.features.organizations).
+- Vai trò dùng một từ vựng: owner = "Chủ nhóm", admin = "Quản trị viên", member = "Thành viên",
+  viewer = "Người xem" (trước: navbar dùng "Chủ sở hữu"/"Quản trị" còn card thành viên dùng "Owner"/
+  "Quản trị", lời mời dùng "Quản trị viên"/"Chỉ xem").
+- Copy tiếng Anh lẫn tiếng Việt trong câu tiếng Việt đã sửa (teams.subtitle, orgMembersHint,
+  dangerBody, invitations.incoming).
+
+## Vẫn chưa xử lý
+
+- Lịch sử thanh toán chưa có ngày; số liệu storage ở Quota làm tròn "0 GB" cho 32 B.
+- Nhóm lỗi UI/thiết kế 16–24 (empty state không có CTA, chip instance ở list, banner "Sandboxes running
+  at once" lệch style, chart không có trục/giá trị, v.v.): cần một vòng thiết kế riêng.
+
 ## Dữ liệu còn lại từ lần verify này
 
 - Organization `e2e-org-2026-11-11` (id `org:79c6539d-8b4e-411b-8f87-3d08baa979b3`) + project `org-project-e2e`
