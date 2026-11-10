@@ -57,12 +57,11 @@ const artifacts = new Map<string, Array<Record<string, unknown>>>([
 ]);
 
 const plans = [
-  { id: "personal_free", spaceType: "personal", name: "Personal Free", amountCents: 0, currency: "USD", billingInterval: "month", status: "active", computeUnits: 20, projects: 1, storageGb: 5, gpuAccess: false },
-  { id: "personal_plus", spaceType: "personal", name: "Personal Plus", amountCents: 800, currency: "USD", billingInterval: "month", status: "active", computeUnits: 100, projects: 5, storageGb: 25, gpuAccess: true },
-  { id: "personal_pro", spaceType: "personal", name: "Personal Pro", amountCents: 1900, currency: "USD", billingInterval: "month", status: "active", computeUnits: 300, projects: 20, storageGb: 100, gpuAccess: true },
-  { id: "org_team", spaceType: "organization", name: "Organization Team", amountCents: 1900, currency: "USD", billingInterval: "month", status: "active", computeUnits: 300, projects: 10, storageGb: 100, gpuAccess: true, members: 3 },
-  { id: "org_growth", spaceType: "organization", name: "Organization Growth", amountCents: 800, currency: "USD", billingInterval: "month", status: "active", computeUnits: 1000, projects: 50, storageGb: 500, gpuAccess: true, members: null },
-  { id: "personal_power", spaceType: "personal", name: "Personal Power", amountCents: 3900, currency: "USD", billingInterval: "month", status: "coming_soon", computeUnits: null, projects: null, storageGb: null, gpuAccess: true },
+  { id: "personal_free", spaceType: "personal", name: "Personal Free", amountCents: 0, currency: "USD", billingInterval: "month", status: "active", credits: 20, concurrentSandboxes: 1, storageGb: 5, gpuAccess: false },
+  { id: "personal_plus", spaceType: "personal", name: "Personal Plus", amountCents: 800, currency: "USD", billingInterval: "month", status: "active", credits: 100, concurrentSandboxes: 2, storageGb: 25, gpuAccess: true },
+  { id: "personal_pro", spaceType: "personal", name: "Personal Pro", amountCents: 1900, currency: "USD", billingInterval: "month", status: "active", credits: 300, concurrentSandboxes: 5, storageGb: 100, gpuAccess: true },
+  { id: "org_team", spaceType: "organization", name: "Organization Team", amountCents: 1900, currency: "USD", billingInterval: "month", status: "active", credits: 300, concurrentSandboxes: 5, storageGb: 100, gpuAccess: true, members: 3 },
+  { id: "org_growth", spaceType: "organization", name: "Organization Growth", amountCents: 800, currency: "USD", billingInterval: "month", status: "active", credits: 1000, concurrentSandboxes: 15, storageGb: 500, gpuAccess: true, members: null },
 ];
 
 const payments: Array<Record<string, unknown>> = [
@@ -96,9 +95,30 @@ function projectResponse(project: MockProject) {
   return { projectId: project.id, canOperate: true, sandbox: { name: `${project.id}-runtime`, state, url: state === "ready" ? `http://localhost:8888/user/demo/${project.id}` : null } };
 }
 
+// Dates for the last 30 days ending on the mock's "now" (2026-11-07), oldest first.
+function mockDate(daysAgo: number): string {
+  const day = new Date(Date.UTC(2026, 10, 7) - (29 - daysAgo) * 86_400_000);
+  return day.toISOString().slice(0, 10);
+}
+
 function usageResponse() {
   return {
     generatedAt: "2026-11-07T10:00:00.000Z",
+    credits: { planId: "personal_free", limit: 20, used: 6.5 },
+    concurrentSandboxes: { limit: 1, running: 1 },
+    creditSessions: [
+      { id: "s1", projectName: "Project vision", startedAt: "2026-11-07T08:00:00.000Z", endedAt: null, hours: 2, credits: 2 },
+      { id: "s2", projectName: "Project NLP", startedAt: "2026-11-05T13:00:00.000Z", endedAt: "2026-11-05T15:30:00.000Z", hours: 2.5, credits: 2.5 },
+    ],
+    storageByProject: [
+      { projectId: "project-vision", name: "Project vision", storageGb: 0.8 },
+      { projectId: "project-nlp", name: "Project NLP", storageGb: 0.4 },
+    ],
+    resourceHistory: {
+      days: 30,
+      credits: Array.from({ length: 30 }, (_, i) => ({ date: mockDate(i), credits: Number((((i * 7) % 5) * 0.4).toFixed(1)) })),
+      storage: Array.from({ length: 30 }, (_, i) => ({ date: mockDate(i), storageGb: Number((Math.min(1.2, 0.2 + i * 0.04)).toFixed(2)) })),
+    },
     historyAvailable: true,
     history: [
       { sampledAt: "2026-11-05T10:00:00.000Z", runningServers: 1, cpuCoresAllocated: 2, ramGbAllocated: 4 },
@@ -108,7 +128,7 @@ function usageResponse() {
     quota: {
       cpuHours: { limit: 50, unit: "cpu-hours", usage: null, tracking: "not-tracked" },
       ramGb: { limit: 16, unit: "GB", usage: 4, tracking: "allocated-footprint" },
-      storageGb: { limit: 25, unit: "GB", usage: null, tracking: "not-available" },
+      storageGb: { limit: 25, unit: "GB", usage: 1.2, tracking: "measured" },
       gpuHours: { limit: 0, unit: "gpu-hours", usage: null, tracking: "disabled" },
     },
     footprint: {
@@ -136,6 +156,11 @@ export async function mockBff(request: NextRequest, path: string, method: string
   }
 
   if (parts[1] === "spaces" && parts.length === 2 && verb === "GET") return response({ spaces });
+
+  if (parts[1] === "account" && parts[2] === "profile" && verb === "GET") {
+    return response({ profile: { email: DEMO_EMAIL, fullName: "Demo User", jobTitle: null, timezone: "Asia/Ho_Chi_Minh", birthDate: null, gender: "prefer_not_to_say", avatarDataUrl: null, preferredSandboxProfile: null } });
+  }
+  if (parts[1] === "account" && parts[2] === "profile" && verb === "PUT") return response({ ok: true });
 
   if (parts[1] === "projects") {
     const projectId = parts[2];
