@@ -1742,7 +1742,13 @@ app.post<{ Params: { projectId: string }; Body: { profile?: unknown } | undefine
       throw error;
     });
     if (!shouldStartHubSandbox(existing)) {
-      return { ok: true, projectId, state: mapHubServerState(existing) };
+      // The sandbox already runs. Returning the running state silently ignored the requested
+      // profile, so a start with another profile looked like it had worked. Say it instead.
+      return reply.code(409).send({
+        error: "SANDBOX_ALREADY_RUNNING",
+        message: "Sandbox đang chạy. Hãy dừng nó trước khi đổi cấu hình.",
+        state: mapHubServerState(existing),
+      });
     }
     // Plan gate: GPU profiles need a GPU-enabled plan, and a Space that has used its monthly compute units cannot start more runtimes.
     const spacePlan = await appStore.spaceAndPlanForProject(projectId);
@@ -1806,6 +1812,17 @@ app.post<{ Params: { projectId: string }; Body: { profile?: unknown } | undefine
       await appStore.openUsageSession(projectId, session.subject, creditsPerHourForRuntime(runtimeClass));
       // The started profile is remembered for the Project and as the user's default for the next start.
       await appStore.setSandboxProfile(projectId, resolved.profile.slug);
+    }
+    if (lifecycle.state !== "ready" && lifecycle.state !== "starting") {
+      // The Hub accepted the request but the server never came up (spawn timeout, unschedulable
+      // pod, image pull failure). Answer with an error so the UI can show it instead of silently
+      // reporting a stopped sandbox.
+      request.log.error({ projectId, state: lifecycle.state }, "Project sandbox start did not reach a running state");
+      return reply.code(502).send({
+        error: "SANDBOX_START_FAILED",
+        message: "Sandbox không khởi động được. Xem log của Hub để biết lý do.",
+        state: lifecycle.state,
+      });
     }
     return { ok: true, projectId, state: lifecycle.state };
   } catch (error) {

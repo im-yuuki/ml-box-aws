@@ -96,11 +96,18 @@ export default function BillingPanel() {
       setPlans(planBody.plans);
       setDetails(detailsBody);
       setPayments(paymentsBody.payments);
-      setSelectedPlanId((current) =>
-        current && planBody.plans.some((plan) => plan.id === current)
-          ? current
-          : (planBody.plans.find((plan) => plan.status === "active")?.id ?? ""),
-      );
+      // Preselect the plan the Space is actually subscribed to. Falling back to the first
+      // "active" plan in the catalog selected Personal Free while the account ran Personal Pro,
+      // so the pay button silently downgraded the plan.
+      const subscribed = detailsBody.subscription?.plan;
+      setSelectedPlanId((current) => {
+        if (current && planBody.plans.some((plan) => plan.id === current)) return current;
+        const match = subscribed
+          ? planBody.plans.find((plan) => plan.name === subscribed || plan.id === subscribed)
+          : undefined;
+        if (match) return match.id;
+        return planBody.plans.find((plan) => plan.status === "active")?.id ?? "";
+      });
     } catch {
       setError(t("billingLoadFailed"));
     } finally {
@@ -131,6 +138,13 @@ export default function BillingPanel() {
     () => plans.find((plan) => plan.id === selectedPlanId),
     [plans, selectedPlanId],
   );
+  // The BFF returns the plan id ("personal_pro"); people know plans by name.
+  const currentPlanLabel = useMemo(() => {
+    const raw = details?.subscription?.plan;
+    if (!raw) return null;
+    const match = plans.find((plan) => plan.id === raw || plan.name === raw);
+    return match ? match.name : raw;
+  }, [details, plans]);
   const visiblePlans = plans.filter(
     (plan) => !details || plan.spaceType === details.spaceType,
   );
@@ -184,6 +198,9 @@ export default function BillingPanel() {
     t(
       `billingOutcome${value.charAt(0).toUpperCase()}${value.slice(1)}` as "billingOutcomeSucceeded",
     );
+  // The entitlement resource ids come from the BFF (mock-billing.ts). Every one of them needs a
+  // label and a unit: unknown ids used to be printed raw ("concurrent_sandboxes") and every
+  // resource was rendered with the "hours" unit ("5 hours" for a sandbox count).
   const quotaLabel = (resource: string) => {
     const labels: Record<
       string,
@@ -191,14 +208,32 @@ export default function BillingPanel() {
       | "billingQuotaStorageGb"
       | "billingQuotaCredits"
       | "billingQuotaMembers"
+      | "billingQuotaConcurrentSandboxes"
+      | "billingQuotaCpuHours"
+      | "billingQuotaGpuHours"
+      | "billingQuotaGpuAccess"
     > = {
       projects: "billingQuotaProjects",
       storage_gb: "billingQuotaStorageGb",
       credits: "billingQuotaCredits",
       members: "billingQuotaMembers",
+      concurrent_sandboxes: "billingQuotaConcurrentSandboxes",
+      cpu_hours: "billingQuotaCpuHours",
+      gpu_hours: "billingQuotaGpuHours",
+      gpu_access: "billingQuotaGpuAccess",
     };
     const key = labels[resource];
     return key ? t(key) : resource;
+  };
+
+  const quotaUnit = (resource: string) => {
+    if (resource === "storage_gb") return t("billingGb");
+    if (resource === "members") return t("billingMembers");
+    if (resource === "credits") return t("billingCredits");
+    if (resource === "concurrent_sandboxes") return t("billingConcurrentSandboxes");
+    if (resource === "cpu_hours" || resource === "gpu_hours") return t("billingHours");
+    if (resource === "gpu_access") return t("billingGpuAccess");
+    return t("billingProjects");
   };
 
   if (loading) {
@@ -227,9 +262,7 @@ export default function BillingPanel() {
         <Card.Content className="flex flex-col gap-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <p className="text-sm" style={{ color: "var(--muted)" }}>
-              {details?.subscription
-                ? details.subscription.plan
-                : t("noSubscription")}
+              {currentPlanLabel ?? t("noSubscription")}
             </p>
             {details?.subscription ? (
               <span
@@ -250,14 +283,7 @@ export default function BillingPanel() {
                     {quotaLabel(entitlement.resource)}
                   </p>
                   <p className="text-sm font-medium">
-                    {formatQuota(
-                      entitlement.limitValue,
-                      entitlement.resource === "storage_gb"
-                        ? t("billingGb")
-                        : entitlement.resource === "members"
-                          ? t("billingMembers")
-                          : t("billingHours"),
-                    )}
+                    {formatQuota(entitlement.limitValue, quotaUnit(entitlement.resource))}
                   </p>
                 </div>
               ))}

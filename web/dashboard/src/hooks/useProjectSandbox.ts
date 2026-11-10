@@ -33,7 +33,7 @@ export type SandboxProfileOption = {
   available: boolean;
 };
 
-export type SandboxErrorKey = "loadFailed" | "ownerNotReady" | "forbidden" | "startFailed" | "stopFailed" | "quotaExceeded" | "planRequired";
+export type SandboxErrorKey = "loadFailed" | "ownerNotReady" | "forbidden" | "startFailed" | "stopFailed" | "quotaExceeded" | "planRequired" | "alreadyRunning";
 
 /**
  * Loads and operates the notebook runtime of one Project. Shared by the
@@ -83,6 +83,7 @@ export function useProjectSandbox(projectId: string) {
       if (!response.ok) {
         const body = await response.json().catch(() => ({})) as { error?: string };
         if (body.error === "PROJECT_OWNER_NOT_READY") setError("ownerNotReady");
+        else if (body.error === "SANDBOX_ALREADY_RUNNING") setError("alreadyRunning");
         else if (body.error === "QUOTA_EXCEEDED") setError("quotaExceeded");
         else if (body.error === "GPU_NOT_IN_PLAN") setError("planRequired");
         else if (response.status === 403) setError("forbidden");

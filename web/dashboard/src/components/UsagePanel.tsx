@@ -101,14 +101,18 @@ export default function UsagePanel() {
   const creditsLimit = credits?.limit ?? null;
   const creditsUsed = credits?.used ?? 0;
   const creditsLeft = creditsLimit === null ? null : Math.max(0, creditsLimit - creditsUsed);
-  const creditsPercent = creditsLimit ? Math.min(100, (creditsUsed / creditsLimit) * 100) : 0;
-  const creditsLevel = levelFor(creditsPercent);
+  // The card headline is the remaining amount, so the bar must show the remaining share too.
+  // It used to plot the used share, which made a nearly untouched allowance look empty.
+  const creditsUsedPercent = creditsLimit ? Math.min(100, (creditsUsed / creditsLimit) * 100) : 0;
+  const creditsLeftPercent = creditsLimit ? Math.min(100, (creditsLeft ?? 0) / creditsLimit * 100) : 0;
+  const creditsLevel = levelFor(creditsUsedPercent);
 
   const storage = data.quota.storageGb;
   const storageUsed = storage.usage;
   const storageLeft = storageUsed === null ? null : Math.max(0, storage.limit - storageUsed);
-  const storagePercent = storage.limit > 0 && storageUsed !== null ? Math.min(100, (storageUsed / storage.limit) * 100) : 0;
-  const storageLevel = levelFor(storagePercent);
+  const storageUsedPercent = storage.limit > 0 && storageUsed !== null ? Math.min(100, (storageUsed / storage.limit) * 100) : 0;
+  const storageLeftPercent = storage.limit > 0 && storageLeft !== null ? Math.min(100, (storageLeft / storage.limit) * 100) : 0;
+  const storageLevel = levelFor(storageUsedPercent);
 
   const concurrent = data.concurrentSandboxes;
 
@@ -132,7 +136,7 @@ export default function UsagePanel() {
               ? t("creditsUnlimited")
               : t("creditsLeft", { remaining: formatNumber(creditsLeft, 1), limit: formatNumber(creditsLimit, 1) })}
           </span>
-          <ProgressBar aria-label={t("creditsHeading")} value={creditsPercent} color={barColor(creditsLevel)} size="sm">
+          <ProgressBar aria-label={t("creditsHeading")} value={creditsLeftPercent} color={barColor(creditsLevel)} size="sm">
             <ProgressBar.Track>
               <ProgressBar.Fill />
             </ProgressBar.Track>
@@ -150,9 +154,9 @@ export default function UsagePanel() {
           <span className="text-sm">
             {storageUsed === null
               ? t("storageUnmeasured", { limit: formatNumber(storage.limit) })
-              : t("storageLeft", { used: formatNumber(storageUsed), limit: formatNumber(storage.limit) })}
+              : t("storageRemaining", { remaining: formatNumber(storageLeft ?? 0), limit: formatNumber(storage.limit) })}
           </span>
-          <ProgressBar aria-label={t("storageHeading")} value={storagePercent} color={barColor(storageLevel)} size="sm">
+          <ProgressBar aria-label={t("storageHeading")} value={storageLeftPercent} color={barColor(storageLevel)} size="sm">
             <ProgressBar.Track>
               <ProgressBar.Fill />
             </ProgressBar.Track>
@@ -205,7 +209,7 @@ export default function UsagePanel() {
         </section>
       ) : null}
 
-      {creditsLimit !== null && creditsLimit > 0 && creditsPercent >= 80 ? (
+      {creditsLimit !== null && creditsLimit > 0 && creditsUsedPercent >= 80 ? (
         <FeedbackAlert status="warning">{t("quotaWarningCredits")}</FeedbackAlert>
       ) : null}
     </div>

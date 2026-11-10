@@ -48,6 +48,7 @@
   },
   "workspace": {
     "personalSpace": "Cá nhân",
+    "space": "Không gian làm việc",
     "spaceType": "Không gian cá nhân",
     "homeLink": "Về trang chủ MLBox",
     "menu": "Mở menu không gian làm việc",
@@ -203,6 +204,7 @@
     "storageHeading": "Dung lượng còn lại",
     "storageUnmeasured": "Chưa đo được mức dùng, hạn mức {limit} GB",
     "storageLeft": "Đã dùng {used} / {limit} GB",
+    "storageRemaining": "Còn {remaining} / {limit} GB",
     "concurrentHeading": "Sandbox đang chạy cùng lúc",
     "concurrentOf": "{running} / {limit} đang chạy",
     "creditsRemaining": "Còn {remaining} / {limit} credit",
@@ -227,7 +229,6 @@
     "loading": "Đang tải dữ liệu mức dùng…",
     "loadFailed": "Không thể tải dữ liệu mức dùng.",
     "retry": "Thử lại",
-    "historyHeading": "Lịch sử sử dụng",
     "historyUnavailable": "Lịch sử sử dụng chưa được cấu hình hoặc tạm thời không khả dụng.",
     "historyEmpty": "Chưa có mẫu lịch sử. Hãy mở lại trang sau để ghi nhận.",
     "historyTime": "Thời gian"
@@ -278,6 +279,11 @@
     "billingQuotaStorageGb": "Lưu trữ",
     "billingQuotaCredits": "Credit",
     "billingQuotaMembers": "Thành viên",
+    "billingQuotaConcurrentSandboxes": "Sandbox chạy đồng thời",
+    "billingQuotaCpuHours": "Giờ CPU",
+    "billingQuotaGpuHours": "Giờ GPU",
+    "billingQuotaGpuAccess": "Truy cập GPU",
+    "billingGpuAccess": "truy cập GPU",
     "billingStatusActive": "Đang hoạt động",
     "billingStatusPending": "Đang chờ",
     "billingStatusPast_due": "Quá hạn",
@@ -423,6 +429,7 @@
     "startFailed": "Không khởi động được sandbox. Vui lòng thử lại.",
     "stopFailed": "Không dừng được sandbox. Vui lòng thử lại.",
     "ownerNotReady": "Chủ dự án cần đăng nhập dashboard một lần trước khi sandbox khởi động được.",
+    "alreadyRunning": "Sandbox đang chạy. Hãy dừng nó trước khi đổi cấu hình.",
     "state": {
       "running": "Đang chạy",
       "starting": "Đang khởi động",

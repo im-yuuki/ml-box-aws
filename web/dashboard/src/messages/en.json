@@ -48,6 +48,7 @@
   },
   "workspace": {
     "personalSpace": "Personal Space",
+    "space": "Workspace",
     "spaceType": "Personal workspace",
     "homeLink": "Go to MLBox home",
     "menu": "Open workspace menu",
@@ -203,6 +204,7 @@
     "storageHeading": "Storage left",
     "storageUnmeasured": "Usage not measured yet, limit {limit} GB",
     "storageLeft": "{used} of {limit} GB used",
+    "storageRemaining": "{remaining} of {limit} GB left",
     "concurrentHeading": "Sandboxes running at once",
     "concurrentOf": "{running} of {limit} running",
     "creditsRemaining": "{remaining} of {limit} credits left",
@@ -227,7 +229,6 @@
     "loading": "Loading usage…",
     "loadFailed": "Could not load usage data.",
     "retry": "Try again",
-    "historyHeading": "Usage history",
     "historyUnavailable": "Usage history is not configured or temporarily unavailable.",
     "historyEmpty": "No history samples yet. Open this page again later to record a snapshot.",
     "historyTime": "Time"
@@ -278,6 +279,11 @@
     "billingQuotaStorageGb": "Storage",
     "billingQuotaCredits": "Credits",
     "billingQuotaMembers": "Members",
+    "billingQuotaConcurrentSandboxes": "Sandboxes running at once",
+    "billingQuotaCpuHours": "CPU hours",
+    "billingQuotaGpuHours": "GPU hours",
+    "billingQuotaGpuAccess": "GPU access",
+    "billingGpuAccess": "GPU access",
     "billingStatusActive": "Active",
     "billingStatusPending": "Pending",
     "billingStatusPast_due": "Past due",
@@ -423,6 +429,7 @@
     "startFailed": "Could not start the sandbox. Try again.",
     "stopFailed": "Could not stop the sandbox. Try again.",
     "ownerNotReady": "The Project owner needs to sign in to the dashboard once before the sandbox can start.",
+    "alreadyRunning": "The sandbox is already running. Stop it before changing the configuration.",
     "state": {
       "running": "Running",
       "starting": "Starting",

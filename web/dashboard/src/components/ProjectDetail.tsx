@@ -122,12 +122,12 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
                   <dd><CopyableText value={project.id} label={t("projectId")} /></dd>
                 </div>
                 <div>
-                  <dt>{t("personalSpace")}</dt>
+                  <dt>{t("space")}</dt>
                   <dd>
                     {project.spaceId ? (
-                      <CopyableText value={project.spaceId} label={t("personalSpace")} />
+                      <CopyableText value={project.spaceId} label={t("space")} />
                     ) : (
-                      t("personalSpace")
+                      t("space")
                     )}
                   </dd>
                 </div>
