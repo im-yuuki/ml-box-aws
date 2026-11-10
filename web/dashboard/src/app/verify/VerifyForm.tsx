@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Alert, Button, Form, InputOTP, Label } from "@heroui/react";
+import { Button, Form, InputOTP, Label } from "@heroui/react";
 import { Check, RefreshCw } from "lucide-react";
 import { bffFetch } from "@/lib/bffFetch";
 import { VERIFICATION_EMAIL_STORAGE_KEY } from "@/lib/verification";
+import FeedbackAlert from "@/components/FeedbackAlert";
 
 export default function VerifyForm() {
   const t = useTranslations("verify");
@@ -142,11 +143,7 @@ export default function VerifyForm() {
         </InputOTP>
       </div>
       {error ? (
-        <Alert status="danger">
-          <Alert.Content>
-            <Alert.Description>{error}</Alert.Description>
-          </Alert.Content>
-        </Alert>
+        <FeedbackAlert status="danger">{error}</FeedbackAlert>
       ) : null}
       <Button
         type="submit"

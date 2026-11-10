@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 import {
-  Alert,
   Button,
   Description,
   Form,
@@ -15,6 +14,7 @@ import {
 } from "@heroui/react";
 import { UserPlus } from "lucide-react";
 import { VERIFICATION_EMAIL_STORAGE_KEY } from "@/lib/verification";
+import FeedbackAlert from "@/components/FeedbackAlert";
 
 async function responseMessage(
   response: Response,
@@ -101,11 +101,7 @@ export default function RegisterForm() {
         <Description>{t("passwordHint")}</Description>
       </TextField>
       {error ? (
-        <Alert status="danger">
-          <Alert.Content>
-            <Alert.Description>{error}</Alert.Description>
-          </Alert.Content>
-        </Alert>
+        <FeedbackAlert status="danger">{error}</FeedbackAlert>
       ) : null}
       <Button
         type="submit"

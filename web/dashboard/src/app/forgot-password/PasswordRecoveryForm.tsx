@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Alert, Button, Form, Input, Label, TextField } from "@heroui/react";
+import { Button, Form, Input, Label, TextField } from "@heroui/react";
 import { ArrowLeft, KeyRound, Mail } from "lucide-react";
 import { bffFetch } from "@/lib/bffFetch";
+import FeedbackAlert from "@/components/FeedbackAlert";
 
 export default function PasswordRecoveryForm({
   mode,
@@ -103,11 +104,7 @@ export default function PasswordRecoveryForm({
             </>
           ) : null}
           {error ? (
-            <Alert status="danger">
-              <Alert.Content>
-                <Alert.Description>{error}</Alert.Description>
-              </Alert.Content>
-            </Alert>
+            <FeedbackAlert status="danger">{error}</FeedbackAlert>
           ) : null}
           <Button
             type="submit"

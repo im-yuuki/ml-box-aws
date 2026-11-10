@@ -4,8 +4,9 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
-import { Alert, Button, Form, Input, Label, TextField } from "@heroui/react";
+import { Button, Form, Input, Label, TextField } from "@heroui/react";
 import { LogIn } from "lucide-react";
+import FeedbackAlert from "@/components/FeedbackAlert";
 
 function safeNext(value: string | null): string {
   return value?.startsWith("/") && !value.startsWith("//")
@@ -88,11 +89,7 @@ export default function LoginForm() {
         />
       </TextField>
       {error ? (
-        <Alert status="danger">
-          <Alert.Content>
-            <Alert.Description>{error}</Alert.Description>
-          </Alert.Content>
-        </Alert>
+        <FeedbackAlert status="danger">{error}</FeedbackAlert>
       ) : null}
       <Button
         type="submit"

@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Alert, Button, Modal } from "@heroui/react";
+import { Button, Modal } from "@heroui/react";
 import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
+import FeedbackAlert from "@/components/FeedbackAlert";
 
 /** Deletes a Project after confirmation. Artifacts, usage history and the sandbox record go with it. */
 export default function ProjectDeleteButton({ projectId, projectName }: { projectId: string; projectName: string }) {
@@ -53,11 +54,7 @@ export default function ProjectDeleteButton({ projectId, projectName }: { projec
                 <Modal.Body className="flex flex-col gap-3">
                   <p className="text-sm">{t("deleteConfirmBody", { name: projectName })}</p>
                   {error ? (
-                    <Alert status="danger">
-                      <Alert.Content>
-                        <Alert.Description>{error}</Alert.Description>
-                      </Alert.Content>
-                    </Alert>
+                    <FeedbackAlert status="danger">{error}</FeedbackAlert>
                   ) : null}
                 </Modal.Body>
                 <Modal.Footer className="flex justify-end gap-2">

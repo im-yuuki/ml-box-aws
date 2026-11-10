@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Alert, Button, Card } from "@heroui/react";
-import { Boxes, CheckCircle2, XCircle } from "lucide-react";
+import { Button, Card } from "@heroui/react";
+import { CheckCircle2, XCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
+import FeedbackAlert from "@/components/FeedbackAlert";
+import BrandMark from "@/components/BrandMark";
 
 type Plan = { id: string; name: string; amountCents: number; currency: string };
 type Payment = {
@@ -99,7 +101,7 @@ export default function PaymentCheckout() {
             },
           );
       if (!response.ok) throw new Error("request");
-      router.replace(`/account/subscription?result=${outcome}`);
+      router.replace(`/subscription?result=${outcome}`);
     } catch {
       setError(t("requestFailed"));
     } finally {
@@ -118,9 +120,7 @@ export default function PaymentCheckout() {
     <div className="public-frame">
       <header className="public-header">
         <span className="workspace-brand" aria-hidden="true">
-          <span className="workspace-brand-mark">
-            <Boxes size={18} strokeWidth={2} />
-          </span>
+          <BrandMark />
           <span className="workspace-brand-copy">
             <strong>MLBox</strong>
           </span>
@@ -133,11 +133,7 @@ export default function PaymentCheckout() {
           </Card.Header>
           <Card.Content className="flex flex-col gap-5">
             {loadError ? (
-              <Alert status="danger">
-                <Alert.Content>
-                  <Alert.Description>{t("loadFailed")}</Alert.Description>
-                </Alert.Content>
-              </Alert>
+              <FeedbackAlert status="danger">{t("loadFailed")}</FeedbackAlert>
             ) : !order ? (
               <p
                 className="text-sm"
@@ -180,15 +176,11 @@ export default function PaymentCheckout() {
             ) : null}
 
             {error ? (
-              <Alert status="danger">
-                <Alert.Content>
-                  <Alert.Description>{error}</Alert.Description>
-                </Alert.Content>
-              </Alert>
+              <FeedbackAlert status="danger">{error}</FeedbackAlert>
             ) : null}
 
             <Link
-              href="/account/subscription"
+              href="/subscription"
               className="text-center text-sm"
               style={{ color: "var(--muted)" }}>
               {t("back")}
