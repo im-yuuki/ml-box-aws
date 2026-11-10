@@ -18,7 +18,16 @@ export default function SpaceSwitcher() {
   const { spaces, activeSpace, loading, failed, setActiveSpaceId } = useActiveSpace();
 
   if (loading) return <span className="workspace-space-placeholder" aria-hidden="true" />;
-  if (failed || !activeSpace) return null;
+  // Show the failure instead of hiding the switcher, so the user knows why their Spaces are missing.
+  if (failed) {
+    return (
+      <span className="workspace-space-trigger" role="status" title={t("spacesUnavailable")}>
+        <Building2 aria-hidden="true" size={15} />
+        <span className="workspace-space-trigger-name">{t("spacesUnavailable")}</span>
+      </span>
+    );
+  }
+  if (!activeSpace) return null;
 
   const personal = spaces.filter((space) => space.type === "personal");
   const organizations = spaces.filter((space) => space.type === "organization");

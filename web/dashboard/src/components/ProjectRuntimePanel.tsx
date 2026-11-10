@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Alert, Button, Card, Chip, Label, ListBox, Select, Spinner } from "@heroui/react";
+import { Button, Card, Chip, Label, ListBox, Select, Spinner } from "@heroui/react";
+import FeedbackAlert from "@/components/FeedbackAlert";
 import { ExternalLink, Play, Square } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
@@ -53,7 +54,7 @@ export default function ProjectRuntimePanel({ projectId }: { projectId: string }
         ) : !running && preferredProfile ? (
           <p className="text-sm" style={{ color: "var(--muted)" }}>{t("instanceDefault")} <InstanceType slug={preferredProfile} profiles={profiles} /></p>
         ) : null}
-        {error ? <Alert status="danger"><Alert.Content><Alert.Description>{t(error)}</Alert.Description></Alert.Content></Alert> : null}
+        {error ? <FeedbackAlert status="danger">{t(error)}</FeedbackAlert> : null}
         {!running ? (
           <Select
             selectedKey={profile}

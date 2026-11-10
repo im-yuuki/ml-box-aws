@@ -357,6 +357,8 @@ async function verifyIdToken(runtime: RuntimeConfig, token: string): Promise<JWT
   return payload;
 }
 
+class AppDatabaseUnavailableError extends Error {}
+
 async function ensureAppBootstrap(session: Session): Promise<void> {
   if (!appStore) return;
   appSchemaReady ??= appStore.ensureSchema();
@@ -365,7 +367,7 @@ async function ensureAppBootstrap(session: Session): Promise<void> {
     await appStore.ensureUserBootstrap(session.subject, session.email);
   } catch (error) {
     appSchemaReady = null;
-    throw new Error("Application database unavailable", { cause: error });
+    throw new AppDatabaseUnavailableError("Application database unavailable", { cause: error });
   }
 }
 
@@ -538,7 +540,9 @@ app.addHook("onRequest", async (request, reply) => {
   requireCsrf(request, reply);
 });
 
-app.get("/v1/health", async (_request, reply) => {
+// Liveness: the process is up and its runtime configuration is complete. Does not touch the database,
+// so a database outage cannot make the kubelet restart a healthy pod.
+app.get("/v1/health/live", async (_request, reply) => {
   try {
     runtimeConfig();
     return { status: "ok", configured: true };
@@ -551,6 +555,30 @@ app.get("/v1/health", async (_request, reply) => {
       message: error instanceof Error ? error.message : "Invalid runtime configuration",
     });
   }
+});
+
+// Readiness: configuration is complete AND the app database answers. Traffic is withheld while it does not.
+app.get("/v1/health", async (request, reply) => {
+  try {
+    runtimeConfig();
+  } catch (error) {
+    const missing = missingConfig();
+    return reply.code(503).send({
+      status: "degraded",
+      configured: false,
+      missing,
+      message: error instanceof Error ? error.message : "Invalid runtime configuration",
+    });
+  }
+  if (appStore) {
+    try {
+      await appStore.ping();
+    } catch (error) {
+      request.log.error({ err: error }, "Readiness check: app database unreachable");
+      return reply.code(503).send({ status: "degraded", configured: true, database: "unavailable" });
+    }
+  }
+  return { status: "ok", configured: true, database: appStore ? "ok" : "not_configured" };
 });
 
 app.get("/v1/auth/csrf", async (_request, reply) => {
@@ -628,13 +656,19 @@ app.post<{ Body: AuthBody }>("/v1/auth/login", async (request, reply) => {
       subject,
       expiresAt: Math.floor(Date.now() / 1000) + (result.AuthenticationResult.ExpiresIn ?? 3600),
     };
+    // Record the session first: if the app database is down, sign-in is refused up front instead of
+    // issuing a cookie whose Security-page row and every authenticated call would then fail.
+    await recordLoginSession(request, session);
     const refreshToken = result.AuthenticationResult.RefreshToken;
     if (refreshToken) await saveRefreshToken(runtime, session.sessionId, refreshToken);
-    await recordLoginSession(request, session);
     await setSessionCookie(reply, runtime, session);
     setCsrfCookie(reply, runtime.secureCookies);
     return { user: { email: session.email } };
   } catch (error) {
+    if (error instanceof AppDatabaseUnavailableError) {
+      request.log.error({ err: error }, "Login refused: app database unavailable");
+      return reply.code(503).send(DB_UNAVAILABLE);
+    }
     request.log.warn({ err: error }, "Cognito login failed");
     return reply.code(authErrorStatus(error)).send(publicError(error));
   }
@@ -801,14 +835,15 @@ app.post("/v1/auth/logout", async (request, reply) => {
 
 const DB_UNAVAILABLE = { error: "APP_DATABASE_UNAVAILABLE", message: "Dịch vụ ứng dụng tạm thời không khả dụng." };
 
-// Records the login so the Security page can list and revoke it. Failure here must not block sign-in.
+// Records the login so the Security page can list and revoke it. Errors propagate: a session that is
+// not recorded would be rejected by requireSession later, so sign-in must fail instead of succeeding.
 async function recordLoginSession(request: FastifyRequest, session: Session): Promise<void> {
   if (!appStore) return;
+  await ensureAppBootstrap(session);
   try {
-    await ensureAppBootstrap(session);
     await appStore.recordAuthSession(session.sessionId, session.subject, String(request.headers["user-agent"] ?? ""));
   } catch (error) {
-    request.log.warn({ err: error }, "Login session could not be recorded");
+    throw new AppDatabaseUnavailableError("Login session could not be recorded", { cause: error });
   }
 }
 
