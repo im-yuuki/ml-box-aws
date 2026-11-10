@@ -964,6 +964,7 @@ app.get("/v1/account/sessions", async (request, reply) => {
       sessions: rows.map((row) => ({
         id: row.sessionId,
         label: describeUserAgent(row.userAgent),
+        // null → the dashboard shows its localized "unknown browser" text.
         createdAt: row.createdAt,
         lastSeenAt: row.lastSeenAt,
         current: row.sessionId === session.sessionId,
@@ -1537,6 +1538,9 @@ app.post<{ Params: { projectId: string }; Body: { profile?: unknown } | undefine
   }
   try {
     if (!(await projectActionAllowed(reply, session.subject, projectId, "operate"))) return;
+    // Persist this user's Hub identity before creating the runtime row. Otherwise a first sign-in that starts
+    // a Project right away (without visiting Usage/Quota first) gets PROJECT_OWNER_NOT_READY.
+    await persistSessionHubIdentity(await resolveSessionHubIdentity(session));
     let runtime;
     try {
       runtime = await appStore.ensureProjectSandboxRuntime(projectId);
@@ -1576,8 +1580,14 @@ app.post<{ Params: { projectId: string }; Body: { profile?: unknown } | undefine
       return reply.code(403).send({ error: access.code, message: "Profile này cần gói trả phí. Hãy nâng cấp gói để dùng." });
     }
     // RAM quota: the Hub user's other servers count, and the chosen profile's RAM is the request.
+    // A 404 means the Hub user was never created (the Hub record and the BFF's identity can disagree), so
+    // the start must provision the user first. Hard-coding "exists" made every start fail with 404.
+    let hubUserExists = true;
     const hubUser = await hubRequest<HubUser>(hub, "GET", `/hub/api/users/${usernamePath(username)}`).catch((error) => {
-      if (hubStatus(error) === 404) return { servers: {} } as HubUser;
+      if (hubStatus(error) === 404) {
+        hubUserExists = false;
+        return { servers: {} } as HubUser;
+      }
       throw error;
     });
     const otherServers = (Object.entries(hubUser.servers ?? {}) as Array<[string, HubServer]>)
@@ -1596,7 +1606,7 @@ app.post<{ Params: { projectId: string }; Body: { profile?: unknown } | undefine
     }
     const lifecycle = await resolveStartLifecycle({
       start: () => startHubSandbox({
-        userExists: true,
+        userExists: hubUserExists,
         ensureUser: async () => {
           await ensureRuntimeHubUser(hub, username);
         },

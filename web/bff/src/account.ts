@@ -49,8 +49,9 @@ export function validateAvatarDataUrl(value: unknown): string | null {
   return value;
 }
 
-// "Chrome · Windows" style label from a User-Agent header. Unknown agents fall back to a neutral label.
-export function describeUserAgent(userAgent: string): string {
+// "Chrome · Windows" style label from a User-Agent header. Returns null when neither part is recognised:
+// the dashboard shows its own localized fallback, so the server does not hard-code one language.
+export function describeUserAgent(userAgent: string): string | null {
   const browser =
     /Edg\//.test(userAgent) ? "Edge"
     : /OPR\/|Opera/.test(userAgent) ? "Opera"
@@ -66,5 +67,5 @@ export function describeUserAgent(userAgent: string): string {
     : /Linux/.test(userAgent) ? "Linux"
     : null;
   if (browser && os) return `${browser} · ${os}`;
-  return browser ?? os ?? "Trình duyệt không xác định";
+  return browser ?? os ?? null;
 }

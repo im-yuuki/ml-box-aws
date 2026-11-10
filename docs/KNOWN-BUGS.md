@@ -164,3 +164,82 @@ chỉ `request.log.warn`, login vẫn trả 200.
 - Mật khẩu test user bị dán trong phiên chat ngày 2026-11-10 — theo docs/OPERATIONS.md, test
   user phải được xóa/disable sau khi kiểm tra xong; cần xoay mật khẩu này.
 - Không đưa secret/log chứa token vào docs hoặc commit.
+
+---
+
+# Kết quả verify E2E lần 2 — 2026-11-10 (sau khi deploy fix b9fbaa6)
+
+Context: các fix Bug 1–4 đã merge (PR #11) và **đã deploy** — tfvars `04-dashboard` pin
+`mlbox-{dashboard,bff}:b9fbaa6120da82a0e0c94fce1c5a82cf391d8fa6`. Máy test vẫn không có AWS
+credentials, nên kết luận dựa trên black-box HTTP/browser.
+
+## ✅ Phần đã kiểm chứng OK trên production
+
+- `GET /api/bff/spaces` → **200**, trả đúng personal Space (`personal:f9fe0438-…`, role owner) → Bug 1 hết.
+- `/projects` tải được, Space switcher hiện "Personal", empty-state "Start with a durable project" → Bug 2 hết (bundle mới).
+- `/account/quota` render đủ dữ liệu (RAM 0/24 GB..., "No sandboxes are running") → Hub GET qua bridge token OK.
+- Tạo project `e2e-verify-2026-11-10` (`b2d1bb61-…`) → điều hướng tới project overview OK.
+- Logout từ account menu → về `/login`; login lại OK.
+- `/account/security`: sau khi login LẠI, danh sách "Sign-in sessions" hiện phiên hiện tại ("This device",
+  signed in 10/11/2026 5:24 PM) → Bug 4 hết end-to-end.
+- `/hub/login` → 302 → `/hub/mlbox/login` → 302 → dashboard login (đúng flow); `/hub/health` → 200 (v5.5.2).
+
+## ✅ Bug 5 — Sandbox START thất bại trên production: "Could not start the sandbox. Try again."
+
+**Nguyên nhân (đã xác nhận từ log):** `kubectl -n dashboard logs deploy/bff` có `JupyterHub returned 404`
+ở `Project sandbox start failed`; log Hub có `404 GET /hub/api/users/cognito-…` rồi `404 POST …/servers/<projectId>`
+và **không có** `POST /hub/api/users/cognito-…` (tạo user). Route `POST /v1/projects/:id/sandbox/start`
+(`web/bff/src/server.ts`) hard-code `userExists: true` nên `startHubSandbox` không bao giờ provision user
+trên Hub khi user chưa có. BFF đã có identity trong DB nhưng Hub không có user đó → mọi lần start đều 404.
+
+**Sửa:** lấy `hubUserExists` từ kết quả GET user (404 → `false`) và truyền vào `startHubSandbox`, giống
+route `/v1/sandboxes` đã làm đúng.
+
+**Mức độ:** chặn toàn bộ luồng notebook (không spawn được → không handoff → không test EFS → không start/stop).
+
+**Hiện tượng (lặp lại 2/2 lần, 2026-11-10 ~10:22–10:23):**
+
+- Vào `/projects/b2d1bb61-…`, chọn `c1.large` (cpu-small), bấm Start → hiển thị lỗi chung
+  "Could not start the sandbox. Try again." (state giữ nguyên `Stopped`, không có crash trong UI).
+- Trước đó lần bấm đầu tiên báo `PROJECT_OWNER_NOT_READY`; sau khi mở `/account/quota` (gọi `/v1/usage`,
+  persist Hub identity), lỗi đổi sang `startFailed` — tức bước Hub identity đã xong.
+- `/hub/health` → 200, `/hub/api` → `{"version":"5.5.2"}`, Hub GET (`/v1/usage`) trả 200 → Hub sống,
+  bridge token auth hoạt động ít nhất cho GET. Lỗi nằm ở bước start: `ensureRuntimeHubUser` (POST
+  `/hub/api/users/cognito-<sub>`) hoặc spawn POST `/hub/api/users/<u>/servers/<name>`.
+- Chưa kiểm chứng trên cluster sau fix: pod singleuser, PVC `mlbox-<projectId>` và image singleuser (chưa xem;
+  nếu lỗi tiếp theo là ImagePullBackOff hoặc PVC Pending thì đây là nguyên nhân mới).
+- [ ] Verify E2E full flow sau deploy: start → Running → Open notebook (handoff) → ghi file →
+      stop → start lại → file còn trên EFS → stop → (xóa project test nếu user đồng ý).
+
+**Dữ liệu còn lại từ smoke test:** project `e2e-verify-2026-11-10` (id `b2d1bb61-46ba-4a5f-9c80-45e5e57c95f0`)
+trong personal Space của test user; Hub identity `cognito-…` đã được persist; Hub server record có thể ở
+trạng thái stopped. Giữ lại để debug tiếp; chỉ xóa khi user xác nhận.
+
+## ✅ Bug 6 — `PROJECT_OWNER_NOT_READY`: màn hình báo "owner cần đăng nhập dashboard một lần" nhưng đăng nhập KHÔNG tạo Hub identity
+
+**Vị trí:** `web/bff/src/server.ts` — Hub identity chỉ được persist qua các Hub-dependent routes
+(`/v1/usage`, `/v1/usage/history`, `/v1/sandboxes*`, `/v1/hub/handoff`), còn `/v1/projects/:id/sandbox/start`
+(`ensureProjectSandboxRuntime`, app-store.ts L1079) chỉ join `mlbox_hub_identities` và báo NOT_READY.
+
+**Hệ quả:** user vừa login lần đầu, vào project và bấm Start ngay → 409 `ownerNotReady`, message hướng dẫn
+sai (đăng nhập rồi vẫn không khởi động được cho tới khi mở trang Usage/Quota).
+
+**Đã sửa:** route `POST /v1/projects/:id/sandbox/start` gọi `resolveSessionHubIdentity` +
+`persistSessionHubIdentity` trước `ensureProjectSandboxRuntime`, nên lần start đầu tiên không còn phụ thuộc
+trang Usage. Giới hạn: chỉ persist identity của người đang gọi; nếu chủ Project chưa từng đăng nhập dashboard
+thì vẫn báo `PROJECT_OWNER_NOT_READY` (đúng nghĩa).
+
+## ✅ Bug 7 (nhỏ) — Sessions list hiển thị UA tiếng Việt trên UI tiếng Anh
+
+`/account/security` (en) hiển thị tên phiên "Trình duyệt không xác định" (fallback user-agent khi parse
+thất bại). Nên localize theo `mlbox-locale` như các chuỗi khác.
+
+**Đã sửa:** `describeUserAgent` trả `null` khi không nhận diện được; dashboard hiển thị `account.unknownBrowser`
+theo locale (en: "Unknown browser", vi: "Trình duyệt không xác định").
+
+## Ghi chú verify
+
+- Screenshots: `.openchamber/screenshots/page-2026-11-10T10-21-53-624.jpg` (project overview + sandbox card),
+  `…T10-22-10-004.jpg` (startFailed), `…T10-22-54-536.jpg` (Stopped sau reload), `…T10-23-02-999.jpg`
+  (startFailed lần 2), `…T10-24-41-239.jpg` (logout → /login), `…T10-25-10-455.jpg` (Security: phiên hiện tại).
+- Mật khẩu test user vẫn nằm trong phiên chat 2026-11-10 — cần xoay/disable sau khi test xong.

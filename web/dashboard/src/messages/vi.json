@@ -303,6 +303,7 @@
     "revokeSession": "Đăng xuất",
     "revokeOthers": "Đăng xuất các phiên khác",
     "sessionRevoked": "Đã đăng xuất phiên đó.",
+    "unknownBrowser": "Trình duyệt không xác định",
     "otherSessionsRevoked": "Đã đăng xuất các phiên khác.",
     "revokeFailed": "Không thể đăng xuất phiên này.",
     "noSessions": "Không có phiên nào để hiển thị.",

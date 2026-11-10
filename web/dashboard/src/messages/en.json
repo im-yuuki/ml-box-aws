@@ -303,6 +303,7 @@
     "revokeSession": "Sign out",
     "revokeOthers": "Sign out other sessions",
     "sessionRevoked": "Signed out that session.",
+    "unknownBrowser": "Unknown browser",
     "otherSessionsRevoked": "Signed out all other sessions.",
     "revokeFailed": "Could not sign out that session.",
     "noSessions": "No sessions to show.",

@@ -127,7 +127,7 @@ export default function SessionsCard() {
                 <MonitorSmartphone aria-hidden="true" size={18} className="mt-0.5 shrink-0" />
                 <div className="flex min-w-0 flex-col gap-1">
                   <span className="flex flex-wrap items-center gap-2 text-sm font-medium">
-                    {session.label}
+                    {session.label ?? t("unknownBrowser")}
                     {session.current ? <Chip size="sm" variant="soft" color="success">{t("currentSession")}</Chip> : null}
                   </span>
                   <span className="text-xs" style={{ color: "var(--muted)" }}>
