@@ -354,6 +354,7 @@
     "start": "Khởi động",
     "stop": "Dừng",
     "open": "Mở notebook",
+    "openFailed": "Không mở được notebook. Vui lòng thử lại.",
     "readOnly": "Bạn chỉ xem được sandbox của Dự án này, không khởi động hay dừng được.",
     "forbidden": "Bạn không có quyền vận hành sandbox này.",
     "startFailed": "Không khởi động được sandbox. Vui lòng thử lại.",

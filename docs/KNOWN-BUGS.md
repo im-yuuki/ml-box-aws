@@ -243,3 +243,80 @@ theo locale (en: "Unknown browser", vi: "Trình duyệt không xác định").
   `…T10-22-10-004.jpg` (startFailed), `…T10-22-54-536.jpg` (Stopped sau reload), `…T10-23-02-999.jpg`
   (startFailed lần 2), `…T10-24-41-239.jpg` (logout → /login), `…T10-25-10-455.jpg` (Security: phiên hiện tại).
 - Mật khẩu test user vẫn nằm trong phiên chat 2026-11-10 — cần xoay/disable sau khi test xong.
+
+---
+
+# Kết quả verify E2E lần 3 — 2026-11-10 ~10:43–11:03 (sau deploy `3907aad`)
+
+Deploy: `04-dashboard/terraform.tfvars` pin `mlbox-{dashboard,bff}:3907aad68574d1b170dfe8600ca9d8fb0129d3bd`.
+Xác nhận bundle mới đã lên production (HTML chứa `account.unknownBrowser`, `navbar.spacesUnavailable`,
+`projectArtifacts.storageEnabled`; build id đổi). Máy test vẫn không có AWS credentials.
+
+## ✅ Đã verify OK
+
+- **Bug 5 (start sandbox):** Start `c1.large` → `Starting` → `ready` (~40 s). Hub user được provision,
+  singleuser pod chạy được, image pull OK. `GET /api/bff/projects/<id>/sandbox` → `state: "ready"`,
+  `profile: cpu-small`, `url` = `https://notebook.mlbox.june8th.me/user/cognito-f9fe0438-…/<projectId>/`.
+- **Vòng đời stop/start:** Stop → `stopped`; Start lại → `ready`. Dùng lại được PVC EFS
+  (`mlbox-<projectId>`, storage class `efs-sc`) — không lỗi bind.
+- **Bug 6 (owner identity):** không còn `PROJECT_OWNER_NOT_READY` khi bấm Start.
+- **Billing metering trên Postgres thật:** `/account/quota` hiện **Compute units 0.2 / 20** (gói Free),
+  RAM 4/24 GB, "Recorded runtime: 0.27 h in the last 30 days" → session đóng/mở được ghi vào DB thật.
+- **Usage history:** `/account/quota` vẽ được chart (RAM allocated / CPU allocated) — trước đây báo
+  "not configured".
+- **Realtime footprint:** 1 running sandbox, 0 pending, 2 cores, 4 GB → đọc pod spec trong namespace `hub` OK.
+- **Plan gate GPU:** chọn `g1.xlarge` (1 GPU T4 chia sẻ) → Start → bị chặn đúng:
+  "This configuration is included in paid plans. Upgrade your plan to start it." (403 `GPU_NOT_IN_PLAN`).
+  Trả lại `c1.large` → Start OK.
+- **Artifact storage:** bật "Keep artifacts" → switch ON, hiện "Choose a file to upload" + feedback
+  "Artifact storage is on." (các key feedback mới của bundle `3907aad` đã live).
+
+## ✅ Bug 8 — "Open notebook" không mở được notebook: UI không dùng handoff, bị đá về trang login
+
+**Mức độ:** chặn bước cuối của E2E (JupyterLab + verify file trên EFS). Mọi tính năng khác đã chạy.
+
+**Hiện tượng (lặp lại 3/3 lần):**
+
+- Sandbox `Running` → bấm **Open notebook** → tab mới mở URL Hub
+  `https://notebook.mlbox.june8th.me/user/cognito-f9fe0438-…/b2d1bb61-…/` → Hub không có session →
+  redirect `…/hub/mlbox/login` → handler không có `code` → redirect `https://mlbox.june8th.me/login`.
+- Trang login hiện form (dù user đã đăng nhập dashboard) → người dùng bị kẹt ở vòng lặp đăng nhập.
+- Probe trực tiếp `https://notebook.mlbox.june8th.me/hub/mlbox/login?code=…` (code giả) → cũng về
+  `mlbox.june8th.me/login` (đúng hành vi khi code sai).
+
+**Nguyên nhân (đã xác nhận trong code):**
+
+- Cơ chế handoff **đã có đầy đủ ở BFF**: `POST /v1/hub/handoff` (mint code 60 s, chỉ lưu hash) và
+  `/internal/v1/hub/handoff/redeem` (Hub redeem bằng bridge token). Dashboard cũng có proxy route
+  `web/dashboard/src/app/api/bff/hub/handoff/route.ts`.
+- **Nhưng không có UI nào gọi route đó**: `grep -r "hub/handoff" web/dashboard/src` chỉ ra chính file route.
+  `ProjectRuntimePanel.tsx` (L87) và `ProjectRuntimeControl.tsx` (L26) đều là
+  `window.open(url, "_blank")` với `url` = server URL thô từ `GET /v1/projects/:id/sandbox`.
+- ⇒ Tính năng "Mở notebook qua mã handoff một lần" (TODO.md mục "✅ Mở notebook qua mã handoff một lần")
+  **chưa bao giờ được nối vào UI** → mở notebook luôn thất bại.
+
+**Đã sửa:** thêm helper `openNotebookViaHandoff` (`web/dashboard/src/lib/notebookHandoff.ts`), dùng ở
+`ProjectRuntimePanel` và `ProjectRuntimeControl`. Helper mở tab trước khi `await` (tránh bị chặn popup), gọi
+`POST /api/bff/hub/handoff` với `path` tương đối `/user/<hubUser>/<server>/` (đúng với `sanitizeNextPath`),
+rồi đặt `location` tới URL có code. Lỗi hiện thông báo `projectRuntime.openFailed` và đóng tab trắng.
+
+- [x] Nối "Open notebook" vào handoff (đã làm).
+- [x] Fallback khi handoff lỗi: thông báo rõ thay vì mở tab trắng (đã làm).
+- [ ] Test lại sau deploy: Open notebook → JupyterLab mở thẳng (không còn vòng lặp login) → tạo file →
+      stop → start → file còn → xác nhận EFS persistence (TODO.md "⚠️ Notebook storage EFS" chỉ còn
+      thiếu bước này).
+
+## Chưa verify được (giới hạn công cụ, không phải lỗi app)
+
+- Upload artifact: browser panel không hỗ trợ set file input (`input[type=file]`) → chỉ verify được
+  bật/tắt storage, chưa verify upload/list/download.
+- Cross-tenant / hai danh tính thật (TODO "Kiểm tra cross-tenant trên cluster thật") — cần tài khoản thứ hai.
+
+## Ghi chú trạng thái
+
+- Project test `e2e-verify-2026-11-10` (`b2d1bb61-46ba-4a5f-9c80-45e5e57c95f0`) để lại, artifact storage đang **bật**,
+  sandbox `c1.large` **đang chạy** (để test lại luồng notebook sau khi vá Bug 8). Dừng: bấm Stop trên
+  trang project; xóa: nút "Delete project" (kỳ vọng xóa luôn PVC + access point EFS).
+- Screenshots: `.openchamber/screenshots/page-2026-11-10T10-43-37-287.jpg` (Starting), `…T10-57-59-635.jpg`
+  (quota: compute units 0.2/20 + history), `…T10-59-47-453.jpg` (plan gate GPU), `…T11-02-31-209.jpg` (Running),
+  `…T11-02-58-935.jpg` (artifact storage on).

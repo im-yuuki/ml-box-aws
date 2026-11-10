@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 import { useProjectSandbox } from "@/hooks/useProjectSandbox";
 import { runtimeChipColor } from "@/lib/artifacts";
+import { openNotebookViaHandoff } from "@/lib/notebookHandoff";
 import InstanceType from "@/components/InstanceType";
 
 type UsageSummary = { hours: number; sessions: number; openSession: boolean; windowDays: number };
@@ -20,6 +21,7 @@ export default function ProjectRuntimePanel({ projectId }: { projectId: string }
   const [chosenProfile, setChosenProfile] = useState<string | null>(null);
   const profile = chosenProfile ?? preferredProfile ?? "cpu-small";
   const [usage, setUsage] = useState<UsageSummary | null>(null);
+  const [openFailed, setOpenFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,6 +57,7 @@ export default function ProjectRuntimePanel({ projectId }: { projectId: string }
           <p className="text-sm" style={{ color: "var(--muted)" }}>{t("instanceDefault")} <InstanceType slug={preferredProfile} profiles={profiles} /></p>
         ) : null}
         {error ? <FeedbackAlert status="danger">{t(error)}</FeedbackAlert> : null}
+        {openFailed ? <FeedbackAlert status="danger">{t("openFailed")}</FeedbackAlert> : null}
         {!running ? (
           <Select
             selectedKey={profile}
@@ -84,7 +87,7 @@ export default function ProjectRuntimePanel({ projectId }: { projectId: string }
         ) : null}
         <div className="flex flex-wrap gap-2">
           {running && url ? (
-            <Button variant="secondary" size="sm" onPress={() => window.open(url, "_blank", "noopener")} fullWidth><ExternalLink aria-hidden="true" size={14} />{t("open")}</Button>
+            <Button variant="secondary" size="sm" onPress={() => { setOpenFailed(false); void openNotebookViaHandoff(url).then((ok) => { if (!ok) setOpenFailed(true); }); }} fullWidth><ExternalLink aria-hidden="true" size={14} />{t("open")}</Button>
           ) : (
             <Button variant="primary" size="sm" isDisabled={busy || loading || !canOperate || stateKey === "starting"} onPress={() => void act("start", profile)} fullWidth>
               <Play aria-hidden="true" size={14} />

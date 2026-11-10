@@ -354,6 +354,7 @@
     "start": "Start",
     "stop": "Stop",
     "open": "Open notebook",
+    "openFailed": "Could not open the notebook. Try again.",
     "readOnly": "You can view this Project's sandbox but cannot start or stop it.",
     "forbidden": "You do not have permission to operate this sandbox.",
     "startFailed": "Could not start the sandbox. Try again.",
