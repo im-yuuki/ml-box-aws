@@ -19,6 +19,14 @@ export function chooseActiveSpace(spaces: SpaceSummary[], storedId: string | nul
   return spaces.find((space) => space.id === storedId) ?? spaces[0] ?? null;
 }
 
+// Fired after an organization is created or deleted, so every hook instance reloads the Space list.
+export const SPACES_CHANGED_EVENT = "mlbox-spaces-changed";
+
+export function notifySpacesChanged(): void {
+  window.dispatchEvent(new Event(SPACES_CHANGED_EVENT));
+}
+
+// Owners and admins invite members and manage the member list. Members only view the team.
 export function canManageTeams(role: SpaceRole | null | undefined): boolean {
   return role === "owner" || role === "admin";
 }

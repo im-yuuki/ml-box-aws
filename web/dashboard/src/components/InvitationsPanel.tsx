@@ -12,6 +12,7 @@ type Invitation = { id: string; email: string; role: "admin" | "member" | "viewe
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/** Owners and admins invite people with a role. Anyone can see and accept invitations sent to their email. */
 export default function InvitationsPanel({ space }: { space: SpaceSummary }) {
   const t = useTranslations("invitations");
   const [pending, setPending] = useState<Invitation[]>([]);
@@ -27,13 +28,13 @@ export default function InvitationsPanel({ space }: { space: SpaceSummary }) {
     setError(null);
     const mineResponse = await bffFetch("/api/bff/invitations", { cache: "no-store" });
     if (mineResponse.ok) {
-      const body = await mineResponse.json() as { invitations?: Invitation[] };
+      const body = (await mineResponse.json()) as { invitations?: Invitation[] };
       setMine(body.invitations ?? []);
     }
     if (manager) {
       const response = await bffFetch(`/api/bff/spaces/${encodeURIComponent(space.id)}/invitations`, { cache: "no-store" });
       if (response.ok) {
-        const body = await response.json() as { invitations?: Invitation[] };
+        const body = (await response.json()) as { invitations?: Invitation[] };
         setPending(body.invitations ?? []);
       }
     }
@@ -101,54 +102,57 @@ export default function InvitationsPanel({ space }: { space: SpaceSummary }) {
   };
 
   return (
-    <Card className="workspace-detail-section">
-      <h2>{t("title")}</h2>
+    <Card>
+      <Card.Header>
+        <Card.Title>{t("title")}</Card.Title>
+      </Card.Header>
+      <Card.Content className="flex flex-col gap-4">
+        {manager ? (
+          <>
+            <Form className="flex flex-wrap items-end gap-3" onSubmit={invite}>
+              <TextField type="email" value={email} onChange={setEmail} aria-label={t("email")} className="min-w-64">
+                <Input placeholder={t("emailPlaceholder")} variant="secondary" fullWidth />
+              </TextField>
+              <Select selectedKey={role} onSelectionChange={(key) => key && setRole(String(key))} aria-label={t("role")} className="w-40">
+                <Select.Trigger>
+                  <Select.Value />
+                  <Select.Indicator />
+                </Select.Trigger>
+                <Select.Popover>
+                  <ListBox>
+                    <ListBox.Item id="member" textValue={t("roleMember")}>{t("roleMember")}<ListBox.ItemIndicator /></ListBox.Item>
+                    <ListBox.Item id="viewer" textValue={t("roleViewer")}>{t("roleViewer")}<ListBox.ItemIndicator /></ListBox.Item>
+                    <ListBox.Item id="admin" textValue={t("roleAdmin")}>{t("roleAdmin")}<ListBox.ItemIndicator /></ListBox.Item>
+                  </ListBox>
+                </Select.Popover>
+              </Select>
+              <Button type="submit" variant="primary" isPending={busy} isDisabled={busy}><Send aria-hidden="true" size={16} />{t("invite")}</Button>
+            </Form>
+            <ul aria-label={t("pendingList")} className="flex flex-col gap-2">
+              {pending.map((invitation) => (
+                <li key={invitation.id} className="flex items-center justify-between gap-4">
+                  <span>{invitation.email} · {invitation.role}</span>
+                  <Button variant="secondary" size="sm" isDisabled={busy} onPress={() => void revoke(invitation.id)}><X aria-hidden="true" size={14} />{t("revoke")}</Button>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : null}
 
-      {manager ? (
-        <>
-          <Form className="flex flex-wrap items-end gap-3" onSubmit={invite}>
-            <TextField type="email" value={email} onChange={setEmail} aria-label={t("email")} className="min-w-64">
-              <Input placeholder={t("emailPlaceholder")} variant="secondary" fullWidth />
-            </TextField>
-            <Select selectedKey={role} onSelectionChange={(key) => key && setRole(String(key))} aria-label={t("role")} className="w-40">
-              <Select.Trigger>
-                <Select.Value />
-                <Select.Indicator />
-              </Select.Trigger>
-              <Select.Popover>
-                <ListBox>
-                  <ListBox.Item id="member" textValue={t("roleMember")}>{t("roleMember")}<ListBox.ItemIndicator /></ListBox.Item>
-                  <ListBox.Item id="viewer" textValue={t("roleViewer")}>{t("roleViewer")}<ListBox.ItemIndicator /></ListBox.Item>
-                  <ListBox.Item id="admin" textValue={t("roleAdmin")}>{t("roleAdmin")}<ListBox.ItemIndicator /></ListBox.Item>
-                </ListBox>
-              </Select.Popover>
-            </Select>
-            <Button type="submit" variant="primary" isPending={busy} isDisabled={busy}><Send aria-hidden="true" size={16} />{t("invite")}</Button>
-          </Form>
-          <ul aria-label={t("pendingList")} className="flex flex-col gap-2">
-            {pending.map((invitation) => (
+        {mine.length > 0 ? (
+          <ul aria-label={t("incomingList")} className="flex flex-col gap-2">
+            {mine.map((invitation) => (
               <li key={invitation.id} className="flex items-center justify-between gap-4">
-                <span>{invitation.email} · {invitation.role}</span>
-                <Button variant="secondary" size="sm" isDisabled={busy} onPress={() => void revoke(invitation.id)}><X aria-hidden="true" size={14} />{t("revoke")}</Button>
+                <span>{t("incoming", { role: invitation.role })}</span>
+                <Button variant="primary" size="sm" isDisabled={busy} onPress={() => void accept(invitation.id)}><Check aria-hidden="true" size={14} />{t("accept")}</Button>
               </li>
             ))}
           </ul>
-        </>
-      ) : null}
+        ) : null}
 
-      {mine.length > 0 ? (
-        <ul aria-label={t("incomingList")} className="flex flex-col gap-2">
-          {mine.map((invitation) => (
-            <li key={invitation.id} className="flex items-center justify-between gap-4">
-              <span>{t("incoming", { role: invitation.role })}</span>
-              <Button variant="primary" size="sm" isDisabled={busy} onPress={() => void accept(invitation.id)}><Check aria-hidden="true" size={14} />{t("accept")}</Button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
-      {notice ? <FeedbackAlert status="success">{notice}</FeedbackAlert> : null}
-      {error ? <FeedbackAlert status="danger">{error}</FeedbackAlert> : null}
+        {notice ? <FeedbackAlert status="success">{notice}</FeedbackAlert> : null}
+        {error ? <FeedbackAlert status="danger">{error}</FeedbackAlert> : null}
+      </Card.Content>
     </Card>
   );
 }

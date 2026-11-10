@@ -5,6 +5,7 @@ import { bffFetch } from "@/lib/bffFetch";
 import {
   ACTIVE_SPACE_EVENT,
   ACTIVE_SPACE_STORAGE_KEY,
+  SPACES_CHANGED_EVENT,
   chooseActiveSpace,
   type SpaceListResponse,
   type SpaceSummary,
@@ -68,6 +69,13 @@ export function useActiveSpace(): ActiveSpaceState {
   const reload = useCallback(() => {
     setLoading(true);
     setAttempt((value) => value + 1);
+  }, []);
+
+  // Another component created or deleted a Space: refresh the list without showing the loading state.
+  useEffect(() => {
+    const onChanged = () => setAttempt((value) => value + 1);
+    window.addEventListener(SPACES_CHANGED_EVENT, onChanged);
+    return () => window.removeEventListener(SPACES_CHANGED_EVENT, onChanged);
   }, []);
 
   const setActiveSpaceId = useCallback((id: string) => {

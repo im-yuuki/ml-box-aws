@@ -1,12 +1,15 @@
 "use client";
 
+import { useState } from "react";
 import { Dropdown } from "@heroui/react";
-import { Building2, Check, ChevronDown, User } from "lucide-react";
+import { Building2, Check, ChevronDown, Plus, User } from "lucide-react";
 import { useTranslations } from "next-intl";
+import CreateOrganizationDialog from "@/components/navbar/CreateOrganizationDialog";
 import { useActiveSpace } from "@/hooks/useActiveSpace";
 import type { SpaceSummary } from "@/lib/spaces";
 
 const NONE_KEY = "__none__";
+const CREATE_KEY = "__create_organization__";
 
 /**
  * Workspace (Space) switcher. One account can belong to many organizations, so
@@ -16,6 +19,7 @@ const NONE_KEY = "__none__";
 export default function SpaceSwitcher() {
   const t = useTranslations("navbar");
   const { spaces, activeSpace, loading, failed, setActiveSpaceId } = useActiveSpace();
+  const [createOpen, setCreateOpen] = useState(false);
 
   if (loading) return <span className="workspace-space-placeholder" aria-hidden="true" />;
   // Show the failure instead of hiding the switcher, so the user knows why their Spaces are missing.
@@ -34,6 +38,10 @@ export default function SpaceSwitcher() {
   const ActiveIcon = activeSpace.type === "personal" ? User : Building2;
 
   const onAction = (key: string | number) => {
+    if (String(key) === CREATE_KEY) {
+      setCreateOpen(true);
+      return;
+    }
     if (String(key) !== NONE_KEY) setActiveSpaceId(String(key));
   };
 
@@ -52,6 +60,7 @@ export default function SpaceSwitcher() {
   );
 
   return (
+    <>
     <Dropdown>
       <Dropdown.Trigger className="workspace-space-trigger" aria-label={t("switchSpace")}>
         <ActiveIcon aria-hidden="true" size={15} />
@@ -72,8 +81,14 @@ export default function SpaceSwitcher() {
               <span className="workspace-space-item-meta">{t("noOrganizations")}</span>
             </Dropdown.Item>
           ) : null}
+          <Dropdown.Item id={CREATE_KEY} textValue={t("createOrganization")}>
+            <Plus aria-hidden="true" size={16} />
+            <span className="workspace-space-item-name">{t("createOrganization")}</span>
+          </Dropdown.Item>
         </Dropdown.Menu>
       </Dropdown.Popover>
     </Dropdown>
+    <CreateOrganizationDialog open={createOpen} onOpenChange={setCreateOpen} />
+    </>
   );
 }
