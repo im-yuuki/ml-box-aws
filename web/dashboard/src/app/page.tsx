@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { Boxes, Building2, Gauge, FolderKanban, LogIn, UserPlus } from "lucide-react";
+import { Building2, Gauge, FolderKanban, LogIn, UserPlus } from "lucide-react";
 import { Button, Chip, ProgressBar } from "@heroui/react";
 import LocaleSwitcher from "@/components/LocaleSwitcher";
+import BrandMark from "@/components/BrandMark";
 
 export default async function Home() {
   const t = await getTranslations("home");
@@ -21,9 +22,7 @@ export default async function Home() {
           href="/"
           className="workspace-brand"
           aria-label={tCommon("homeLabel")}>
-          <span className="workspace-brand-mark" aria-hidden="true">
-            <Boxes size={18} strokeWidth={2} />
-          </span>
+          <BrandMark />
           <span className="workspace-brand-copy">
             <strong>{tCommon("appName")}</strong>
           </span>

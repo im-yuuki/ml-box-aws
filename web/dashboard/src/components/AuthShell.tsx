@@ -1,8 +1,8 @@
 import { Card } from "@heroui/react";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Boxes } from "lucide-react";
 import LocaleSwitcher from "@/components/LocaleSwitcher";
+import BrandMark from "@/components/BrandMark";
 
 /** Shared frame for sign-in and sign-up: brand, a single card, and the language switch. */
 export default function AuthShell({
@@ -24,7 +24,7 @@ export default function AuthShell({
     <div className="public-frame">
       <header className="public-header">
         <Link href="/" className="workspace-brand" aria-label={homeLabel}>
-          <span className="workspace-brand-mark" aria-hidden="true"><Boxes size={18} strokeWidth={2} /></span>
+          <BrandMark />
           <span className="workspace-brand-copy"><strong>{appName}</strong></span>
         </Link>
         <LocaleSwitcher />

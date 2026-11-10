@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { Boxes } from "lucide-react";
 import { useTranslations } from "next-intl";
 import AccountMenu from "@/components/navbar/AccountMenu";
 import NavbarSearch from "@/components/navbar/NavbarSearch";
 import SettingsDrawer from "@/components/navbar/SettingsDrawer";
 import SpaceSwitcher from "@/components/navbar/SpaceSwitcher";
+import BrandMark from "@/components/BrandMark";
 
 /**
  * Workspace chrome: one navbar (logo, workspace switcher, search, interface
@@ -19,7 +19,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <div className="workspace-frame">
       <header className="workspace-navbar">
         <Link href="/projects" className="workspace-brand" aria-label={tWorkspace("homeLink")}>
-          <span className="workspace-brand-mark" aria-hidden="true"><Boxes size={18} strokeWidth={2} /></span>
+          <BrandMark />
           <span className="workspace-brand-copy">
             <strong>MLBox</strong>
           </span>
