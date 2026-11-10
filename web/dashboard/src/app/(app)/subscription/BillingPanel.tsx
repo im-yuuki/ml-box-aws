@@ -8,6 +8,7 @@ import { Ban, Check, Circle, CircleCheck, CreditCard, RotateCcw } from "lucide-r
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 import FeedbackAlert from "@/components/FeedbackAlert";
+import { useActiveSpace } from "@/hooks/useActiveSpace";
 
 type SpaceType = "personal" | "organization";
 type PlanStatus = "active" | "coming_soon";
@@ -75,16 +76,23 @@ export default function BillingPanel() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  // Subscription, entitlements and payments follow the Space in the switcher.
+  const { activeSpace } = useActiveSpace();
+  const spaceId = activeSpace?.id ?? null;
+  const spaceType = activeSpace?.type ?? null;
 
   const loadBilling = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      // The subscription, its entitlements and the payment history belong to the Space in the switcher.
+      const spaceQuery = spaceId ? `?spaceId=${encodeURIComponent(spaceId)}` : "";
+      const typeQuery = spaceType ? `?spaceType=${encodeURIComponent(spaceType)}` : "";
       const [plansResponse, detailsResponse, paymentsResponse] =
         await Promise.all([
-          bffFetch("/api/bff/subscriptions/plans", { cache: "no-store" }),
-          bffFetch("/api/bff/subscription", { cache: "no-store" }),
-          bffFetch("/api/bff/payments", { cache: "no-store" }),
+          bffFetch(`/api/bff/subscriptions/plans${typeQuery}`, { cache: "no-store" }),
+          bffFetch(`/api/bff/subscription${spaceQuery}`, { cache: "no-store" }),
+          bffFetch(`/api/bff/payments${spaceQuery}`, { cache: "no-store" }),
         ]);
       if (!plansResponse.ok || !detailsResponse.ok || !paymentsResponse.ok)
         throw new Error("loadFailed");
@@ -145,6 +153,8 @@ export default function BillingPanel() {
     const match = plans.find((plan) => plan.id === raw || plan.name === raw);
     return match ? match.name : raw;
   }, [details, plans]);
+  const planName = (planId: string) =>
+    plans.find((plan) => plan.id === planId || plan.name === planId)?.name ?? planId;
   const visiblePlans = plans.filter(
     (plan) => !details || plan.spaceType === details.spaceType,
   );
@@ -393,7 +403,7 @@ export default function BillingPanel() {
                   key={payment.id}>
                   <div>
                     <p className="text-sm font-medium">
-                      {payment.planId} · {outcomeLabel(payment.status)}
+                      {planName(payment.planId)} · {outcomeLabel(payment.status)}
                     </p>
                     <p className="text-xs" style={{ color: "var(--muted)" }}>
                       {payment.id}

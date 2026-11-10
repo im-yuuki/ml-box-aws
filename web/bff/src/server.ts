@@ -30,6 +30,7 @@ import {
   parseMemoryGb,
   type UsageServer,
 } from "./usage.js";
+import { resolveSpaceId, scopeServersToSpace } from "./usage-scope.js";
 import { UsageStore } from "./usage-store.js";
 import { listSingleuserPods, resourcesByServer } from "./pod-resources.js";
 import { AppStore, INVITATION_NOT_AVAILABLE, LAST_TEAM_LEAD, PROJECT_RUNTIME_OWNER_NOT_READY, TEAM_MANAGEMENT_DENIED, type InvitationRole } from "./app-store.js";
@@ -2103,9 +2104,20 @@ app.get("/v1/sandboxes", async (request, reply) => {
   }
 });
 
-app.get("/v1/usage", async (request, reply) => {
+// The Space the request is about. Without a spaceId the caller's personal Space is used.
+// Returns null when the user is not a member of the requested Space.
+async function resolveSpaceForUser(userId: string, requested: unknown): Promise<string | null> {
+  return resolveSpaceId(await appStore!.listSpaces(userId), userId, requested);
+}
+
+app.get<{ Querystring: { spaceId?: string } }>("/v1/usage", async (request, reply) => {
   const session = await requireSession(request, reply);
   if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Usage storage is not configured." });
+  // Quota, credits, storage and the session list belong to the Space the user is looking at.
+  // Without a spaceId the personal Space is used (the caller's own Space).
+  const spaceId = await resolveSpaceForUser(session.subject, request.query.spaceId);
+  if (!spaceId) return reply.code(403).send({ error: "FORBIDDEN", message: "You do not have access to this Space." });
   try {
     const identity = await resolveSessionHubIdentity(session);
     await persistSessionHubIdentity(identity);
@@ -2125,12 +2137,14 @@ app.get("/v1/usage", async (request, reply) => {
       if (hubStatus(error) === 404) return buildUsageResponse([], quotas);
       throw error;
     }
+    // A Hub server is named after its Project, so the footprint of a Space is the servers of its Projects.
     const servers = Object.entries(user.servers ?? {}).map(([key, server]) => usageServer(key, server));
-    await fillPodResources(servers, hubUsername, request.log);
-    const result = buildUsageResponse(servers, quotas);
+    const scoped = await scopeServersToSpace(servers, spaceId, session.subject, (projectId) =>
+      appStore!.getProjectSpaceId(projectId),
+    );
+    await fillPodResources(scoped, hubUsername, request.log);
+    const result = buildUsageResponse(scoped, quotas);
     if (appStore) {
-      // Compute units are a Space pool; the personal Space is the one this account's runtimes bill to.
-      const spaceId = `personal:${session.subject}`;
       await appStore.closeStaleUsageSessions(spaceId, MAX_USAGE_SESSION_HOURS);
       const planId = await appStore.activePlanIdForSpace(spaceId);
       const plan = getMockPlan(planId ?? FREE_PLAN_ID) ?? getMockPlan(FREE_PLAN_ID)!;

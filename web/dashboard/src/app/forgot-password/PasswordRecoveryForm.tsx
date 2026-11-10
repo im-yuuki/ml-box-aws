@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Button, Form, Input, Label, TextField } from "@heroui/react";
 import { ArrowLeft, KeyRound, Mail } from "lucide-react";
 import { bffFetch } from "@/lib/bffFetch";
+import { useBffErrorMessage } from "@/lib/useBffErrorMessage";
 import FeedbackAlert from "@/components/FeedbackAlert";
 
 export default function PasswordRecoveryForm({
@@ -13,6 +14,7 @@ export default function PasswordRecoveryForm({
   mode: "forgot" | "reset";
 }) {
   const t = useTranslations("forgotPassword");
+  const errorMessage = useBffErrorMessage();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -50,10 +52,7 @@ export default function PasswordRecoveryForm({
         },
       );
       if (!response.ok) {
-        const body = (await response.json().catch(() => ({}))) as {
-          message?: string;
-        };
-        setError(body.message ?? t("requestFailed"));
+        setError(await errorMessage(response, t("requestFailed")));
       } else setSuccess(true);
     } catch {
       setError(t("requestFailed"));

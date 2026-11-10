@@ -6,6 +6,7 @@ import { RotateCcw } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 import FeedbackAlert from "@/components/FeedbackAlert";
+import { useActiveSpace } from "@/hooks/useActiveSpace";
 import ResourceHistory from "@/components/ResourceHistory";
 import CreditSessionList from "@/components/CreditSessionList";
 
@@ -53,15 +54,19 @@ function barColor(level: "ok" | "warn" | "bad"): "accent" | "warning" | "danger"
 
 export default function UsagePanel() {
   const t = useTranslations("usage");
+  const { activeSpace } = useActiveSpace();
   const [data, setData] = useState<UsageResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Quota, credits and the session list belong to the Space in the switcher.
+  const spaceId = activeSpace?.id ?? null;
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await bffFetch("/api/bff/usage", { cache: "no-store" });
+      const query = spaceId ? `?spaceId=${encodeURIComponent(spaceId)}` : "";
+      const response = await bffFetch(`/api/bff/usage${query}`, { cache: "no-store" });
       if (!response.ok) throw new Error(t("loadFailed"));
       setData((await response.json()) as UsageResponse);
     } catch (reason) {
@@ -69,7 +74,7 @@ export default function UsagePanel() {
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [spaceId, t]);
 
   useEffect(() => {
     const task = window.setTimeout(() => {

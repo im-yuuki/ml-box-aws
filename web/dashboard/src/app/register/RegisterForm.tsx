@@ -14,23 +14,13 @@ import {
 } from "@heroui/react";
 import { UserPlus } from "lucide-react";
 import { VERIFICATION_EMAIL_STORAGE_KEY } from "@/lib/verification";
+import { useBffErrorMessage } from "@/lib/useBffErrorMessage";
 import FeedbackAlert from "@/components/FeedbackAlert";
-
-async function responseMessage(
-  response: Response,
-  fallback: string,
-): Promise<string> {
-  try {
-    const body = (await response.json()) as { message?: string };
-    return body.message ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
 
 export default function RegisterForm() {
   const router = useRouter();
   const t = useTranslations("register");
+  const errorMessage = useBffErrorMessage();
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,7 +47,7 @@ export default function RegisterForm() {
         body: JSON.stringify({ email: nextEmail, password }),
       });
       if (!response.ok) {
-        setError(await responseMessage(response, t("requestFailed")));
+        setError(await errorMessage(response, t("requestFailed")));
         return;
       }
       try {

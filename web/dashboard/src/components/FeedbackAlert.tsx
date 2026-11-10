@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, type ReactNode } from "react";
-import { toast } from "@heroui/react";
+import { Alert, toast } from "@heroui/react";
 
 // React runs effects twice in development (StrictMode). Identical messages raised within this window are shown once.
 const DEDUPE_WINDOW_MS = 1000;
@@ -23,12 +23,33 @@ function raise(status: Status, message: ReactNode) {
 }
 
 /**
- * Outcome of a user action, shown as a toast. Mount it when there is something to report; it raises the
- * toast once and renders nothing. Errors are announced by the toast region itself.
+ * Outcome of a user action. Errors and warnings stay inline, where the user is looking: a form error
+ * that only lives in a corner toast for four seconds is easy to miss and cannot be read again. Success
+ * confirmations are toasts, so a successful action does not move the layout under the cursor. Pass
+ * `toast` to show an error as a toast as well.
  */
-export default function FeedbackAlert({ status, children }: { status: Status; children: ReactNode }) {
+export default function FeedbackAlert({
+  status,
+  children,
+  toast: asToast = false,
+}: {
+  status: Status;
+  children: ReactNode;
+  toast?: boolean;
+}) {
+  const inline = !asToast && status !== "success";
   useEffect(() => {
-    raise(status, children);
-  }, [status, children]);
-  return null;
+    if (!inline) raise(status, children);
+  }, [inline, status, children]);
+  if (!inline) return null;
+  return (
+    <div role={status === "danger" ? "alert" : "status"}>
+      <Alert status={status}>
+        <Alert.Indicator />
+        <Alert.Content>
+          <Alert.Description>{children}</Alert.Description>
+        </Alert.Content>
+      </Alert>
+    </div>
+  );
 }

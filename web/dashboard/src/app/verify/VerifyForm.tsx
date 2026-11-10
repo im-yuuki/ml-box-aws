@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { Button, Form, InputOTP, Label } from "@heroui/react";
 import { Check, RefreshCw } from "lucide-react";
 import { bffFetch } from "@/lib/bffFetch";
+import { useBffErrorMessage } from "@/lib/useBffErrorMessage";
 import { VERIFICATION_EMAIL_STORAGE_KEY } from "@/lib/verification";
 import FeedbackAlert from "@/components/FeedbackAlert";
 
@@ -13,6 +14,7 @@ export default function VerifyForm() {
   const t = useTranslations("verify");
   const router = useRouter();
   const params = useSearchParams();
+  const errorMessage = useBffErrorMessage();
   const queryEmail = (params.get("email") ?? "").trim().toLowerCase();
   const [code, setCode] = useState(() => params.get("code") ?? "");
   const [email, setEmail] = useState("");
@@ -66,10 +68,7 @@ export default function VerifyForm() {
         body: JSON.stringify({ email, code: trimmedCode }),
       });
       if (!response.ok) {
-        const body = (await response.json().catch(() => ({}))) as {
-          message?: string;
-        };
-        setError(body.message ?? t("requestFailed"));
+        setError(await errorMessage(response, t("requestFailed")));
       } else {
         try {
           window.sessionStorage.removeItem(VERIFICATION_EMAIL_STORAGE_KEY);
@@ -102,10 +101,7 @@ export default function VerifyForm() {
         body: JSON.stringify({ email }),
       });
       if (!response.ok) {
-        const body = (await response.json().catch(() => ({}))) as {
-          message?: string;
-        };
-        setError(body.message ?? t("requestFailed"));
+        setError(await errorMessage(response, t("requestFailed")));
       } else setResendSeconds(60);
     } catch {
       setError(t("requestFailed"));

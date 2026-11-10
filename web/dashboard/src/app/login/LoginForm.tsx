@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
+import { useBffErrorMessage } from "@/lib/useBffErrorMessage";
 import { Button, Form, Input, Label, TextField } from "@heroui/react";
 import { LogIn } from "lucide-react";
 import FeedbackAlert from "@/components/FeedbackAlert";
@@ -14,23 +15,12 @@ function safeNext(value: string | null): string {
     : "/sandboxes";
 }
 
-async function responseMessage(
-  response: Response,
-  fallback: string,
-): Promise<string> {
-  try {
-    const body = (await response.json()) as { message?: string };
-    return body.message ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 export default function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const next = safeNext(params.get("next"));
   const t = useTranslations("login");
+  const errorMessage = useBffErrorMessage();
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,7 +43,7 @@ export default function LoginForm() {
         body: JSON.stringify({ email, password }),
       });
       if (!response.ok) {
-        setError(await responseMessage(response, t("requestFailed")));
+        setError(await errorMessage(response, t("requestFailed")));
         return;
       }
       router.replace(next);
