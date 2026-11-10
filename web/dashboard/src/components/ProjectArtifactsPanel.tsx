@@ -202,8 +202,6 @@ export default function ProjectArtifactsPanel({
         {settings ? (
           <section aria-labelledby="artifact-storage-heading" className="flex flex-col gap-3 border-b pb-5" style={{ borderColor: "var(--border)" }}>
             <h3 id="artifact-storage-heading" className="text-sm font-medium">{t("storageHeading")}</h3>
-            <p className="text-xs" style={{ color: "var(--muted)" }}>{t("storageBody")}</p>
-
             <Switch
               isSelected={enabled}
               isDisabled={!canWrite || toggling || busy}

@@ -131,10 +131,6 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
                     )}
                   </dd>
                 </div>
-                <div>
-                  <dt>{t("projectTeam")}</dt>
-                  <dd>{project.teamName || t("personalTeam")}</dd>
-                </div>
               </dl>
             </Card.Content>
           </Card>
