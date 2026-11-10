@@ -309,7 +309,7 @@ rồi đặt `location` tới URL có code. Lỗi hiện thông báo `projectRun
 ## Chưa verify được (giới hạn công cụ, không phải lỗi app)
 
 - Upload artifact: browser panel không hỗ trợ set file input (`input[type=file]`) → chỉ verify được
-  bật/tắt storage, chưa verify upload/list/download.
+  bật/tắt storage, chưa verify upload/list/download. **Đã verify lại ở lần 4 bằng chrome-devtools (xem dưới).**
 - Cross-tenant / hai danh tính thật (TODO "Kiểm tra cross-tenant trên cluster thật") — cần tài khoản thứ hai.
 
 ## Ghi chú trạng thái
@@ -320,3 +320,75 @@ rồi đặt `location` tới URL có code. Lỗi hiện thông báo `projectRun
 - Screenshots: `.openchamber/screenshots/page-2026-11-10T10-43-37-287.jpg` (Starting), `…T10-57-59-635.jpg`
   (quota: compute units 0.2/20 + history), `…T10-59-47-453.jpg` (plan gate GPU), `…T11-02-31-209.jpg` (Running),
   `…T11-02-58-935.jpg` (artifact storage on).
+
+---
+
+# Kết quả verify E2E lần 4 — 2026-11-10 ~11:20–11:30 (sau deploy `5040a71`)
+
+Deploy: `04-dashboard/terraform.tfvars` pin `mlbox-{dashboard,bff}:5040a710cf55f5ade358e71604b3294fc8a5da21`;
+đã xác nhận bundle mới live qua key `projectRuntime.openFailed` trong HTML phục vụ.
+Công cụ: browser panel cho UI + chrome-devtools (`evaluate_script`) cho các bước cần POST/PUT/websocket
+(JupyterLab không đọc được DOM bằng browser panel).
+
+## ✅ Bug 8 — "Open notebook" đã được vá, hoạt động end-to-end
+
+- Bấm "Open notebook" → tab mới mở `https://notebook.mlbox.june8th.me/hub/mlbox/login?code=<mã 1 lần>&next=/user/<hubUser>/<projectId>/`
+  → Hub redeem code qua bridge token → chuyển thẳng tới
+  `https://notebook.mlbox.june8th.me/user/cognito-f9fe0438-…/b2d1bb61-…/lab`, title **JupyterLab**.
+- Không còn vòng lặp về `/login`. Handoff cũng chạy lại được sau khi sandbox restart (code mới mỗi lần).
+
+## ✅ Notebook storage EFS — verify đầy đủ (đóng nốt TODO "⚠️ Notebook storage EFS")
+
+Chuỗi đã chạy trên project `e2e-verify-2026-11-10`:
+
+1. Sandbox `c1.large` → `ready` (pod singleuser chạy, PVC `mlbox-<projectId>` trên `efs-sc`).
+2. Tạo file trong workspace qua Jupyter Contents API: `PUT /api/contents/e2e-proof.txt` → **201**,
+   size 27 byte, nội dung `mlbox-efs-proof-2026-11-10`.
+3. `GET /api/contents/e2e-proof.txt` → 200, đọc lại đúng nội dung.
+4. **Stop** sandbox → `stopped`. **Start** lại → `starting` → `ready` (pod mới, `serverStarted` đổi).
+5. `GET /api/contents/e2e-proof.txt` → **200**, nội dung `mlbox-efs-proof-2026-11-10`,
+   `last_modified` = 11:24:08 (pod cũ) trong khi `serverStarted` = 11:25:57 (pod mới).
+
+⇒ File sống sót qua full pod restart ⇒ nhà ở `/home/jovyan` nằm trên PVC/EFS, không phải filesystem container.
+(`e2e-proof.txt` còn nằm trong workspace để agent sau kiểm tra; xóa: xoá file trong JupyterLab.)
+
+## ✅ Artifact (S3) — verify đầy đủ upload → list → download
+
+- `POST /api/bff/projects/<id>/artifacts` → **201** + presigned PUT URL (`upload.method = PUT`).
+- `PUT` nội dung lên S3 → **200**.
+- `POST .../artifacts/<id>/complete` → 200, artifact chuyển `ready`.
+- `GET .../artifacts` → list có `artifact-proof.txt`, 32 byte, `ready`.
+- `GET .../artifacts/<id>/download` → 200 + presigned GET → tải về đúng nội dung `mlbox-artifact-proof-2026-11-10`.
+
+## ☐ Bug 9 — `useActiveSpace()` bị instantiate 4 lần → request trùng + trạng thái lệch nhau giữa các panel
+
+**Mức độ:** trung bình. Hiện tượng quan sát được lúc ~11:27 trên trang project: navbar hiện
+**"Workspaces unavailable"** trong khi thân trang vẫn quay **"Loading projects…"** — hai component cùng
+trang nói hai điều khác nhau về cùng một nguồn dữ liệu.
+
+**Nguyên nhân:** `useActiveSpace()` được gọi trong **4** component, mỗi lần tạo state riêng và tự gọi
+`GET /api/bff/spaces`:
+
+- `web/dashboard/src/components/navbar/SpaceSwitcher.tsx:18`
+- `web/dashboard/src/components/ProjectBoard.tsx:55`
+- `web/dashboard/src/components/ProjectDetail.tsx:28`
+- `web/dashboard/src/components/TeamBoard.tsx:27`
+
+Hệ quả: (a) mỗi trang bắn 2 request `/api/bff/spaces` trùng nhau; (b) khi một request lỗi (lỗi mạng
+thoáng qua, hoặc request chạm mốc hết hạn access token 1h), component này báo lỗi còn component kia
+vẫn ở trạng thái loading ⇒ UI mâu thuẫn; (c) fix Bug 2 chỉ sửa phần hiển thị, không sửa nguồn.
+
+**Gợi ý sửa:** đưa `useActiveSpace` lên thành provider/context (một instance ở layout `(app)`),
+các component consume từ đó ⇒ 1 request, 1 nguồn sự thật.
+
+## Ghi chú
+
+- `POST /api/bff/auth/refresh` chạy **song song 2 lần** đều trả 200 (Cognito chấp nhận reuse refresh
+  token trong grace window) ⇒ không phải nguyên nhân làm chết session; session sau khi refresh vẫn dùng
+  được (`GET /api/bff/spaces` → 200).
+- Session hiện tại: đăng nhập lúc ~11:0x, access token TTL 1h; hết hạn thì `bffFetch` refresh tự động.
+- Dữ liệu còn lại: project `e2e-verify-2026-11-10` (artifact storage **bật**, 1 artifact S3), file
+  `e2e-proof.txt` trong EFS, sandbox `c1.large` **đang chạy**. Xóa: nút "Delete project" trên trang project
+  (kỳ vọng xóa cả PVC + access point EFS — bước này **chưa** verify vì cần xác nhận xóa project).
+- Máy test không có AWS credentials ⇒ chưa verify được: pod spec/EFS access point ở tầng kubectl, và
+  việc xóa Project có xóa PVC/access point hay không (TODO "BFF xóa PVC của Project khi xóa Project").

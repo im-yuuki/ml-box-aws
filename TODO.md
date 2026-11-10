@@ -67,7 +67,7 @@ Target sản phẩm và thứ tự phase: [`docs/multi-tenant-product-plan.md`](
 
 ### Billing (mock)
 - ✅ Mô hình compute-unit: một pool units/tháng cho mỗi Space; CPU 1 unit/giờ, GPU 10 unit/giờ (`COMPUTE_UNIT_RATES`).
-- ✅ Gói: Free (20 units, CPU only), Plus (100, GPU), Pro (300, GPU), Org Team và Growth. Gói `coming_soon` giữ nguyên.
+- ✅ Gói: Free (20 units, CPU only), Plus (100, GPU), Pro (300, GPU), Org Team và Growth. Đã xoá các gói "sắp ra mắt" (Personal Power, Organization Scale, Organization Enterprise) khỏi catalog.
 - ✅ Start sandbox bị chặn khi gói không có GPU (`403 GPU_NOT_IN_PLAN`) hoặc hết units (`429 QUOTA_EXCEEDED`, `metric: compute_units`).
 - ✅ Session lưu `units_per_hour` lúc start (migration `ADD COLUMN`, mặc định 1 cho dòng cũ). Session mở quá 24 giờ bị đóng ở mốc 24 giờ.
 - ✅ `/v1/usage` trả pool units của personal Space; panel Usage hiển thị units thay cho meter CPU/GPU giờ (không đo được).
