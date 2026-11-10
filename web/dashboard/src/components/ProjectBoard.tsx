@@ -319,11 +319,6 @@ export default function ProjectBoard() {
         <section
           aria-label={t("projectsTitle")}
           className="flex flex-col gap-2">
-          <div className="workspace-list-head" aria-hidden="true">
-            <span>{t("columnProject")}</span>
-            <span>{t("columnRuntime")}</span>
-            <span />
-          </div>
           <ul className="workspace-project-list">
             {visibleProjects.map((project) => (
               <ProjectRow key={project.id} project={project} />

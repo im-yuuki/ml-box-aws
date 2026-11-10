@@ -4,22 +4,24 @@ import { useState } from "react";
 import { Button } from "@heroui/react";
 import { ExternalLink, Play } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useProjectSandbox } from "@/hooks/useProjectSandbox";
+import type { useProjectSandbox } from "@/hooks/useProjectSandbox";
 import { openNotebookViaHandoff } from "@/lib/notebookHandoff";
 import InstanceType from "@/components/InstanceType";
 import FeedbackAlert from "@/components/FeedbackAlert";
 
+type Sandbox = ReturnType<typeof useProjectSandbox>;
+
 /**
- * The row's instance type and its single action. While running the action opens the notebook; otherwise
- * it starts the sandbox without a profile, so the server launches the Project's last profile (or the default).
+ * The row's launch action. While running it opens the notebook; otherwise it starts the sandbox without a
+ * profile, so the server launches the Project's last profile (or the default). While running, the instance
+ * is shown under the Project name by ProjectRow, so this only shows the instance when it is stopped.
  */
-export default function ProjectRuntimeControl({ projectId }: { projectId: string }) {
+export default function ProjectRuntimeControl({ sandbox }: { sandbox: Sandbox }) {
   const t = useTranslations("projectRuntime");
-  const { data, loading, busy, error, stateKey, canOperate, profiles, runningProfile, preferredProfile, act } = useProjectSandbox(projectId);
+  const { data, loading, busy, error, stateKey, canOperate, profiles, preferredProfile, act } = sandbox;
   const url = data?.sandbox?.url ?? null;
   const running = stateKey === "running";
   const starting = stateKey === "starting";
-  const slug = running ? runningProfile : preferredProfile;
   const [openFailed, setOpenFailed] = useState(false);
 
   const openNotebook = async () => {
@@ -30,7 +32,7 @@ export default function ProjectRuntimeControl({ projectId }: { projectId: string
 
   return (
     <div className="workspace-runtime">
-      {slug ? <InstanceType slug={slug} profiles={profiles} /> : null}
+      {!running && preferredProfile ? <InstanceType slug={preferredProfile} profiles={profiles} /> : null}
       {running && url ? (
         <Button size="sm" variant="secondary" onPress={() => void openNotebook()}>
           <ExternalLink aria-hidden="true" size={14} />
