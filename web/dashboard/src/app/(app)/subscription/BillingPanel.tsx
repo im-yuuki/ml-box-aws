@@ -9,6 +9,7 @@ import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 import FeedbackAlert from "@/components/FeedbackAlert";
 import { useActiveSpace } from "@/hooks/useActiveSpace";
+import { entitlementLabel, entitlementValue } from "@/lib/billing";
 
 type SpaceType = "personal" | "organization";
 type PlanStatus = "active" | "coming_soon";
@@ -77,17 +78,20 @@ export default function BillingPanel() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   // Subscription, entitlements and payments follow the Space in the switcher.
-  const { activeSpace } = useActiveSpace();
+  const { activeSpace, loading: spacesLoading, failed: spacesFailed, reload: reloadSpaces } = useActiveSpace();
   const spaceId = activeSpace?.id ?? null;
   const spaceType = activeSpace?.type ?? null;
 
   const loadBilling = useCallback(async () => {
+    // The billing data belongs to a Space. Without one the request would answer with the personal
+    // Space of the user, so the page waits until the switcher has resolved.
+    if (!spaceId || !spaceType) return;
     setLoading(true);
     setError(null);
     try {
       // The subscription, its entitlements and the payment history belong to the Space in the switcher.
-      const spaceQuery = spaceId ? `?spaceId=${encodeURIComponent(spaceId)}` : "";
-      const typeQuery = spaceType ? `?spaceType=${encodeURIComponent(spaceType)}` : "";
+      const spaceQuery = `?spaceId=${encodeURIComponent(spaceId)}`;
+      const typeQuery = `?spaceType=${encodeURIComponent(spaceType)}`;
       const [plansResponse, detailsResponse, paymentsResponse] =
         await Promise.all([
           bffFetch(`/api/bff/subscriptions/plans${typeQuery}`, { cache: "no-store" }),
@@ -121,7 +125,7 @@ export default function BillingPanel() {
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [spaceId, spaceType, t]);
 
   useEffect(() => {
     const task = window.setTimeout(() => {
@@ -198,8 +202,6 @@ export default function BillingPanel() {
           ? t("billingPerMember")
           : t("billingPerMonth"));
 
-  const formatQuota = (value: number | null, unit: string) =>
-    value === null ? t("billingUnlimited") : `${value} ${unit}`;
   const statusLabel = (status: string) =>
     t(
       `billingStatus${status.charAt(0).toUpperCase()}${status.slice(1)}` as "billingStatusActive",
@@ -209,44 +211,27 @@ export default function BillingPanel() {
       `billingOutcome${value.charAt(0).toUpperCase()}${value.slice(1)}` as "billingOutcomeSucceeded",
     );
   // The entitlement resource ids come from the BFF (mock-billing.ts). Every one of them needs a
-  // label and a unit: unknown ids used to be printed raw ("concurrent_sandboxes") and every
-  // resource was rendered with the "hours" unit ("5 hours" for a sandbox count).
-  const quotaLabel = (resource: string) => {
-    const labels: Record<
-      string,
-      | "billingQuotaProjects"
-      | "billingQuotaStorageGb"
-      | "billingQuotaCredits"
-      | "billingQuotaMembers"
-      | "billingQuotaConcurrentSandboxes"
-      | "billingQuotaCpuHours"
-      | "billingQuotaGpuHours"
-      | "billingQuotaGpuAccess"
-    > = {
-      projects: "billingQuotaProjects",
-      storage_gb: "billingQuotaStorageGb",
-      credits: "billingQuotaCredits",
-      members: "billingQuotaMembers",
-      concurrent_sandboxes: "billingQuotaConcurrentSandboxes",
-      cpu_hours: "billingQuotaCpuHours",
-      gpu_hours: "billingQuotaGpuHours",
-      gpu_access: "billingQuotaGpuAccess",
-    };
-    const key = labels[resource];
-    return key ? t(key) : resource;
-  };
+  // label and a value: unknown ids used to be printed raw ("concurrent_sandboxes"), every resource
+  // was rendered with the "hours" unit ("5 hours" for a sandbox count) and a single sandbox was
+  // written as "1 sandboxes running at once".
+  const quotaLabel = (resource: string) => entitlementLabel(resource, t);
+  const quotaValue = (resource: string, limitValue: number | null) =>
+    entitlementValue(resource, limitValue, t);
 
-  const quotaUnit = (resource: string) => {
-    if (resource === "storage_gb") return t("billingGb");
-    if (resource === "members") return t("billingMembers");
-    if (resource === "credits") return t("billingCredits");
-    if (resource === "concurrent_sandboxes") return t("billingConcurrentSandboxes");
-    if (resource === "cpu_hours" || resource === "gpu_hours") return t("billingHours");
-    if (resource === "gpu_access") return t("billingGpuAccess");
-    return t("billingProjects");
-  };
+  // The Spaces request failed, so the billing data of the selected Space cannot be read.
+  if (!spacesLoading && spacesFailed) {
+    return (
+      <Card className="p-5">
+        <FeedbackAlert status="danger">{t("billingLoadFailed")}</FeedbackAlert>
+        <Button className="mt-4" variant="secondary" onPress={() => reloadSpaces()}>
+          <RotateCcw aria-hidden="true" size={16} />
+          {t("retry")}
+        </Button>
+      </Card>
+    );
+  }
 
-  if (loading) {
+  if (loading || spacesLoading || !activeSpace) {
     return (
       <Card className="p-5">
         <p className="text-sm" style={{ color: "var(--muted)" }}>
@@ -293,7 +278,7 @@ export default function BillingPanel() {
                     {quotaLabel(entitlement.resource)}
                   </p>
                   <p className="text-sm font-medium">
-                    {formatQuota(entitlement.limitValue, quotaUnit(entitlement.resource))}
+                    {quotaValue(entitlement.resource, entitlement.limitValue)}
                   </p>
                 </div>
               ))}
@@ -352,10 +337,10 @@ export default function BillingPanel() {
                   className="flex flex-col gap-1.5 text-xs"
                   style={{ color: "var(--muted)" }}>
                   {[
-                    formatQuota(plan.credits, t("billingCredits")),
-                    formatQuota(plan.concurrentSandboxes, t("billingConcurrentSandboxes")),
-                    formatQuota(plan.storageGb, t("billingGb")),
-                    ...(plan.gpuAccess ? [t("billingGpuIncluded")] : []),
+                    quotaValue("credits", plan.credits),
+                    quotaValue("concurrent_sandboxes", plan.concurrentSandboxes),
+                    quotaValue("storage_gb", plan.storageGb),
+                    quotaValue("gpu_access", plan.gpuAccess ? 1 : 0),
                   ].map((benefit) => (
                     <li key={benefit} className="flex items-start gap-2">
                       <Check aria-hidden="true" size={14} className="mt-px shrink-0" style={{ color: "var(--accent)" }} />
@@ -378,7 +363,9 @@ export default function BillingPanel() {
                 isDisabled={pending}
                 fullWidth>
                 <CreditCard aria-hidden="true" size={16} />
-                {t("payPlan", { plan: selectedPlan.name })}
+                {selectedPlan.amountCents === 0
+                  ? t("usePlan", { plan: selectedPlan.name })
+                  : t("payPlan", { plan: selectedPlan.name })}
               </Button>
             ) : null}
           </div>

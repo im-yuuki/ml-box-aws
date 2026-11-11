@@ -113,6 +113,24 @@ await check("invitations: only owners/admins create; invitee accepts with matchi
   assert.deepEqual(role, { role: "member", status: "active" });
 });
 
+await check("an accepted member joins the Space's teams and sees its projects", async () => {
+  const team = (await pool.query(`SELECT tm.role FROM mlbox_team_members tm WHERE tm.team_id = $1 AND tm.user_id = $2`, [teamId, NEWCOMER])).rows[0];
+  assert.equal(team.role, "member");
+  assert.deepEqual((await store.listProjects(NEWCOMER, ORG)).map((p) => p.id), [projectId]);
+  const permission = await store.projectPermission(NEWCOMER, projectId);
+  assert.equal(permission?.canRead, true);
+  assert.equal(permission?.canOperate, true);
+});
+
+await check("the schema backfills the team memberships of existing Space members", async () => {
+  await pool.query(`DELETE FROM mlbox_team_members WHERE team_id = $1 AND user_id = $2`, [teamId, NEWCOMER]);
+  assert.deepEqual(await store.listProjects(NEWCOMER, ORG), []);
+  await store.ensureSchema();
+  const team = (await pool.query(`SELECT tm.role FROM mlbox_team_members tm WHERE tm.team_id = $1 AND tm.user_id = $2`, [teamId, NEWCOMER])).rows[0];
+  assert.equal(team.role, "member");
+  assert.deepEqual((await store.listProjects(NEWCOMER, ORG)).map((p) => p.id), [projectId]);
+});
+
 await check("accepting an invitation never downgrades an existing owner", async () => {
   const invitation = await store.createSpaceInvitation(OWNER, ORG, "owner@example.com", "viewer");
   await store.acceptSpaceInvitation(OWNER, "owner@example.com", invitation.id);
@@ -124,6 +142,14 @@ await check("revoked invitations cannot be accepted", async () => {
   const invitation = await store.createSpaceInvitation(OWNER, ORG, "gone@example.com", "member");
   await store.revokeSpaceInvitation(OWNER, ORG, invitation.id);
   await expectReject(store.acceptSpaceInvitation(OUTSIDER, "gone@example.com", invitation.id), new RegExp(INVITATION_NOT_AVAILABLE));
+});
+
+await check("the member count of a Space covers the members and the pending invitations", async () => {
+  const before = await store.spaceMemberCount(ORG);
+  const invitation = await store.createSpaceInvitation(OWNER, ORG, "count@example.com", "member");
+  assert.equal(await store.spaceMemberCount(ORG), before + 1);
+  await store.revokeSpaceInvitation(OWNER, ORG, invitation.id);
+  assert.equal(await store.spaceMemberCount(ORG), before);
 });
 
 await check("sandbox runtime needs the creator's Hub identity and runs under it", async () => {

@@ -489,6 +489,40 @@ test("accepting an invitation is limited to the invited email and does not downg
   assert.match(insert?.sql ?? "", /ON CONFLICT \(space_id, user_id\) DO NOTHING/);
 });
 
+test("accepting an invitation also joins the Space's teams, but never for a viewer", async () => {
+  const { store, queries } = fakeStore((sql) => (sql.includes("UPDATE mlbox_space_invitations") ? { rows: [{ space_id: "s1", role: "member" }] } : { rows: [] }));
+  await store.acceptSpaceInvitation("u2", "b@example.com", "inv-1");
+  const teamInsert = queries.find((q) => q.sql.includes("INSERT INTO mlbox_team_members"));
+  assert.ok(teamInsert, "accepting an invitation must insert a team membership");
+  // The Team role is always "member": the table only allows 'lead' or 'member'.
+  assert.match(teamInsert.sql, /'member'/);
+  // A viewer stays read-only, so it must not be part of the Team.
+  assert.match(teamInsert.sql, /sm\.role IN \('admin', 'member'\)/);
+  assert.match(teamInsert.sql, /ON CONFLICT \(team_id, user_id\) DO NOTHING/);
+  assert.deepEqual(teamInsert.values, ["s1", "u2"]);
+});
+
+test("the schema backfills the team memberships a Space member is missing", async () => {
+  const queries: string[] = [];
+  const store = new AppStore({
+    query: async (sql: string) => {
+      queries.push(sql);
+      return { rows: [] };
+    },
+    connect: async () => { throw new Error("connect is not expected for this test"); },
+    end: async () => undefined,
+  });
+
+  await store.ensureSchema();
+
+  const backfill = queries.find((sql) => sql.includes("INSERT INTO mlbox_team_members") && sql.includes("ON CONFLICT (team_id, user_id) DO NOTHING"));
+  assert.ok(backfill, "ensureSchema must backfill the missing team memberships");
+  assert.match(backfill, /sm\.status = 'active'/);
+  assert.match(backfill, /sm\.role IN \('admin', 'member'\)/);
+  // The backfill runs on every start, so it must not fail on an existing row.
+  assert.match(backfill, /ON CONFLICT \(team_id, user_id\) DO NOTHING/);
+});
+
 test("project deletion is soft: usage history is kept, the Project is marked deleted, all in one transaction", async () => {
   const { store, queries } = fakeStore(() => ({ rows: [] }));
   await store.deleteProject("p1");

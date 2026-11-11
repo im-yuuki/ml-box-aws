@@ -565,6 +565,18 @@ export class AppStore {
       CREATE INDEX IF NOT EXISTS mlbox_projects_team_idx ON mlbox_projects(team_id);
       CREATE UNIQUE INDEX IF NOT EXISTS mlbox_projects_team_name_key ON mlbox_projects(team_id, name);
     `);
+    // Backfill: a Space membership used to be enough to see the Space, but the Projects of a Team
+    // are only visible to its Team members. Members who joined before that was fixed have no Team
+    // row and saw an empty Space. The insert is idempotent, so it is safe to run on every start.
+    // A viewer is left out on purpose: it stays read-only.
+    await this.pool.query(`
+      INSERT INTO mlbox_team_members (team_id, user_id, role)
+      SELECT t.id, sm.user_id, 'member'
+      FROM mlbox_space_memberships sm
+      JOIN mlbox_teams t ON t.space_id = sm.space_id
+      WHERE sm.status = 'active' AND sm.role IN ('admin', 'member')
+      ON CONFLICT (team_id, user_id) DO NOTHING
+    `);
   }
 
   // Projects used to belong to a Space (mlbox_projects.space_id). They now belong to a Team.
@@ -1288,6 +1300,18 @@ export class AppStore {
          ON CONFLICT (space_id, user_id) DO NOTHING`,
         [String(row.space_id), userId, String(row.role)],
       );
+      // The Projects of a Team are only visible to its Team members, so joining the Space is not
+      // enough: an admin or member also joins the Space's Teams. A viewer keeps read-only access
+      // through the Space role alone and therefore gets no Team row.
+      await client.query(
+        `INSERT INTO mlbox_team_members (team_id, user_id, role)
+         SELECT t.id, $2, 'member'
+         FROM mlbox_teams t
+         JOIN mlbox_space_memberships sm ON sm.space_id = t.space_id AND sm.user_id = $2 AND sm.status = 'active'
+         WHERE t.space_id = $1 AND sm.role IN ('admin', 'member')
+         ON CONFLICT (team_id, user_id) DO NOTHING`,
+        [String(row.space_id), userId],
+      );
       await client.query("COMMIT");
     } catch (error) {
       await client.query("ROLLBACK");
@@ -1357,6 +1381,19 @@ export class AppStore {
     );
     const row = result.rows[0];
     return row ? (String(row.role) as SpaceRole) : null;
+  }
+
+  // Seats a Space has taken: the active members plus the invitations waiting for an answer.
+  // A plan with a member limit counts both, so an invitation cannot be used to pass the limit.
+  async spaceMemberCount(spaceId: string): Promise<number> {
+    const result = await this.pool.query(
+      `SELECT
+         (SELECT count(*) FROM mlbox_space_memberships WHERE space_id = $1 AND status = 'active')::int AS members,
+         (SELECT count(*) FROM mlbox_space_invitations WHERE space_id = $1 AND status = 'pending')::int AS pending`,
+      [spaceId],
+    );
+    const row = result.rows[0];
+    return Number(row?.members ?? 0) + Number(row?.pending ?? 0);
   }
 
   async listSpaceMembers(spaceId: string): Promise<Array<{ userId: string; role: SpaceRole; email: string | null }>> {

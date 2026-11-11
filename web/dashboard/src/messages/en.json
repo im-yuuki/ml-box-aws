@@ -22,7 +22,9 @@
     "alreadyRunning": "The sandbox is already running. Stop it before changing the configuration.",
     "sandboxStartFailed": "The sandbox could not start. Try again or check the Hub logs.",
     "artifactsDisabled": "Artifact storage is off. Turn it on in the Project page to upload files.",
-    "confirmationRequired": "Please confirm the action first."
+    "confirmationRequired": "Please confirm the action first.",
+    "alreadyConfirmed": "This account is already confirmed. You can sign in.",
+    "memberLimitReached": "This plan has no seat left for another member."
   },
   "common": {
     "appName": "MLBox",
@@ -299,6 +301,8 @@
     "billingGpuHours": "GPU hours",
     "billingCredits": "credits / month",
     "billingGpuIncluded": "GPU included",
+    "billingGpuNone": "No GPU access",
+    "billingSandboxLimit": "{count, plural, one {# sandbox running at once} other {# sandboxes running at once}}",
     "billingMembers": "members",
     "billingQuotaProjects": "Projects",
     "billingQuotaStorageGb": "Storage",
@@ -329,6 +333,7 @@
       "security": "Security"
     },
     "payPlan": "Pay for {plan}",
+    "usePlan": "Use {plan}",
     "resultSucceeded": "Payment succeeded. Your plan has been updated.",
     "resultFailed": "Payment failed. You can try again.",
     "profileHeading": "Profile",
@@ -404,7 +409,7 @@
     "ownershipTransferred": "Ownership transferred.",
     "creatorLabel": "Creator",
     "dangerTitle": "Delete team",
-    "dangerBody": "Deletes {name}, its team, projects and notebook files. Stop all sandboxes first. This cannot be undone.",
+    "dangerBody": "Deletes {name}, its projects and notebook files. Stop all sandboxes first. This cannot be undone.",
     "dangerAction": "Delete team",
     "dangerConfirmTitle": "Delete {name}?",
     "dangerConfirmBody": "This removes the team for every member. It cannot be undone.",

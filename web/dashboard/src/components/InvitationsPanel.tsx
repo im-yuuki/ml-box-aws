@@ -5,6 +5,7 @@ import { Button, Card, Form, Input, ListBox, Select, TextField } from "@heroui/r
 import { Check, Send, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
+import { useBffErrorMessage } from "@/lib/useBffErrorMessage";
 import FeedbackAlert from "@/components/FeedbackAlert";
 import { canManageTeams, type SpaceSummary } from "@/lib/spaces";
 
@@ -15,6 +16,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /** Owners and admins invite people with a role. Anyone can see and accept invitations sent to their email. */
 export default function InvitationsPanel({ space }: { space: SpaceSummary }) {
   const t = useTranslations("invitations");
+  const errorMessage = useBffErrorMessage();
   const [pending, setPending] = useState<Invitation[]>([]);
   const [mine, setMine] = useState<Invitation[]>([]);
   const [email, setEmail] = useState("");
@@ -65,7 +67,12 @@ export default function InvitationsPanel({ space }: { space: SpaceSummary }) {
         body: JSON.stringify({ email: value, role }),
       });
       if (!response.ok) {
-        setError(response.status === 403 ? t("forbidden") : t("inviteFailed"));
+        // The Space may have no seat left for another member; the BFF says so with its own code.
+        setError(
+          response.status === 403
+            ? t("forbidden")
+            : (await errorMessage(response, t("inviteFailed"))),
+        );
         return;
       }
       setEmail("");

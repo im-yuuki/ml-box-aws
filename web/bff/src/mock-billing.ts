@@ -64,6 +64,14 @@ export function artifactPolicyForPlan(planId: string | null): { retentionDays: n
   };
 }
 
+/**
+ * The plan a Space actually runs on: its active subscription, or the free tier when it has none.
+ * A Space without a subscription is not an error, it runs on the free plan.
+ */
+export function effectivePlanForSpace(planId: string | null | undefined): MockPlan {
+  return getMockPlan(planId ?? FREE_PLAN_ID) ?? getMockPlan(FREE_PLAN_ID)!;
+}
+
 export function listMockPlans(spaceType?: SpaceType): MockPlan[] {
   return plans.filter((plan) => !spaceType || plan.spaceType === spaceType).map((plan) => ({ ...plan }));
 }

@@ -19,6 +19,7 @@ import cookie from "@fastify/cookie";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { createHash, createSecretKey, randomBytes, randomUUID } from "node:crypto";
 import { validCsrfPair } from "./csrf.js";
+import { authErrorStatus, confirmErrorStatus, confirmPublicError, errorName, publicError } from "./auth-errors.js";
 import { bearerMatches } from "./hub-bridge.js";
 import { HANDOFF_TTL_SECONDS, buildHandoffUrl, generateHandoffCode, hashHandoffCode, sanitizeNextPath } from "./hub-handoff.js";
 import { ensureHubUser, hubActivationState, hubActivationUrl, hubFailure, hubServerFromUserRecord, mapHubServerState, sandboxPath, sandboxUrl, startHubSandbox, type HubError, type HubRequestResponse, type HubLifecycleState, type HubServerLike } from "./hub.js";
@@ -58,9 +59,9 @@ import {
 } from "./hub-identity-routing.js";
 import type { HubIdentity } from "./hub-identity.js";
 import {
-  FREE_PLAN_ID,
   MAX_USAGE_SESSION_HOURS,
   artifactPolicyForPlan,
+  effectivePlanForSpace,
   getMockPlan,
   isMockPaymentMethod,
   isMockPaymentOutcome,
@@ -236,51 +237,6 @@ function normalizeEmail(value: unknown): string | null {
 
 function requiredString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
-}
-
-function errorName(error: unknown): string {
-  return typeof error === "object" && error && "name" in error ? String(error.name) : "";
-}
-
-function authErrorStatus(error: unknown): number {
-  switch (errorName(error)) {
-    case "NotAuthorizedException":
-    case "UserNotFoundException":
-    case "PasswordResetRequiredException":
-      return 401;
-    case "UserNotConfirmedException":
-      return 403;
-    case "TooManyRequestsException":
-    case "LimitExceededException":
-      return 429;
-    case "UsernameExistsException":
-    case "CodeMismatchException":
-    case "ExpiredCodeException":
-    case "InvalidPasswordException":
-    case "InvalidParameterException":
-      return 400;
-    default:
-      return 502;
-  }
-}
-
-function publicError(error: unknown): { error: string; message: string } {
-  const name = errorName(error);
-  const message =
-    name === "UserNotFoundException" || name === "NotAuthorizedException"
-      ? "Email hoặc mật khẩu không đúng."
-      : name === "UserNotConfirmedException"
-        ? "Tài khoản chưa được xác nhận."
-        : name === "UsernameExistsException"
-          ? "Email này đã được đăng ký."
-          : name === "CodeMismatchException"
-            ? "Mã xác nhận không đúng."
-            : name === "ExpiredCodeException"
-              ? "Mã xác nhận đã hết hạn."
-              : name === "InvalidPasswordException"
-                ? "Mật khẩu chưa đáp ứng chính sách bảo mật."
-                : "Không thể hoàn tất yêu cầu xác thực.";
-  return { error: name || "AUTH_ERROR", message };
 }
 
 async function encryptSession(runtime: RuntimeConfig, session: Session): Promise<string> {
@@ -753,7 +709,9 @@ app.post<{ Body: ConfirmBody }>("/v1/auth/confirm", async (request, reply) => {
     return { confirmed: true };
   } catch (error) {
     request.log.warn({ err: error }, "Cognito confirmation failed");
-    return reply.code(authErrorStatus(error)).send(publicError(error));
+    // Confirming an account that is already confirmed raises NotAuthorizedException. The generic
+    // mapping would blame the email or password, which is wrong on the verification page.
+    return reply.code(confirmErrorStatus(error)).send(confirmPublicError(error));
   }
 });
 
@@ -1025,11 +983,21 @@ app.post("/v1/account/sessions/revoke-others", async (request, reply) => {
   }
 });
 
+// The Space the request is about. Without a spaceId the caller's personal Space is used.
+// Returns null when the user is not a member of the requested Space.
+async function resolveSpaceForUser(userId: string, requested: unknown): Promise<string | null> {
+  return resolveSpaceId(await appStore!.listSpaces(userId), userId, requested);
+}
+
 app.get<{ Querystring: { spaceId?: string } }>("/v1/projects", async (request, reply) => {
   const session = await requireSession(request, reply);
   if (!session) return;
   if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Project storage is not configured." });
-  const spaceId = requiredString(request.query.spaceId) ?? `personal:${session.subject}`;
+  // The list of Projects belongs to a Space: a Space the caller does not belong to is refused,
+  // so the dashboard can tell "not allowed" from "no projects". Without a spaceId the personal
+  // Space of the caller is used.
+  const spaceId = await resolveSpaceForUser(session.subject, request.query.spaceId);
+  if (!spaceId) return reply.code(403).send({ error: "FORBIDDEN", message: "You do not have access to this Space." });
   try {
     const projects = await appStore.listProjects(session.subject, spaceId);
     // canManage decides whether the UI offers project deletion; the DELETE route checks it again.
@@ -1105,8 +1073,7 @@ app.get<{ Querystring: { spaceId?: string } }>("/v1/subscription", async (reques
     // A Space without a subscription runs on the free tier. The quota page already shows that tier,
     // so the subscription page shows the same entitlements instead of an empty list.
     if (details.entitlements.length === 0) {
-      const planId = (await appStore.activePlanIdForSpace(spaceId)) ?? FREE_PLAN_ID;
-      const plan = getMockPlan(planId) ?? getMockPlan(FREE_PLAN_ID)!;
+      const plan = effectivePlanForSpace(await appStore.activePlanIdForSpace(spaceId));
       details.entitlements = Object.entries(entitlementsForPlan(plan)).map(([resource, limitValue]) => ({
         resource,
         limitValue,
@@ -1478,8 +1445,25 @@ app.post<{ Params: { spaceId: string }; Body: { email?: string; role?: string } 
   const role = request.body?.role ?? "member";
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return reply.code(400).send({ error: "INVALID_INPUT", message: "Email không hợp lệ." });
   if (!INVITATION_ROLES.includes(role as InvitationRole)) return reply.code(400).send({ error: "INVALID_INPUT", message: "Vai trò không hợp lệ." });
+  const spaceId = request.params.spaceId;
   try {
-    return reply.code(201).send({ invitation: await appStore.createSpaceInvitation(session.subject, request.params.spaceId, email, role as InvitationRole) });
+    // Only owners and admins may invite, and they must not learn about the member limit before that.
+    const actorRole = await appStore.activeSpaceRole(session.subject, spaceId);
+    if (actorRole !== "owner" && actorRole !== "admin") {
+      return reply.code(403).send({ error: "FORBIDDEN", message: "Bạn không có quyền mời thành viên vào nhóm này." });
+    }
+    // The plan limits how many people a Space can have. Members and pending invitations both take a seat.
+    const plan = effectivePlanForSpace(await appStore.activePlanIdForSpace(spaceId));
+    if (plan.members != null) {
+      const seats = await appStore.spaceMemberCount(spaceId);
+      if (seats >= plan.members) {
+        return reply.code(409).send({
+          error: "MEMBER_LIMIT_REACHED",
+          message: `This plan allows ${plan.members} members.`,
+        });
+      }
+    }
+    return reply.code(201).send({ invitation: await appStore.createSpaceInvitation(session.subject, spaceId, email, role as InvitationRole) });
   } catch (error) {
     if (error instanceof Error && error.message === TEAM_MANAGEMENT_DENIED) {
       return reply.code(403).send({ error: "FORBIDDEN", message: "Bạn không có quyền mời thành viên vào nhóm này." });
@@ -1705,7 +1689,7 @@ app.get<{ Params: { projectId: string } }>("/v1/projects/:projectId/sandbox/prof
     if (!(await projectActionAllowed(reply, session.subject, request.params.projectId, "read"))) return;
     // Profiles the Space's plan cannot run are listed as unavailable, so the UI does not offer a start that will be refused.
     const spacePlan = await appStore.spaceAndPlanForProject(request.params.projectId);
-    const plan = getMockPlan(spacePlan?.planId ?? FREE_PLAN_ID) ?? getMockPlan(FREE_PLAN_ID)!;
+    const plan = effectivePlanForSpace(spacePlan?.planId);
     const profiles = listSandboxProfiles(sandboxGpuProfiles).map((profile) => ({
       ...profile,
       available: profile.available && planAllowsRuntime(plan, runtimeClassForProfile(profile.kind)) === null,
@@ -1766,7 +1750,7 @@ app.post<{ Params: { projectId: string }; Body: { profile?: unknown } | undefine
     // Plan gate: GPU profiles need a GPU-enabled plan, and a Space that has used its monthly compute units cannot start more runtimes.
     const spacePlan = await appStore.spaceAndPlanForProject(projectId);
     if (!spacePlan) return reply.code(404).send({ error: "NOT_FOUND", message: "Project không tồn tại." });
-    const plan = getMockPlan(spacePlan.planId ?? FREE_PLAN_ID) ?? getMockPlan(FREE_PLAN_ID)!;
+    const plan = effectivePlanForSpace(spacePlan.planId);
     const runtimeClass = runtimeClassForProfile(resolved.profile.kind);
     // Sessions left open by a crashed runtime are closed at the cap before the balance is read.
     await appStore.closeStaleUsageSessions(spacePlan.spaceId, MAX_USAGE_SESSION_HOURS);
@@ -2116,12 +2100,6 @@ app.get("/v1/sandboxes", async (request, reply) => {
   }
 });
 
-// The Space the request is about. Without a spaceId the caller's personal Space is used.
-// Returns null when the user is not a member of the requested Space.
-async function resolveSpaceForUser(userId: string, requested: unknown): Promise<string | null> {
-  return resolveSpaceId(await appStore!.listSpaces(userId), userId, requested);
-}
-
 app.get<{ Querystring: { spaceId?: string } }>("/v1/usage", async (request, reply) => {
   const session = await requireSession(request, reply);
   if (!session) return;
@@ -2141,16 +2119,16 @@ app.get<{ Querystring: { spaceId?: string } }>("/v1/usage", async (request, repl
       storageGb: runtime.storageQuotaGb,
       gpuHours: runtime.gpuQuotaHours,
     };
-    let user: HubUser;
+    let servers: UsageServer[] = [];
     try {
-      user = await hubRequest<HubUser>(runtime, "GET", `/hub/api/users/${usernamePath(hubUsername)}`);
+      const user = await hubRequest<HubUser>(runtime, "GET", `/hub/api/users/${usernamePath(hubUsername)}`);
+      // A Hub server is named after its Project, so the footprint of a Space is the servers of its Projects.
+      servers = Object.entries(user.servers ?? {}).map(([key, server]) => usageServer(key, server));
     } catch (error) {
       // A user unknown to the Hub (never spawned a server) has an empty footprint, not an error.
-      if (hubStatus(error) === 404) return buildUsageResponse([], quotas);
-      throw error;
+      // The plan section below still runs, so the Space reports its plan (free tier by default).
+      if (hubStatus(error) !== 404) throw error;
     }
-    // A Hub server is named after its Project, so the footprint of a Space is the servers of its Projects.
-    const servers = Object.entries(user.servers ?? {}).map(([key, server]) => usageServer(key, server));
     const scoped = await scopeServersToSpace(servers, spaceId, session.subject, (projectId) =>
       appStore!.getProjectSpaceId(projectId),
     );
@@ -2158,8 +2136,7 @@ app.get<{ Querystring: { spaceId?: string } }>("/v1/usage", async (request, repl
     const result = buildUsageResponse(scoped, quotas);
     if (appStore) {
       await appStore.closeStaleUsageSessions(spaceId, MAX_USAGE_SESSION_HOURS);
-      const planId = await appStore.activePlanIdForSpace(spaceId);
-      const plan = getMockPlan(planId ?? FREE_PLAN_ID) ?? getMockPlan(FREE_PLAN_ID)!;
+      const plan = effectivePlanForSpace(await appStore.activePlanIdForSpace(spaceId));
       result.credits = { planId: plan.id, limit: plan.credits, used: await appStore.creditsUsedThisMonth(spaceId) };
       // Storage is measured from artifact bytes in the Space against the plan's storage limit.
       const stored = await appStore.artifactUsageForSpace(spaceId, "");

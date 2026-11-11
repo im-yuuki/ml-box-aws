@@ -25,10 +25,12 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
     null,
   );
 
-  const { activeSpace } = useActiveSpace();
+  const { activeSpace, loading: spacesLoading, failed: spacesFailed, reload: reloadSpaces } = useActiveSpace();
   const activeSpaceId = activeSpace?.id ?? null;
 
   const loadProject = useCallback(async () => {
+    // Without a Space the Project cannot be looked up. The request only starts once the Spaces
+    // are known; a failing Spaces request is answered by the error state below.
     if (!activeSpaceId) return;
     setLoading(true);
     setError(null);
@@ -58,6 +60,22 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
     const task = window.setTimeout(() => void loadProject(), 0);
     return () => window.clearTimeout(task);
   }, [loadProject]);
+
+  // The Spaces request failed (or returned none), so the Project cannot be loaded. This has to be
+  // an error state, not an endless spinner.
+  if (!spacesLoading && (spacesFailed || !activeSpace)) {
+    return (
+      <DetailState
+        title={t("unavailableTitle")}
+        body={t("unavailableBody")}
+        action={t("retry")}
+        onAction={() => {
+          reloadSpaces();
+          void loadProject();
+        }}
+      />
+    );
+  }
 
   if (loading)
     return (

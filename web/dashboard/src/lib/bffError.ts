@@ -34,6 +34,8 @@ const CODE_TO_MESSAGE: Record<string, string> = {
   SANDBOX_START_FAILED: "sandboxStartFailed",
   ARTIFACTS_DISABLED: "artifactsDisabled",
   CONFIRMATION_REQUIRED: "confirmationRequired",
+  ALREADY_CONFIRMED: "alreadyConfirmed",
+  MEMBER_LIMIT_REACHED: "memberLimitReached",
 };
 
 export type BffErrorBody = { error?: string; message?: string };

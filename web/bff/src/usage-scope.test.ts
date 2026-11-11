@@ -23,6 +23,14 @@ test("usage rejects a Space the caller does not belong to", () => {
   assert.equal(resolveSpaceId(spaces, "u1", "org:other"), null);
 });
 
+test("the project list refuses a Space the caller does not belong to", () => {
+  // The projects route uses the same guard as the usage route, so a Space of another account
+  // is refused instead of answered with an empty project list.
+  const memberSpaces: SpaceSummary[] = [{ id: "personal:u2", type: "personal", name: "u2's Space", role: "owner" }];
+  assert.equal(resolveSpaceId(memberSpaces, "u2", "org:a"), null);
+  assert.equal(resolveSpaceId(spaces, "u1", "org:b"), "org:b");
+});
+
 test("only the servers of the requested Space are reported", async () => {
   const servers = [{ name: "p1" }, { name: "p2" }, { name: "default" }];
   const spaceOfProject = async (projectId: string) => {

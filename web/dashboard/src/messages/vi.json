@@ -22,7 +22,9 @@
     "alreadyRunning": "Sandbox đang chạy. Hãy dừng nó trước khi đổi cấu hình.",
     "sandboxStartFailed": "Sandbox không khởi động được. Hãy thử lại hoặc xem log của Hub.",
     "artifactsDisabled": "Lưu trữ artifact đang tắt. Bật lại ở trang Project để tải lên.",
-    "confirmationRequired": "Hãy xác nhận thao tác trước."
+    "confirmationRequired": "Hãy xác nhận thao tác trước.",
+    "alreadyConfirmed": "Tài khoản này đã được xác nhận. Bạn có thể đăng nhập.",
+    "memberLimitReached": "Gói này đã đủ người, không thể thêm thành viên."
   },
   "common": {
     "appName": "MLBox",
@@ -299,6 +301,8 @@
     "billingGpuHours": "giờ GPU",
     "billingCredits": "credit / tháng",
     "billingGpuIncluded": "Có GPU",
+    "billingGpuNone": "Không có GPU",
+    "billingSandboxLimit": "{count, plural, other {# sandbox chạy đồng thời}}",
     "billingMembers": "thành viên",
     "billingQuotaProjects": "Dự án",
     "billingQuotaStorageGb": "Lưu trữ",
@@ -329,6 +333,7 @@
       "security": "Bảo mật"
     },
     "payPlan": "Thanh toán gói {plan}",
+    "usePlan": "Dùng gói {plan}",
     "resultSucceeded": "Thanh toán thành công. Gói của bạn đã được cập nhật.",
     "resultFailed": "Thanh toán thất bại. Bạn có thể thử lại.",
     "profileHeading": "Hồ sơ",

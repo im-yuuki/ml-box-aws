@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   getMockPlan,
+  effectivePlanForSpace,
   isMockPaymentMethod,
   isMockPaymentOutcome,
   listMockPlans,
@@ -98,4 +99,23 @@ test("runtime access: GPU needs a paid plan; units block once exhausted", () => 
   assert.deepEqual(runtimeAccessDecision(free, "cpuShared", 19.9), { allowed: true });
   assert.deepEqual(runtimeAccessDecision(free, "cpuShared", 20), { allowed: false, code: "CREDITS_EXHAUSTED" });
   assert.equal(creditsPerHourForRuntime("gpu"), 10);
+});
+
+test("a Space without a subscription runs on the free tier", () => {
+  // A brand new account has no subscription row at all; it must still report the free plan.
+  const plan = effectivePlanForSpace(null);
+  assert.equal(plan.id, "personal_free");
+  assert.equal(plan.credits, 20);
+  assert.equal(plan.concurrentSandboxes, 1);
+  assert.equal(plan.storageGb, 5);
+});
+
+test("an unknown subscription id falls back to the free tier", () => {
+  assert.equal(effectivePlanForSpace("plan_that_does_not_exist").id, "personal_free");
+  assert.equal(effectivePlanForSpace(undefined).id, "personal_free");
+});
+
+test("an active subscription is the effective plan of the Space", () => {
+  assert.equal(effectivePlanForSpace("personal_plus").id, "personal_plus");
+  assert.equal(effectivePlanForSpace("org_team").credits, 300);
 });

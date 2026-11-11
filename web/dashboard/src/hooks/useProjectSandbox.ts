@@ -118,6 +118,16 @@ export function useProjectSandbox(projectId: string) {
 
   const stateKey: RuntimeStateKey = runtimeStateKey(data?.sandbox?.state);
 
+  // A sandbox that is starting changes state on its own, so the panel has to keep asking. Without
+  // this the chip stayed on "Starting" until the page was reloaded by hand.
+  useEffect(() => {
+    if (stateKey !== "starting") return;
+    const timer = window.setInterval(() => {
+      void load();
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [stateKey, load]);
+
   return {
     data,
     loading,
