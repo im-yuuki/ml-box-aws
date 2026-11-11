@@ -473,6 +473,8 @@ hiện instance đang chạy, toast thay cho feedback inline, toàn bộ route a
 
 ## ☐ Bug 16–24 (thấp/trung bình) — Vấn đề giao diện khác đã quan sát
 
+> ✅ **Đã sửa trong vòng 2026-11-12** (image `x`), xem bảng "Vòng sửa thiết kế" ở cuối file.
+
 | # | Vấn đề | Vị trí / bằng chứng |
 |---|---|---|
 | 16 | Project list hiện chip instance của project **đang dừng** mà không nói rõ là "next launch" (chi tiết có ghi "Next launch:", list thì không) | `/projects` → "test1 · d1.xlarge · GPU instance · Start" |
@@ -896,9 +898,6 @@ Smoke test cuối (owner): 2 Space ( cá nhân `personal_free` 0.04/20 credit ·
 
 ## Vẫn chưa xử lý
 
-- Lịch sử thanh toán chưa có ngày; số liệu storage ở Quota làm tròn "0 GB" cho 32 B.
-- Nhóm lỗi UI/thiết kế 16–24 (empty state không có CTA, chip instance ở list, banner "Sandboxes running
-  at once" lệch style, chart không có trục/giá trị, v.v.): cần một vòng thiết kế riêng.
 - Không xác minh được việc xoá project có dọn PVC/EFS access point (cần quyền cluster).
 
 ## Dữ liệu test còn lại (từ lần verify này)
