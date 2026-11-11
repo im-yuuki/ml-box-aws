@@ -784,10 +784,11 @@ tổ chức) chứa một nhóm phẳng, và UI gọi nhóm đó là **Team**.
 | Bug 13 — thuật ngữ | ✅ Trang Nhóm (vi): "Nhóm", "Chủ nhóm", "quản trị viên", "Xoá nhóm"; trang Quota: "Credit còn lại trong tháng", "Sandbox đang chạy cùng lúc" |
 | Bug 25 — heading | ✅ Tiêu đề "30 ngày gần nhất" hiện đúng (trước bị "Lịch sử sử dụng" đè) |
 
-## Bổ sung trong vòng này (chưa deploy)
+## ✅ Bổ sung trong vòng này (đã deploy, image `0bc23fb`)
 
-- Space chưa có subscription hiện entitlement của gói Free (trước danh sách rỗng, lệch với trang Quota).
-- Lời mời hiện tên vai trò đã dịch ("· Thành viên" thay vì "· member").
+- Space chưa có subscription hiện entitlement của gói Free (trước danh sách rỗng, lệch với trang Quota):
+  org `e2e-org-2026-11-11` trả `credits=20 · concurrent_sandboxes=1 · storage_gb=5 · gpu_access=0` ✓
+- Lời mời hiện tên vai trò đã dịch: "e2e-invite-2026-11-11@example.com · **Thành viên**" (trước "· member") ✓
 
 ## Vẫn chưa xử lý
 
