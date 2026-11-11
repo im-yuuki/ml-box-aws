@@ -900,6 +900,49 @@ Smoke test cuối (owner): 2 Space ( cá nhân `personal_free` 0.04/20 credit ·
 
 - Không xác minh được việc xoá project có dọn PVC/EFS access point (cần quyền cluster).
 
+---
+
+# Vòng sửa thiết kế — 2026-11-12 (image `bf774cc`)
+
+Nhóm lỗi thiết kế 16–24 và các ghi chú còn lại ở tầng code (28, 30, 31, 32, 33, 34, 35, 36) đã sửa
+và deploy. Một số sửa nhỏ phát sinh khi verify: footer lặp lại tên thương hiệu.
+
+## ✅ Verify trên production
+
+| # | Kiểm tra | Kết quả |
+|---|---|---|
+| 16 | Chip instance của project đang dừng | ✅ Trang Projects: "team-project-fresh · **Next launch:** c1.large · CPU instance · Start" |
+| 17 | Ngày trong lịch sử thanh toán | ✅ "Organization Team · Succeeded" + "**Nov 11, 2026** · 0c05ab36-…" |
+| 18 | Card "Sandboxes running at once" | ✅ Thành stat card thứ 3 trong cùng lưới, cùng kiểu (nhãn + số lớn + progress bar) |
+| 19 | Format storage | ✅ Quota: "5 GB of 5 GB left"; project: "0 B of 100 GB used" — cùng một cách hiển thị byte |
+| 20 | Tràn ngang ở 360px | ✅ Viewport 360px: `scrollWidth 360 == clientWidth 360` (trước 379 > 360); 3 card gói xếp dọc |
+| 21 | Canh giữa trang đăng nhập | ✅ Card "Sign in" nằm giữa trang theo cả chiều dọc |
+| 22 | Landing page | ✅ Đã đăng nhập → "**Open workspace**" + "You are signed in. Continue in your workspace."; chưa đăng nhập vẫn hiện nút Sign in/Create account; hiện phần mô tả của 3 feature; có footer |
+| 23 | Switch "Keep artifacts" | ✅ Switch và nhãn cùng một hàng, nhãn không bị làm mờ |
+| 24 | Lời mời pending | ✅ Có tiêu đề hiển thị "**Pending invitations**", vai trò dịch sẵn ("· Member") |
+| 28 | Dropdown role của admin | ✅ Admin thấy "Admin" ở dòng của chính mình (trước: trigger rỗng); option Admin bị **disable** vì chỉ owner mới cấp được |
+| 30 | Stale owner sau khi chuyển quyền | ✅ Đã gọi `notifySpacesChanged()` sau khi chuyển quyền |
+| 31 | Xoá member | ✅ Hỏi trước: "Remove … from the team? They lose access to the team and its projects." |
+| 32 | Danger zone | ✅ Lỗi riêng cho việc thiếu quyền + gợi ý "Type e2e-fresh-team-2026-11-11 to enable the delete button." |
+| 33 | "% of quota" | ✅ Đổi thành "% of the workspace storage" (storage thuộc Space, không thuộc từng project) |
+| 34 | Chart lịch sử | ✅ Vẽ cả "Credits used per day" và "Storage held per day"; giá trị của ngày đang trỏ hiện dưới chart (dùng được cả khi chạm, không cần hover) |
+| 35 | Dialog tạo team | ✅ Có nhãn, focus tự vào ô tên, báo "Team created." |
+| 36 | Member không có email | ✅ Hiện `title` để đọc đủ id |
+| a11y | Nút xoá trong ô tìm kiếm | ✅ Đọc là "Clear search" thay vì "Close" |
+
+## 🧪 Chặn lớp bug "khoá JSON trùng" (Bug 25)
+
+Thêm test đọc thẳng file messages và báo khoá trùng (`lib/jsonKeys.ts`): lần này nó bắt ngay
+`usage.historyEmpty` bị khai báo 2 lần (bản mới bị bản cũ đè → bản dịch chết âm thầm). Đã đổi tên khoá
+mới thành `historyNoData`. Ngoài ra en.json và vi.json có **512 khoá, khớp hoàn toàn**.
+
+## Ghi chú vận hành
+
+Terraform không đọc được cache SSO của AWS CLI (cache theo `startUrl` khác cache device-flow của
+CLI): khi hết hạn phải chạy `aws sso login --profile AdministratorAccess-451058046864` cho tới khi
+cache mới được ghi. Lần này đã deploy image dashboard bằng `kubectl set image` trước, rồi apply
+`04-dashboard` để state khớp (cả hai image đều là `bf774cc`).
+
 ## Dữ liệu test còn lại (từ lần verify này)
 
 - Space cá nhân `mlbox-mwbnjiti-us6t8@fldubai.com` (`personal:e96e6498-f0a1-70e3-d22d-eea93c0bde32`):
