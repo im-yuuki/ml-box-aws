@@ -23,6 +23,9 @@ export default function InvitationsPanel({ space }: { space: SpaceSummary }) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const manager = canManageTeams(space.role);
+  // Roles are stored as ids ("member"); people know them by name.
+  const roleLabel = (value: string) =>
+    value === "admin" ? t("roleAdmin") : value === "viewer" ? t("roleViewer") : t("roleMember");
 
   const load = useCallback(async () => {
     setError(null);
@@ -131,7 +134,9 @@ export default function InvitationsPanel({ space }: { space: SpaceSummary }) {
             <ul aria-label={t("pendingList")} className="flex flex-col gap-2">
               {pending.map((invitation) => (
                 <li key={invitation.id} className="flex items-center justify-between gap-4">
-                  <span>{invitation.email} · {invitation.role}</span>
+                  <span>
+                    {invitation.email} · {roleLabel(invitation.role)}
+                  </span>
                   <Button variant="secondary" size="sm" isDisabled={busy} onPress={() => void revoke(invitation.id)}><X aria-hidden="true" size={14} />{t("revoke")}</Button>
                 </li>
               ))}
@@ -143,7 +148,7 @@ export default function InvitationsPanel({ space }: { space: SpaceSummary }) {
           <ul aria-label={t("incomingList")} className="flex flex-col gap-2">
             {mine.map((invitation) => (
               <li key={invitation.id} className="flex items-center justify-between gap-4">
-                <span>{t("incoming", { role: invitation.role })}</span>
+                <span>{t("incoming", { role: roleLabel(invitation.role) })}</span>
                 <Button variant="primary" size="sm" isDisabled={busy} onPress={() => void accept(invitation.id)}><Check aria-hidden="true" size={14} />{t("accept")}</Button>
               </li>
             ))}

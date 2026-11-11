@@ -69,6 +69,7 @@ import {
   runtimeAccessDecision,
   runtimeClassForProfile,
   creditsPerHourForRuntime,
+  entitlementsForPlan,
   type MockPaymentMethod,
   type MockPaymentOutcome,
   type SpaceType,
@@ -1101,6 +1102,17 @@ app.get<{ Querystring: { spaceId?: string } }>("/v1/subscription", async (reques
   try {
     const details = await appStore.getSubscriptionDetails(session.subject, spaceId);
     if (!details) return reply.code(403).send({ error: "FORBIDDEN", message: "You do not have access to this Space." });
+    // A Space without a subscription runs on the free tier. The quota page already shows that tier,
+    // so the subscription page shows the same entitlements instead of an empty list.
+    if (details.entitlements.length === 0) {
+      const planId = (await appStore.activePlanIdForSpace(spaceId)) ?? FREE_PLAN_ID;
+      const plan = getMockPlan(planId) ?? getMockPlan(FREE_PLAN_ID)!;
+      details.entitlements = Object.entries(entitlementsForPlan(plan)).map(([resource, limitValue]) => ({
+        resource,
+        limitValue,
+        sourcePlan: plan.id,
+      }));
+    }
     return details;
   } catch (error) {
     request.log.error({ err: error }, "Subscription lookup failed");

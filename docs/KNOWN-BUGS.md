@@ -774,6 +774,21 @@ tổ chức) chứa một nhóm phẳng, và UI gọi nhóm đó là **Team**.
 - Copy tiếng Anh lẫn tiếng Việt trong câu tiếng Việt đã sửa (teams.subtitle, orgMembersHint,
   dangerBody, invitations.incoming).
 
+## ✅ Verify trên production (image `c5f3eff`)
+
+| Kiểm tra | Kết quả |
+|---|---|
+| Bug 10 — quota theo Space | ✅ Chọn team `e2e-org-2026-11-11` → trang Quota hiện **20/20 credit · 5/5 GB · 0/1 sandbox**, bảng credit chỉ có project của team (trước đây là số của Space cá nhân: 300 credit, 100 GB). Space lạ → **403** |
+| Bug 26 — lỗi inline | ✅ Sai mật khẩu: lỗi hiện ngay dưới ô mật khẩu (Alert + icon), không phải toast 4 giây |
+| Bug 27 — locale | ✅ Cùng lỗi đó hiện bằng tiếng Anh: "Email or password is not correct." (trước: toast tiếng Việt) |
+| Bug 13 — thuật ngữ | ✅ Trang Nhóm (vi): "Nhóm", "Chủ nhóm", "quản trị viên", "Xoá nhóm"; trang Quota: "Credit còn lại trong tháng", "Sandbox đang chạy cùng lúc" |
+| Bug 25 — heading | ✅ Tiêu đề "30 ngày gần nhất" hiện đúng (trước bị "Lịch sử sử dụng" đè) |
+
+## Bổ sung trong vòng này (chưa deploy)
+
+- Space chưa có subscription hiện entitlement của gói Free (trước danh sách rỗng, lệch với trang Quota).
+- Lời mời hiện tên vai trò đã dịch ("· Thành viên" thay vì "· member").
+
 ## Vẫn chưa xử lý
 
 - Lịch sử thanh toán chưa có ngày; số liệu storage ở Quota làm tròn "0 GB" cho 32 B.
