@@ -31,7 +31,8 @@ export default function NavbarSearch() {
         <SearchField.Group>
           <SearchField.SearchIcon />
           <SearchField.Input placeholder={t("searchPlaceholder")} />
-          <SearchField.ClearButton />
+          {/* The clear button of the search field announced itself as "Close". */}
+          <SearchField.ClearButton aria-label={t("clearSearch")} />
         </SearchField.Group>
       </SearchField>
     </form>

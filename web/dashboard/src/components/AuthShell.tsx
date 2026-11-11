@@ -29,7 +29,7 @@ export default function AuthShell({
         </Link>
         <LocaleSwitcher />
       </header>
-      <main className="public-main">
+      <main className="public-main public-main-centered">
         <Card className="auth-card" aria-labelledby="auth-title">
           <h1 id="auth-title">{title}</h1>
           {subtitle ? <p className="auth-sub">{subtitle}</p> : null}

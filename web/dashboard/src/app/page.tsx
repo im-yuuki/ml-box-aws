@@ -4,10 +4,13 @@ import { Building2, Gauge, FolderKanban, LogIn, UserPlus } from "lucide-react";
 import { Button, Chip, ProgressBar } from "@heroui/react";
 import LocaleSwitcher from "@/components/LocaleSwitcher";
 import BrandMark from "@/components/BrandMark";
+import { hasSession } from "@/lib/serverSession";
 
 export default async function Home() {
   const t = await getTranslations("home");
   const tCommon = await getTranslations("common");
+  // A signed in visitor is offered his workspace instead of the sign-in buttons.
+  const signedIn = await hasSession();
 
   const features = [
     { key: "projects", Icon: FolderKanban },
@@ -34,20 +37,33 @@ export default async function Home() {
         <div className="landing-grid">
           <div className="flex flex-col">
             <h1 className="landing-title">{t("title")}</h1>
+            <p className="landing-lede">{t("subtitle")}</p>
             <div className="landing-actions">
-              <Link href="/login">
-                <Button variant="primary" size="lg">
-                  <LogIn aria-hidden="true" size={16} />
-                  {t("signIn")}
-                </Button>
-              </Link>
-              <Link href="/register">
-                <Button variant="secondary" size="lg">
-                  <UserPlus aria-hidden="true" size={16} />
-                  {t("createAccount")}
-                </Button>
-              </Link>
+              {signedIn ? (
+                <Link href="/projects">
+                  <Button variant="primary" size="lg">
+                    <FolderKanban aria-hidden="true" size={16} />
+                    {t("openWorkspace")}
+                  </Button>
+                </Link>
+              ) : (
+                <>
+                  <Link href="/login">
+                    <Button variant="primary" size="lg">
+                      <LogIn aria-hidden="true" size={16} />
+                      {t("signIn")}
+                    </Button>
+                  </Link>
+                  <Link href="/register">
+                    <Button variant="secondary" size="lg">
+                      <UserPlus aria-hidden="true" size={16} />
+                      {t("createAccount")}
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
+            {signedIn ? <p className="workspace-muted-copy mt-3">{t("signedInNote")}</p> : null}
             <ul className="landing-features">
               {features.map(({ key, Icon }) => (
                 <li key={key} className="landing-feature">
@@ -58,6 +74,7 @@ export default async function Home() {
                   />
                   <div>
                     <h2>{t(`features.${key}.title`)}</h2>
+                    <p>{t(`features.${key}.body`)}</p>
                   </div>
                 </li>
               ))}
@@ -125,6 +142,13 @@ export default async function Home() {
           </figure>
         </div>
       </main>
+
+      <footer className="public-footer">
+        <span className="workspace-brand-copy">
+          <strong>{tCommon("appName")}</strong>
+        </span>
+        <span>{t("footerNote", { year: new Date().getFullYear() })}</span>
+      </footer>
     </div>
   );
 }

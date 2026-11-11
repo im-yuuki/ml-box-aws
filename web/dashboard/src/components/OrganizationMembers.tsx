@@ -6,7 +6,7 @@ import { Crown, UserMinus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 import FeedbackAlert from "@/components/FeedbackAlert";
-import type { SpaceRole, SpaceSummary } from "@/lib/spaces";
+import { notifySpacesChanged, type SpaceRole, type SpaceSummary } from "@/lib/spaces";
 
 export type OrganizationMember = { userId: string; role: SpaceRole; email: string | null };
 type MemberListResponse = { role?: SpaceRole | null; members?: OrganizationMember[] };
@@ -39,6 +39,7 @@ export default function OrganizationMembers({ space }: { space: SpaceSummary }) 
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [transferTo, setTransferTo] = useState<OrganizationMember | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<OrganizationMember | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -99,12 +100,14 @@ export default function OrganizationMembers({ space }: { space: SpaceSummary }) 
     );
   };
 
-  const remove = (member: OrganizationMember) =>
+  const remove = (member: OrganizationMember, close: () => void) =>
     run(
       () => bffFetch(`/api/bff/spaces/${encodeURIComponent(space.id)}/members/${encodeURIComponent(member.userId)}`, { method: "DELETE" }),
       "memberRemoveFailed",
       "memberRemoved",
-    );
+    ).then((ok) => {
+      if (ok) close();
+    });
 
   const transfer = async (member: OrganizationMember, close: () => void) => {
     const ok = await run(
@@ -116,7 +119,11 @@ export default function OrganizationMembers({ space }: { space: SpaceSummary }) 
       "transferFailed",
       "ownershipTransferred",
     );
-    if (ok) close();
+    if (ok) {
+      // The owner becomes an admin, so the workspace switcher has to learn the new role.
+      notifySpacesChanged();
+      close();
+    }
   };
 
   const label = (member: OrganizationMember) => member.email ?? member.userId;
@@ -138,7 +145,9 @@ export default function OrganizationMembers({ space }: { space: SpaceSummary }) 
                   <Avatar size="sm">
                     <Avatar.Fallback>{label(member).charAt(0).toUpperCase()}</Avatar.Fallback>
                   </Avatar>
-                  <span className="truncate text-sm">{label(member)}</span>
+                  <span className="truncate text-sm" title={label(member)}>
+                    {label(member)}
+                  </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {member.role === "owner" ? (
@@ -159,7 +168,13 @@ export default function OrganizationMembers({ space }: { space: SpaceSummary }) 
                       </Select.Trigger>
                       <Select.Popover>
                         <ListBox>
-                          {actor === "owner" ? <ListBox.Item id="admin" textValue={t(ROLE_KEYS.admin)}>{t(ROLE_KEYS.admin)}<ListBox.ItemIndicator /></ListBox.Item> : null}
+                          {/* The admin role stays visible for every manager: only the owner can hand
+                              it out, but an admin that cannot see their own role reads an empty
+                              dropdown. */}
+                          <ListBox.Item id="admin" textValue={t(ROLE_KEYS.admin)} isDisabled={actor !== "owner"}>
+                            {t(ROLE_KEYS.admin)}
+                            <ListBox.ItemIndicator />
+                          </ListBox.Item>
                           <ListBox.Item id="member" textValue={t(ROLE_KEYS.member)}>{t(ROLE_KEYS.member)}<ListBox.ItemIndicator /></ListBox.Item>
                           <ListBox.Item id="viewer" textValue={t(ROLE_KEYS.viewer)}>{t(ROLE_KEYS.viewer)}<ListBox.ItemIndicator /></ListBox.Item>
                         </ListBox>
@@ -182,7 +197,7 @@ export default function OrganizationMembers({ space }: { space: SpaceSummary }) 
                       isIconOnly
                       aria-label={`${t("remove")}: ${label(member)}`}
                       isDisabled={busy}
-                      onPress={() => void remove(member)}>
+                      onPress={() => setRemoveTarget(member)}>
                       <UserMinus aria-hidden="true" size={16} />
                     </Button>
                   ) : null}
@@ -195,6 +210,37 @@ export default function OrganizationMembers({ space }: { space: SpaceSummary }) 
         {notice ? <FeedbackAlert status="success">{notice}</FeedbackAlert> : null}
         {error ? <FeedbackAlert status="danger">{error}</FeedbackAlert> : null}
       </Card.Content>
+
+      <Modal isOpen={removeTarget !== null} onOpenChange={(open) => { if (!open) setRemoveTarget(null); }}>
+        <Modal.Backdrop>
+          <Modal.Container>
+            <Modal.Dialog>
+              {({ close }) => (
+                <>
+                  <Modal.Header>
+                    <Modal.Heading>{t("removeTitle", { name: removeTarget ? label(removeTarget) : "" })}</Modal.Heading>
+                  </Modal.Header>
+                  <Modal.Body className="flex flex-col gap-3">
+                    <p className="text-sm">{t("removeBody")}</p>
+                  </Modal.Body>
+                  <Modal.Footer className="flex justify-end gap-2">
+                    <Button variant="tertiary" onPress={close}>{t("cancel")}</Button>
+                    <Button
+                      variant="danger"
+                      isPending={busy}
+                      isDisabled={busy || !removeTarget}
+                      onPress={() => {
+                        if (removeTarget) void remove(removeTarget, close);
+                      }}>
+                      {t("removeAction")}
+                    </Button>
+                  </Modal.Footer>
+                </>
+              )}
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal>
 
       <Modal isOpen={transferTo !== null} onOpenChange={(open) => { if (!open) setTransferTo(null); }}>
         <Modal.Backdrop>

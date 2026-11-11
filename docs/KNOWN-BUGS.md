@@ -877,6 +877,23 @@ bị reset lần này, pod Hub vẫn ổn định.
 
 Test: BFF **155/155** (10 test mới), dashboard **25/25** (5 test mới), `tsc --noEmit` sạch cả hai bên.
 
+## ✅ Verify trên production (image `8e1a25d`)
+
+| # | Kiểm tra | Kết quả |
+|---|---|---|
+| 39 | Quota của account mới (chưa từng chạy sandbox) | ✅ Space cá nhân của member → `personal_free · 20 credit · 1 sandbox · 5 GB · measured` (trước: "—", "No monthly limit", không có card sandbox) |
+| 40 | Member thấy và chạy được project của team | ✅ `GET /v1/projects?spaceId=<team>` → `team-project-fresh`; `sandbox` → `canOperate: true`; member start sandbox được và **quota tính vào team** (`running: 1` trong `org_team`) |
+| 41 | Trang project khi BFF không có | ✅ Tắt BFF thật → trang hiện "Workspaces unavailable / Projects could not load / **Try again**" (trước: kẹt vô hạn ở "Loading projects…"); bật lại BFF → trang bình thường |
+| 42 | Trang Subscription theo Space | ✅ Team → "Organization Team · Active", entitlement 300 credit · 5 sandbox · 100 GB · GPU included · 3 thành viên, danh sách gói Organization, lịch sử "Organization Team · Succeeded". Space cá nhân → gói Personal + gói Free (trước: team cũng hiện gói Personal) |
+| 43 | Space của người khác | ✅ `/v1/projects?spaceId=<space người khác>` → **403 FORBIDDEN**; `/v1/usage?spaceId=<team khác>` → **403** |
+| 44 | Giới hạn thành viên của gói | ✅ Owner mời: lời mời 1 → **201** (đủ 3 ghế: 2 thành viên + 1 lời mời), lời mời 2 và 3 → **409 MEMBER_LIMIT_REACHED** "This plan allows 3 members." Member (không phải owner) → 403 FORBIDDEN (đúng quyền) |
+| 45 | Panel Sandbox tự cập nhật | ✅ Bấm Start → chip "Starting" → **"Running" tự động** (~8 s), hiện "Open notebook"/"Stop" mà không cần tải lại trang |
+| 46 | Copy trang Subscription | ✅ "**Use Personal Free**" (gói $0), "**1 sandbox running at once**" (số ít) vs "2/5 sandboxes running at once", "**No GPU access**" (0) vs "GPU included" (1) |
+| 47 | Copy xoá nhóm (en) | ✅ "Deletes e2e-fresh-team-2026-11-11, its projects and notebook files." (bỏ "its team") |
+| 48 | Xác nhận lại account đã xác nhận | ✅ API → **400 ALREADY_CONFIRMED**; trang verify hiện "This account is already confirmed. You can sign in." |
+
+Smoke test cuối (owner): 2 Space ( cá nhân `personal_free` 0.04/20 credit · 0/1 sandbox · project `e2e-fresh-2026-11-11`; team `org_team` 0.09/300 credit · 0/5 sandbox · project `team-project-fresh`), thành viên team đủ 2 người, lịch sử thanh toán 1 dòng.
+
 ## Vẫn chưa xử lý
 
 - Lịch sử thanh toán chưa có ngày; số liệu storage ở Quota làm tròn "0 GB" cho 32 B.
@@ -890,6 +907,5 @@ Test: BFF **155/155** (10 test mới), dashboard **25/25** (5 test mới), `tsc 
   project `e2e-fresh-2026-11-11` (`5992fd17-…`), storage **đã tắt**, artifact đã xoá.
 - Team `e2e-fresh-team-2026-11-11` (`org:8751767b-8683-46f8-a02e-06feedfbfab8`): project
   `team-project-fresh` (`742a750d-…`), subscription `org_team` active, 1 thành viên thật
-  (`mlbox-member-mwbo5r1i-q6dn3@fldubai.com`) + 2 lời mời pending (`e2e-member3-…@example.com`,
-  `e2e-member4-…@example.com`).
+  (`mlbox-member-mwbo5r1i-q6dn3@fldubai.com`), **không còn lời mời pending**, sandbox đã dừng.
 - Account cũ `tadirab921@bwingmedia.com` và các Space cũ (`e2e-org-2026-11-11`, `123`) không đụng tới.

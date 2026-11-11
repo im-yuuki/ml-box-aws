@@ -206,6 +206,8 @@ export default function BillingPanel() {
     t(
       `billingStatus${status.charAt(0).toUpperCase()}${status.slice(1)}` as "billingStatusActive",
     );
+  const formatDate = (date: Date) =>
+    new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(date);
   const outcomeLabel = (value: PaymentOutcome) =>
     t(
       `billingOutcome${value.charAt(0).toUpperCase()}${value.slice(1)}` as "billingOutcomeSucceeded",
@@ -307,10 +309,10 @@ export default function BillingPanel() {
           <Card.Title>{t("choosePlan")}</Card.Title>
         </Card.Header>
         <Card.Content className="flex flex-col gap-4">
-          <div className="flex gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row">
             {activePlans.map((plan) => (
               <button
-                className="flex min-w-0 flex-1 flex-col gap-3 rounded-lg border p-4 text-left transition hover:border-accent"
+                className="flex w-full min-w-0 flex-col gap-3 rounded-lg border p-4 text-left transition hover:border-accent sm:flex-1"
                 style={{
                   borderColor:
                     selectedPlanId === plan.id
@@ -393,6 +395,7 @@ export default function BillingPanel() {
                       {planName(payment.planId)} · {outcomeLabel(payment.status)}
                     </p>
                     <p className="text-xs" style={{ color: "var(--muted)" }}>
+                      {payment.createdAt ? `${formatDate(new Date(payment.createdAt))} · ` : null}
                       {payment.id}
                     </p>
                   </div>

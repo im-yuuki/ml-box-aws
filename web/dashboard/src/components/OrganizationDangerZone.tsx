@@ -12,7 +12,8 @@ import FeedbackAlert from "@/components/FeedbackAlert";
 const ERROR_KEYS: Record<string, string> = {
   SANDBOX_RUNNING: "deleteRunning",
   CONFIRMATION_MISMATCH: "deleteMismatch",
-  FORBIDDEN: "memberForbidden",
+  // Deleting the team is an owner action. The member error would point at the wrong thing.
+  FORBIDDEN: "deleteForbidden",
 };
 
 /** Owner-only: deletes the whole organization after the owner types its name. Not reversible. */
@@ -77,6 +78,12 @@ export default function OrganizationDangerZone({ space }: { space: SpaceSummary 
                       <TextField value={typed} onChange={setTyped} aria-label={t("dangerConfirmLabel", { name: space.name })} className="w-full">
                         <Input placeholder={space.name} variant="secondary" fullWidth />
                       </TextField>
+                      {/* The button stays disabled until the name matches; say why. */}
+                      {!matches ? (
+                        <p className="text-xs" style={{ color: "var(--muted)" }}>
+                          {t("dangerConfirmHint", { name: space.name })}
+                        </p>
+                      ) : null}
                       {error ? (
                         <FeedbackAlert status="danger">{error}</FeedbackAlert>
                       ) : null}

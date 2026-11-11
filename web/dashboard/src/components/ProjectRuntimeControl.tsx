@@ -32,7 +32,13 @@ export default function ProjectRuntimeControl({ sandbox }: { sandbox: Sandbox })
 
   return (
     <div className="workspace-runtime">
-      {!running && preferredProfile ? <InstanceType slug={preferredProfile} profiles={profiles} /> : null}
+      {!running && preferredProfile ? (
+        // The instance of a stopped Project is the one the next start would use, so it is named.
+        <span className="flex items-center gap-1.5 text-xs" style={{ color: "var(--muted)" }}>
+          {t("nextLaunch")}
+          <InstanceType slug={preferredProfile} profiles={profiles} />
+        </span>
+      ) : null}
       {running && url ? (
         <Button size="sm" variant="secondary" onPress={() => void openNotebook()}>
           <ExternalLink aria-hidden="true" size={14} />

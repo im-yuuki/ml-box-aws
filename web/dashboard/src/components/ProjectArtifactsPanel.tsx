@@ -207,10 +207,12 @@ export default function ProjectArtifactsPanel({
               isDisabled={!canWrite || toggling || busy}
               onChange={(next) => void setStorage(next)}
             >
-              <Switch.Control>
-                <Switch.Thumb />
-              </Switch.Control>
+              {/* The control belongs inside the content: outside it the switch is stacked above the
+                  label and the label of a switched off switch looks greyed out. */}
               <Switch.Content>
+                <Switch.Control>
+                  <Switch.Thumb />
+                </Switch.Control>
                 <Label>{t("enableLabel")}</Label>
               </Switch.Content>
             </Switch>

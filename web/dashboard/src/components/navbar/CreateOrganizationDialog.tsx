@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Input, Modal, TextField } from "@heroui/react";
+import { Button, Input, Label, Modal, TextField, toast } from "@heroui/react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 import { notifySpacesChanged } from "@/lib/spaces";
@@ -41,6 +41,8 @@ export default function CreateOrganizationDialog({ open, onOpenChange }: { open:
       notifySpacesChanged();
       setName("");
       close();
+      // The dialog is gone by now, so the confirmation is a toast.
+      toast.success(t("createOrganizationSuccess"));
     } catch {
       setError(t("createOrganizationFailed"));
     } finally {
@@ -60,7 +62,8 @@ export default function CreateOrganizationDialog({ open, onOpenChange }: { open:
                 </Modal.Header>
                 <Modal.Body className="flex flex-col gap-3">
                   <TextField value={name} onChange={setName} aria-label={t("organizationName")} className="w-full">
-                    <Input placeholder={t("organizationNamePlaceholder")} variant="secondary" fullWidth />
+                    <Label>{t("organizationName")}</Label>
+                    <Input placeholder={t("organizationNamePlaceholder")} variant="secondary" fullWidth autoFocus />
                   </TextField>
                   {error ? (
                     <FeedbackAlert status="danger">{error}</FeedbackAlert>

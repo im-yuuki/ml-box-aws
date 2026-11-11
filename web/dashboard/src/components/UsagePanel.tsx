@@ -9,6 +9,7 @@ import FeedbackAlert from "@/components/FeedbackAlert";
 import { useActiveSpace } from "@/hooks/useActiveSpace";
 import ResourceHistory from "@/components/ResourceHistory";
 import CreditSessionList from "@/components/CreditSessionList";
+import { formatStorage, shareOfSpaceStorage } from "@/lib/storage";
 
 type UsageResponse = {
   generatedAt: string;
@@ -130,7 +131,7 @@ export default function UsagePanel() {
         </span>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
         <Card className="flex flex-col gap-3 p-5">
           <span className="text-sm" style={{ color: "var(--muted)" }}>{t("creditsHeading")}</span>
           <span className="text-3xl font-semibold tracking-tight">
@@ -154,12 +155,12 @@ export default function UsagePanel() {
         <Card className="flex flex-col gap-3 p-5">
           <span className="text-sm" style={{ color: "var(--muted)" }}>{t("storageHeading")}</span>
           <span className="text-3xl font-semibold tracking-tight">
-            {storageLeft === null ? "—" : `${formatNumber(storageLeft)} GB`}
+            {storageLeft === null ? "—" : formatStorage(storageLeft)}
           </span>
           <span className="text-sm">
             {storageUsed === null
-              ? t("storageUnmeasured", { limit: formatNumber(storage.limit) })
-              : t("storageRemaining", { remaining: formatNumber(storageLeft ?? 0), limit: formatNumber(storage.limit) })}
+              ? t("storageUnmeasured", { limit: formatStorage(storage.limit) })
+              : t("storageRemaining", { remaining: formatStorage(storageLeft ?? 0), limit: formatStorage(storage.limit) })}
           </span>
           <ProgressBar aria-label={t("storageHeading")} value={storageLeftPercent} color={barColor(storageLevel)} size="sm">
             <ProgressBar.Track>
@@ -167,19 +168,34 @@ export default function UsagePanel() {
             </ProgressBar.Track>
           </ProgressBar>
         </Card>
+
+        {concurrent ? (
+          <Card className="flex flex-col gap-3 p-5">
+            <span className="text-sm" style={{ color: "var(--muted)" }}>{t("concurrentHeading")}</span>
+            <span className="text-3xl font-semibold tracking-tight">
+              {formatNumber(concurrent.running, 0)}
+            </span>
+            <span className="text-sm">
+              {t("concurrentOf", { running: concurrent.running, limit: formatNumber(concurrent.limit, 0) })}
+            </span>
+            <ProgressBar
+              aria-label={t("concurrentHeading")}
+              value={concurrent.limit ? Math.min(100, (concurrent.running / concurrent.limit) * 100) : 0}
+              color="accent"
+              size="sm">
+              <ProgressBar.Track>
+                <ProgressBar.Fill />
+              </ProgressBar.Track>
+            </ProgressBar>
+          </Card>
+        ) : null}
       </div>
 
-      {concurrent ? (
-        <Card className="flex flex-wrap items-center justify-between gap-2 p-5">
-          <span className="text-sm">{t("concurrentHeading")}</span>
-          <span className="text-sm font-medium">
-            {t("concurrentOf", { running: concurrent.running, limit: formatNumber(concurrent.limit, 0) })}
-          </span>
-        </Card>
-      ) : null}
-
       {data.resourceHistory ? (
-        <ResourceHistory credits={data.resourceHistory.credits.map((point) => ({ date: point.date, value: point.credits }))} />
+        <ResourceHistory
+          credits={data.resourceHistory.credits.map((point) => ({ date: point.date, value: point.credits }))}
+          storage={data.resourceHistory.storage?.map((point) => ({ date: point.date, value: point.storageGb }))}
+        />
       ) : null}
 
       {data.creditSessions ? <CreditSessionList sessions={data.creditSessions} /> : null}
@@ -193,12 +209,16 @@ export default function UsagePanel() {
             ) : (
               <ul className="flex flex-col gap-4">
                 {data.storageByProject.map((project) => {
-                  const share = storage.limit > 0 ? Math.min(100, (project.storageGb / storage.limit) * 100) : 0;
+                  // The storage belongs to the Space, not to a single Project, so the share is
+                  // labelled as a share of the Space's storage.
+                  const share = shareOfSpaceStorage(project.storageGb, storage.limit);
                   return (
                     <li key={project.projectId} className="flex flex-col gap-1.5">
                       <div className="flex items-center justify-between gap-3 text-sm">
                         <span className="truncate">{project.name}</span>
-                        <span className="shrink-0 font-medium">{formatNumber(project.storageGb, 2)} GB · {t("ofQuota", { percent: formatNumber(share, 1) })}</span>
+                        <span className="shrink-0 font-medium">
+                          {formatStorage(project.storageGb)} · {t("ofSpaceStorage", { percent: formatNumber(share, 1) })}
+                        </span>
                       </div>
                       <ProgressBar aria-label={project.name} value={share} color="accent" size="sm">
                         <ProgressBar.Track>

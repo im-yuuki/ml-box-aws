@@ -138,16 +138,23 @@ export default function InvitationsPanel({ space }: { space: SpaceSummary }) {
               </Select>
               <Button type="submit" variant="primary" isPending={busy} isDisabled={busy}><Send aria-hidden="true" size={16} />{t("invite")}</Button>
             </Form>
-            <ul aria-label={t("pendingList")} className="flex flex-col gap-2">
-              {pending.map((invitation) => (
-                <li key={invitation.id} className="flex items-center justify-between gap-4">
-                  <span>
-                    {invitation.email} · {roleLabel(invitation.role)}
-                  </span>
-                  <Button variant="secondary" size="sm" isDisabled={busy} onPress={() => void revoke(invitation.id)}><X aria-hidden="true" size={14} />{t("revoke")}</Button>
-                </li>
-              ))}
-            </ul>
+            {pending.length > 0 ? (
+              <section aria-labelledby="pending-invitations-heading" className="flex flex-col gap-2">
+                <h4 id="pending-invitations-heading" className="text-sm font-medium">
+                  {t("pendingList")}
+                </h4>
+                <ul className="flex flex-col gap-2">
+                  {pending.map((invitation) => (
+                    <li key={invitation.id} className="flex items-center justify-between gap-4">
+                      <span>
+                        {invitation.email} · {roleLabel(invitation.role)}
+                      </span>
+                      <Button variant="secondary" size="sm" isDisabled={busy} onPress={() => void revoke(invitation.id)}><X aria-hidden="true" size={14} />{t("revoke")}</Button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
           </>
         ) : null}
 
