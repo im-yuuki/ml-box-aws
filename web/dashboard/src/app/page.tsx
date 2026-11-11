@@ -144,9 +144,6 @@ export default async function Home() {
       </main>
 
       <footer className="public-footer">
-        <span className="workspace-brand-copy">
-          <strong>{tCommon("appName")}</strong>
-        </span>
         <span>{t("footerNote", { year: new Date().getFullYear() })}</span>
       </footer>
     </div>
