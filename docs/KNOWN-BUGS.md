@@ -803,3 +803,93 @@ tổ chức) chứa một nhóm phẳng, và UI gọi nhóm đó là **Team**.
   `e2e-invite-2026-11-11@example.com`.
 - Sandbox personal `e2e-verify-2026-11-10` vẫn **đang chạy** (từ 11/11 01:08) — stop trên trang project nếu
   không dùng nữa.
+
+---
+
+# Kết quả verify E2E lần 7 — 2026-11-11 (tài khoản mới, email tạm, 2 định danh)
+
+Lần này dùng **tài khoản thật mới** (đăng ký qua luồng production, xác nhận bằng mã gửi tới
+**mailbox tạm công cộng mail.tm**) để kiểm tra những đường đi mà tài khoản cũ không đi qua:
+tài khoản mới chưa từng chạy sandbox, Space chưa có subscription, và quyền của thành viên trong team.
+
+Tài khoản dùng cho test:
+
+| Vai trò | Email | Ghi chú |
+|---|---|---|
+| Owner | `mlbox-mwbnjiti-us6t8@fldubai.com` | tạo mới qua `/api/bff/auth/register`, mã xác nhận lấy từ mailbox tạm, mật khẩu `MlboxTest!2026` |
+| Member | `mlbox-member-mwbo5r1i-q6dn3@fldubai.com` | tạo mới, nhận lời mời vào team của owner |
+
+## ✅ Những gì đã chạy đúng
+
+| Luồng | Kết quả |
+|---|---|
+| Đăng ký → mã xác nhận | ✅ Email Cognito tới mailbox tạm (`no-reply@verificationemail.com`), mã 6 số dùng được, `/v1/auth/confirm` → 200 |
+| Turnstile ở production | ✅ `TURNSTILE_REGISTER_ENABLED=false` → đăng ký qua API không cần captcha |
+| Tạo project | ✅ Project mới thuộc Space cá nhân, `canOperate: true` |
+| Start sandbox CPU | ✅ `c1.large` (2 vCPU · 4 GB) → trạng thái `ready`, mở notebook qua handoff → **JupyterLab** tại `notebook.mlbox.june8th.me/user/cognito-…/<projectId>/lab` |
+| Ghi file notebook (EFS) | ✅ Sandbox chạy được với storage 5 GB của gói Free |
+| Artifacts | ✅ Bật storage → upload `e2e-fresh-proof.txt` (42 B) → download trả presigned URL → tắt storage **xoá đúng 1 artifact**, storage về 0 B → bật lại |
+| GPU trên gói Free | ✅ Bị chặn đúng: `403 GPU_NOT_IN_PLAN`; danh sách profile hiển thị GPU là `available: false` |
+| Đổi cấu hình khi đang chạy | ✅ `409 SANDBOX_ALREADY_RUNNING` kèm trạng thái `ready` |
+| Tạo team (Space tổ chức) | ✅ Switcher → "Create team" → tạo `e2e-fresh-team-2026-11-11`, có 1 team mặc định |
+| Mời thành viên | ✅ Lời mời ghi vào DB, hiện tên vai trò đã dịch (`· Thành viên`) |
+| Member nhận lời mời | ✅ `/v1/invitations/:id/accept` → 200, member thấy team trong switcher với vai trò `member` |
+| Cách ly tenant | ✅ Account cũ gọi `/v1/usage?spaceId=<team mới>` → **403**; `/v1/projects/<id>/sandbox` → **404**; `/v1/spaces/<id>/members` → **404** |
+| Mock checkout cho team | ✅ Mua gói `org_team` (19 USD/tháng) → subscription `active`, quota của team đổi sang **300 credit · 5 sandbox · 100 GB**, lịch sử thanh toán ghi 1 dòng |
+
+## ✅ Sự cố hạ tầng đã xử lý trong lúc verify — RDS reset master credential
+
+Lúc 12:09 (07:00 UTC) ai đó (agent khác) **reset master credentials** của RDS `dashboard-usage`.
+RDS tạo **version mới** của secret trong Secrets Manager, nhưng secret trong Kubernetes vẫn giữ
+password cũ → BFF trả **503 `password authentication failed for user "usage_admin"`** cho khoảng
+một nửa số request (pool cũ còn sống nên có request vẫn 200).
+
+Hậu quả trên UI: các trang bị kẹt vô hạn ở "Loading projects…", lời lỗi không hiện.
+
+Cách xử lý: `terraform apply` lại stack `04-dashboard` (đọc password mới từ Secrets Manager → ghi
+lại vào secret `bff-config`) rồi `kubectl rollout restart deploy/bff` để pod nạp env mới.
+
+```
+# secret trong k8s vs Secrets Manager (sha256) trước khi sửa: khác nhau
+secretsmanager password sha256: 9729938092d8…  (AWSCURRENT + AWSPENDING)
+k8s secret password sha256:      fc255457240f…  (password cũ)
+# sau khi apply + restart: cả hai đều 9729938092d8…  và DB nhận đúng 10/10 kết nối
+```
+
+⚠️ Bài học: mỗi lần RDS reset master credential phải apply lại `02-platform` (nếu có) + `04-dashboard`
+và restart BFF, nếu không dashboard sẽ mất kết nối DB. Hub DB (`jhub-gpu-sandbox-dev-apse2-hub`) không
+bị reset lần này, pod Hub vẫn ổn định.
+
+## 🛠 Lỗi mới phát hiện — đã sửa trong vòng này (chờ deploy)
+
+| # | Lỗi | Bằng chứng trên production | Cách sửa |
+|---|---|---|---|
+| **39** | `/v1/usage` **return sớm** khi Hub chưa biết user (404) → bỏ qua toàn bộ phần plan | Account mới (chưa từng chạy sandbox) thấy trang Quota trống: "Credits left this month —", "No monthly limit on this plan", "Storage left —", **không có** card "Sandboxes running at once", limit storage lấy từ env (20 GB) thay vì gói Free (5 GB) | BFF: Hub 404 = footprint rỗng (không phải lỗi), phần plan vẫn chạy → account mới thấy gói Free (20 credit · 1 sandbox · 5 GB). Tách `effectivePlanForSpace()` + `auth-errors.ts` để test được |
+| **40** | **Thành viên nhận lời mời không thấy được project của team** | `acceptSpaceInvitation` chỉ ghi `mlbox_space_memberships`, không ghi `mlbox_team_members`; member thấy team trong switcher nhưng `GET /v1/projects?spaceId=<team>` → **rỗng** và `GET /v1/projects/<id>/sandbox` → **404**, dù copy sản phẩm hứa "Members can view the team and use its resources" | BFF: khi nhận lời mời, thành viên cũng vào team của Space (admin/member → team role `member`; **viewer không** vào, giữ quyền chỉ đọc). Thêm **backfill idempotent** trong `ensureSchema` để vá dữ liệu cũ (chạy mỗi lần start, `ON CONFLICT DO NOTHING`) |
+| **41** | Trang project kẹt vô hạn ở "Loading projects…" | `ProjectDetail` bỏ qua `loading` khi chưa có Space → sau khi `/api/bff/spaces` trả 503 (sự cố RDS ở trên) trang treo vĩnh viễn, không có lỗi, không có nút thử lại | Dashboard: `ProjectDetail` giờ dùng `loading/failed/reload` của `useActiveSpace` → hiện lỗi + nút thử lại (đúng pattern của `ProjectBoard`) |
+| **42** | Trang Subscription **bỏ qua Space đang chọn** | `loadBilling` chỉ phụ thuộc `[t]` → gọi API **không có** `spaceId`/`spaceType` → hiện gói **Personal** (Free/Plus/Pro) cho team tổ chức, entitlement và lịch sử thanh toán cũng lấy của Space cá nhân | Dashboard: `loadBilling` phụ thuộc `spaceId`/`spaceType`, không load trước khi Space đã resolve (hiện loading), có trạng thái lỗi + thử lại khi danh sách Space lỗi |
+| **43** | `/v1/projects?spaceId=` không kiểm tra quyền đọc Space | Account khác gọi Space không thuộc → **200 + mảng rỗng** (không rò rỉ dữ liệu) trong khi `/v1/usage` trả 403 cho cùng Space | BFF: `/v1/projects` dùng cùng `resolveSpaceForUser` như `/v1/usage` → **403 FORBIDDEN** |
+| **44** | **Giới hạn số thành viên của gói không được thực thi** | Gói `org_team` ghi entitlement `members: 3`, nhưng lời mời thứ 4 vẫn tạo được (HTTP 201) | BFF: route mời thành viên kiểm tra `plan.members` (ghế = thành viên đang hoạt động **+** lời mời đang chờ) → **409 MEMBER_LIMIT_REACHED**. Kiểm tra quyền (owner/admin) chạy trước để người không có quyền không dò ra được "team đã đầy" |
+| **45** | Panel Sandbox **không tự cập nhật** khi sandbox đang khởi động | Bấm Start → chip vẫn "Starting" và nút vẫn là "Start" dù sandbox đã `ready`; phải tải lại trang mới thấy "Open notebook" | Dashboard: `useProjectSandbox` poll mỗi 3s khi trạng thái là `starting`, dừng khi trạng thái ổn định |
+| **46** | Copy sai ở trang Subscription | Nút của gói $0 ghi "Pay for Personal Free"; entitlement ghi "1 sandboxes running at once"; GPU ghi "0 GPU access" | Dashboard: helper `lib/billing.ts` (có test) — gói miễn phí dùng nút "Use {plan}", số sandbox dùng ICU plural, GPU là "No GPU access"/"GPU included" |
+| **47** | Copy tiếng Anh còn sót mô hình organization phân cấp | `teams.dangerBody` (en): "Deletes {name}, its team, projects and notebook files." — bản vi đã sửa, bản en chưa | Dashboard: sửa en thành "Deletes {name}, its projects and notebook files." |
+| **48** | Xác nhận lại account đã xác nhận báo sai lý do | Cognito trả `NotAuthorizedException` → BFF map thành "Email hoặc mật khẩu không đúng." trên trang verify | BFF: route `/v1/auth/confirm` trả **400 ALREADY_CONFIRMED**; dashboard có bản dịch (en + vi) trong `bffErrors` |
+
+Test: BFF **155/155** (10 test mới), dashboard **25/25** (5 test mới), `tsc --noEmit` sạch cả hai bên.
+
+## Vẫn chưa xử lý
+
+- Lịch sử thanh toán chưa có ngày; số liệu storage ở Quota làm tròn "0 GB" cho 32 B.
+- Nhóm lỗi UI/thiết kế 16–24 (empty state không có CTA, chip instance ở list, banner "Sandboxes running
+  at once" lệch style, chart không có trục/giá trị, v.v.): cần một vòng thiết kế riêng.
+- Không xác minh được việc xoá project có dọn PVC/EFS access point (cần quyền cluster).
+
+## Dữ liệu test còn lại (từ lần verify này)
+
+- Space cá nhân `mlbox-mwbnjiti-us6t8@fldubai.com` (`personal:e96e6498-f0a1-70e3-d22d-eea93c0bde32`):
+  project `e2e-fresh-2026-11-11` (`5992fd17-…`), storage **đã tắt**, artifact đã xoá.
+- Team `e2e-fresh-team-2026-11-11` (`org:8751767b-8683-46f8-a02e-06feedfbfab8`): project
+  `team-project-fresh` (`742a750d-…`), subscription `org_team` active, 1 thành viên thật
+  (`mlbox-member-mwbo5r1i-q6dn3@fldubai.com`) + 2 lời mời pending (`e2e-member3-…@example.com`,
+  `e2e-member4-…@example.com`).
+- Account cũ `tadirab921@bwingmedia.com` và các Space cũ (`e2e-org-2026-11-11`, `123`) không đụng tới.
