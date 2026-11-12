@@ -61,6 +61,8 @@ body {
   flex: none;
   align-items: center;
   gap: 0.7rem;
+  /* The link to the home page is tapped on a phone. */
+  min-height: 2.75rem;
   color: var(--foreground);
   text-decoration: none;
 }
@@ -136,6 +138,12 @@ body {
   box-shadow: none !important;
 }
 
+/* The clear button of the search field was 19 by 19 pixels, too small for a finger. */
+.workspace-navbar-search [data-slot="search-field-clear-button"] {
+  width: 2rem;
+  height: 2rem;
+}
+
 .workspace-navbar-actions {
   display: flex;
   flex: none;
@@ -157,6 +165,7 @@ body {
   align-items: center;
   gap: 0.5rem;
   max-width: 14rem;
+  min-height: 2.75rem;
   border: 1px solid var(--border);
   border-radius: 0.375rem;
   background: var(--surface);
@@ -226,6 +235,12 @@ body {
 .workspace-navbar-icon-button {
   width: 2.25rem;
   height: 2.25rem;
+}
+
+/* The avatar of the account menu is touched on a phone, so it gets the size a finger needs. */
+.workspace-avatar-trigger {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
 }
 
 .workspace-navbar-icon-button:hover,
@@ -487,6 +502,10 @@ body {
 }
 
 .workspace-detail-back a {
+  display: inline-flex;
+  align-items: center;
+  /* The link is tapped on a phone, so it needs the height of a finger. */
+  min-height: 2.75rem;
   color: var(--muted);
   font-size: 0.82rem;
   text-decoration: none;
