@@ -373,6 +373,13 @@ body {
   white-space: nowrap;
 }
 
+/* The link back to the projects is tapped on a phone, so it needs the height of a finger. */
+a.workspace-count-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+}
+
 .workspace-project-toolbar {
   display: flex;
   align-items: center;

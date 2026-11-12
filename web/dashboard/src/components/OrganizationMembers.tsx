@@ -241,8 +241,8 @@ export default function OrganizationMembers({ space }: { space: SpaceSummary }) 
                   {canRemove(actor, member.role) ? (
                     <Button
                       variant="ghost"
-                      size="sm"
                       isIconOnly
+                      className="min-w-11 min-h-11"
                       aria-label={`${t("remove")}: ${label(member)}`}
                       isDisabled={busy}
                       ref={(node) => {

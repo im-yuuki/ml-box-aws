@@ -43,7 +43,8 @@ function DailyBars({
   const shown = active === null ? peak : active;
   const shownPoint = points[shown];
 
-  if (points.length === 0) {
+  if (points.length === 0 || points.every((point) => point.value === 0)) {
+    // A chart without a single bar looks broken, so the empty state is shown instead.
     return (
       <figure className="flex flex-col gap-2">
         <figcaption className="text-sm font-medium">{label}</figcaption>
