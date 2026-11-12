@@ -18,6 +18,9 @@ export type ProjectSandboxResponse = {
   sandbox: ProjectSandbox | null;
   // The user's last started instance type, used as the default for the next start.
   preferredProfile?: string | null;
+  // The instance types the Space can run. The BFF sends them with the sandbox, so a list of
+  // Projects needs one request per Project instead of two.
+  profiles?: SandboxProfileOption[];
 };
 
 export type SandboxAction = "start" | "stop";
@@ -34,6 +37,10 @@ export type SandboxProfileOption = {
 };
 
 export type SandboxErrorKey = "loadFailed" | "ownerNotReady" | "forbidden" | "startFailed" | "stopFailed" | "quotaExceeded" | "planRequired" | "alreadyRunning";
+
+// How often the state of a starting sandbox is read again: every three seconds for five minutes.
+// The Hub gives up on a sandbox that does not start, so polling longer does not help.
+const MAX_STARTING_POLLS = 100;
 
 /**
  * Loads and operates the notebook runtime of one Project. Shared by the
@@ -55,7 +62,9 @@ export function useProjectSandbox(projectId: string) {
         setError("loadFailed");
         return;
       }
-      setData(await response.json() as ProjectSandboxResponse);
+      const body = await response.json() as ProjectSandboxResponse;
+      setData(body);
+      if (body.profiles) setProfiles(body.profiles);
       setError(null);
     } catch {
       setError("loadFailed");
@@ -100,7 +109,10 @@ export function useProjectSandbox(projectId: string) {
 
   const [profiles, setProfiles] = useState<SandboxProfileOption[]>([]);
 
+  // The profiles arrive with the sandbox, so no second request per Project is needed. The separate
+  // endpoint is only asked when the BFF did not send them (an older deployment).
   useEffect(() => {
+    if (data?.profiles) return;
     let cancelled = false;
     const task = window.setTimeout(() => {
       bffFetch(`${base}/profiles`, { cache: "no-store" })
@@ -114,15 +126,22 @@ export function useProjectSandbox(projectId: string) {
       cancelled = true;
       window.clearTimeout(task);
     };
-  }, [base]);
+  }, [base, data?.profiles]);
 
   const stateKey: RuntimeStateKey = runtimeStateKey(data?.sandbox?.state);
 
   // A sandbox that is starting changes state on its own, so the panel has to keep asking. Without
-  // this the chip stayed on "Starting" until the page was reloaded by hand.
+  // this the chip stayed on "Starting" until the page was reloaded by hand. The polling stops after
+  // a while: a sandbox that never leaves "starting" must not keep the browser busy forever.
   useEffect(() => {
     if (stateKey !== "starting") return;
+    let attempts = 0;
     const timer = window.setInterval(() => {
+      attempts += 1;
+      if (attempts > MAX_STARTING_POLLS) {
+        window.clearInterval(timer);
+        return;
+      }
       void load();
     }, 3000);
     return () => window.clearInterval(timer);

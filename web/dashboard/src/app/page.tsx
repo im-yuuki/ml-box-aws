@@ -94,7 +94,7 @@ export default async function Home() {
                       {t("previewProjectOne")}
                     </span>
                     <div className="workspace-project-row-meta">
-                      Core · <code>proj_example_a</code>
+                      {t("previewInstanceCpu")} · <code>proj_example_a</code>
                     </div>
                   </div>
                   <div className="workspace-runtime">
@@ -113,7 +113,7 @@ export default async function Home() {
                       {t("previewProjectTwo")}
                     </span>
                     <div className="workspace-project-row-meta">
-                      ML · <code>proj_example_b</code>
+                      {t("previewInstanceGpu")} · <code>proj_example_b</code>
                     </div>
                   </div>
                   <div className="workspace-runtime">
@@ -129,10 +129,10 @@ export default async function Home() {
               </ul>
               <div className="landing-preview-meter">
                 <div className="workspace-meter-head">
-                  <span>RAM</span>
-                  <span className="workspace-meter-value">4 / 24 GB</span>
+                  <span>{t("previewRam")}</span>
+                  <span className="workspace-meter-value">{t("previewRamValue", { used: 4, total: 24 })}</span>
                 </div>
-                <ProgressBar aria-label="RAM" value={17} size="sm">
+                <ProgressBar aria-label={t("previewRam")} value={17} size="sm">
                   <ProgressBar.Track>
                     <ProgressBar.Fill />
                   </ProgressBar.Track>

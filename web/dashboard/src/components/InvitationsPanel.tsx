@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 import { useBffErrorMessage } from "@/lib/useBffErrorMessage";
 import FeedbackAlert from "@/components/FeedbackAlert";
+import CardSectionTitle from "@/components/CardSectionTitle";
 import { canManageTeams, type SpaceSummary } from "@/lib/spaces";
 
 type Invitation = { id: string; email: string; role: "admin" | "member" | "viewer"; status: string };
@@ -114,7 +115,7 @@ export default function InvitationsPanel({ space }: { space: SpaceSummary }) {
   return (
     <Card>
       <Card.Header>
-        <Card.Title>{t("title")}</Card.Title>
+        <CardSectionTitle>{t("title")}</CardSectionTitle>
       </Card.Header>
       <Card.Content className="flex flex-col gap-4">
         {manager ? (
@@ -140,9 +141,9 @@ export default function InvitationsPanel({ space }: { space: SpaceSummary }) {
             </Form>
             {pending.length > 0 ? (
               <section aria-labelledby="pending-invitations-heading" className="flex flex-col gap-2">
-                <h4 id="pending-invitations-heading" className="text-sm font-medium">
+                <h3 id="pending-invitations-heading" className="text-sm font-medium">
                   {t("pendingList")}
-                </h4>
+                </h3>
                 <ul className="flex flex-col gap-2">
                   {pending.map((invitation) => (
                     <li key={invitation.id} className="flex items-center justify-between gap-4">

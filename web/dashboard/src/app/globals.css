@@ -608,6 +608,12 @@ body {
     order: 2;
   }
 
+  /* On a phone the buttons of the bar are touched, so they get the size a finger needs. */
+  .workspace-navbar-icon-button {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
   .workspace-main {
     padding: 1.5rem 1rem 2.5rem;
   }

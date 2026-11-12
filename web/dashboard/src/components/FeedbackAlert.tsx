@@ -41,7 +41,15 @@ export default function FeedbackAlert({
   useEffect(() => {
     if (!inline) raise(status, children);
   }, [inline, status, children]);
-  if (!inline) return null;
+  if (!inline) {
+    // A success is shown as a toast, so it does not move the layout. The message is repeated in a
+    // hidden live region, so a screen reader announces it too.
+    return (
+      <span className="sr-only" role="status">
+        {status === "success" ? children : null}
+      </span>
+    );
+  }
   return (
     <div role={status === "danger" ? "alert" : "status"}>
       <Alert status={status}>

@@ -29,6 +29,9 @@ export default function PaymentCheckout() {
   const params = useSearchParams();
   const planId = params.get("plan");
   const paymentId = params.get("payment");
+  // The Space that buys the plan. Without it the BFF would buy the plan for the personal Space of
+  // the user, and a team plan would be refused with SPACE_PLAN_MISMATCH.
+  const spaceId = params.get("spaceId");
   const [order, setOrder] = useState<{
     title: string;
     amountCents: number;
@@ -85,6 +88,7 @@ export default function PaymentCheckout() {
         paymentMethod: "mock_card",
         mockOutcome: outcome,
         idempotencyKey: globalThis.crypto.randomUUID(),
+        ...(spaceId ? { spaceId } : {}),
       };
       const response = planId
         ? await bffFetch("/api/bff/subscriptions/mock/checkout", {
@@ -129,7 +133,9 @@ export default function PaymentCheckout() {
       <main className="public-main">
         <Card className="mx-auto w-full max-w-md">
           <Card.Header>
-            <Card.Title>{t("title")}</Card.Title>
+            {/* The checkout page has no other heading, so the title of the card is the heading of
+                the page. */}
+            <h1 className="text-lg font-semibold">{t("title")}</h1>
           </Card.Header>
           <Card.Content className="flex flex-col gap-5">
             {loadError ? (

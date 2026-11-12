@@ -82,6 +82,25 @@ function DailyBars({
         </span>
         <span>{shortDate(points[points.length - 1].date)}</span>
       </div>
+      {/* The chart can only be read with a pointer. The same numbers are in a table, so a screen
+          reader and a text browser can read every day. */}
+      <table className="sr-only">
+        <caption>{label}</caption>
+        <thead>
+          <tr>
+            <th scope="col">Date</th>
+            <th scope="col">{label}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {points.map((point) => (
+            <tr key={point.date}>
+              <td>{shortDate(point.date)}</td>
+              <td>{`${formatter.format(point.value)} ${unit}`}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </figure>
   );
 }

@@ -37,8 +37,26 @@ async function refreshAndRetry(path: string, init: RequestInit): Promise<Respons
     if (!(["GET", "HEAD", "OPTIONS"].includes((init.method ?? "GET").toUpperCase()))) {
       headers.set("x-csrf-token", csrfToken);
     }
+    // A write is sent again only when the server can answer the same request twice without doing
+    // it twice. Starting a sandbox twice would launch two notebooks, so such a request is not
+    // repeated: the user is asked to press the button again instead.
+    if (!isIdempotent(init)) {
+      return new Response(null, { status: 401, statusText: "Session expired" });
+    }
     return fetch(path, { ...init, headers, cache: "no-store" });
   } catch {
     return new Response(null, { status: 401 });
   }
+}
+
+/**
+ * Whether the server answers a repeated request without doing the work twice. The endpoints that
+ * carry an idempotency key are safe to repeat; the others are not.
+ */
+function isIdempotent(init: RequestInit): boolean {
+  const method = (init.method ?? "GET").toUpperCase();
+  if (["GET", "HEAD", "OPTIONS", "PUT", "DELETE"].includes(method)) return true;
+  if (method !== "POST") return false;
+  const body = typeof init.body === "string" ? init.body : "";
+  return body.includes("idempotencyKey");
 }

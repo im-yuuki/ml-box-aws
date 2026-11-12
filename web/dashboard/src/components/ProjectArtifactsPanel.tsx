@@ -12,6 +12,7 @@ import { Download, Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 import FeedbackAlert from "@/components/FeedbackAlert";
+import CardSectionTitle from "@/components/CardSectionTitle";
 import {
   formatBytes,
   validateUploadFile,
@@ -189,7 +190,7 @@ export default function ProjectArtifactsPanel({
   return (
     <Card>
       <Card.Header>
-        <Card.Title>{t("title")}</Card.Title>
+        <CardSectionTitle>{t("title")}</CardSectionTitle>
       </Card.Header>
       <Card.Content className="flex flex-col gap-5">
         {loading ? (

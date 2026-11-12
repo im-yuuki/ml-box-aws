@@ -7,7 +7,9 @@ import {
   canRemoveMember,
   canTransferOwnership,
   deleteConfirmationMatches,
+  PROJECT_NAME_MAX_LENGTH,
   validateOrganizationName,
+  validateProjectName,
 } from "./space-rules.js";
 
 test("owners and admins manage members; members and viewers do not", () => {
@@ -64,4 +66,12 @@ test("organization names are trimmed and bounded", () => {
   assert.equal(validateOrganizationName("   ").ok, false);
   assert.equal(validateOrganizationName("x".repeat(61)).ok, false);
   assert.equal(validateOrganizationName(42).ok, false);
+});
+
+test("project names are trimmed and bounded", () => {
+  assert.deepEqual(validateProjectName("  Vision Lab  "), { ok: true, value: "Vision Lab" });
+  assert.equal(validateProjectName("   ").ok, false);
+  assert.equal(validateProjectName("x".repeat(PROJECT_NAME_MAX_LENGTH + 1)).ok, false);
+  assert.equal(validateProjectName("x".repeat(PROJECT_NAME_MAX_LENGTH)).ok, true);
+  assert.equal(validateProjectName(42).ok, false);
 });

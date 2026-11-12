@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Dropdown } from "@heroui/react";
-import { Building2, Check, ChevronDown, Plus, User } from "lucide-react";
+import { Building2, Check, ChevronDown, Plus, RotateCcw, User } from "lucide-react";
 import { useTranslations } from "next-intl";
 import CreateOrganizationDialog from "@/components/navbar/CreateOrganizationDialog";
 import { useActiveSpace } from "@/hooks/useActiveSpace";
@@ -18,17 +18,23 @@ const CREATE_KEY = "__create_organization__";
  */
 export default function SpaceSwitcher() {
   const t = useTranslations("navbar");
-  const { spaces, activeSpace, loading, failed, setActiveSpaceId } = useActiveSpace();
+  const { spaces, activeSpace, loading, failed, setActiveSpaceId, reload } = useActiveSpace();
   const [createOpen, setCreateOpen] = useState(false);
 
   if (loading) return <span className="workspace-space-placeholder" aria-hidden="true" />;
   // Show the failure instead of hiding the switcher, so the user knows why their Spaces are missing.
+  // It is a real button: the list can be read again without a reload of the page.
   if (failed) {
     return (
-      <span className="workspace-space-trigger" role="status" title={t("spacesUnavailable")}>
+      <button
+        type="button"
+        className="workspace-space-trigger"
+        onClick={reload}
+        title={t("spacesUnavailable")}>
         <Building2 aria-hidden="true" size={15} />
         <span className="workspace-space-trigger-name">{t("spacesUnavailable")}</span>
-      </span>
+        <RotateCcw aria-hidden="true" size={14} />
+      </button>
     );
   }
   if (!activeSpace) return null;
@@ -45,7 +51,8 @@ export default function SpaceSwitcher() {
     if (String(key) !== NONE_KEY) setActiveSpaceId(String(key));
   };
 
-  // Personal Space is shown with the localized label; organizations keep their own name.
+  // The personal Space is named after the account, which says nothing useful in a menu, so it keeps
+  // the localized label. Every other Space shows its own name.
   const displayName = (space: SpaceSummary) => (space.type === "personal" ? t("personal") : space.name);
 
   const renderItem = (space: SpaceSummary) => (

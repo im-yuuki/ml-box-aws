@@ -38,9 +38,15 @@ export function resolveProject(projects: ProjectRecord[], projectId: string | un
   return projects.find((project) => project.id === projectId) ?? null;
 }
 
-export function validateProjectName(name: string): { ok: true; value: string } | { ok: false } {
+// The BFF bounds the name of a Project as well; the same limit is used here so the user is told
+// before the request is sent.
+export const PROJECT_NAME_MAX_LENGTH = 80;
+
+export function validateProjectName(name: string): { ok: true; value: string } | { ok: false; reason: "empty" | "tooLong" } {
   const value = name.trim();
-  return value ? { ok: true, value } : { ok: false };
+  if (!value) return { ok: false, reason: "empty" };
+  if (value.length > PROJECT_NAME_MAX_LENGTH) return { ok: false, reason: "tooLong" };
+  return { ok: true, value };
 }
 
 export function getCreateProjectNavigation(body: { project?: { id?: string; name?: string } }): string | null {

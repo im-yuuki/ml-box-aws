@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Avatar, Button, Card, Chip, ListBox, Modal, Select, Spinner } from "@heroui/react";
 import { Crown, UserMinus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 import FeedbackAlert from "@/components/FeedbackAlert";
+import CardSectionTitle from "@/components/CardSectionTitle";
 import { notifySpacesChanged, type SpaceRole, type SpaceSummary } from "@/lib/spaces";
 
 export type OrganizationMember = { userId: string; role: SpaceRole; email: string | null };
@@ -20,6 +21,16 @@ function canRemove(actor: SpaceRole | null, target: SpaceRole): boolean {
   if (target === "owner") return false;
   if (actor === "owner") return true;
   return actor === "admin" && target !== "admin";
+}
+
+// Mirrors canChangeMemberRole of the BFF: the owner changes any role but the owner role, an admin
+// manages members and viewers but never another admin, and nobody else changes roles.
+function canChangeRole(actor: SpaceRole | null, target: SpaceRole, next: SpaceRole): boolean {
+  if (target === "owner" || next === "owner") return false;
+  if (next !== "admin" && next !== "member" && next !== "viewer") return false;
+  if (actor === "owner") return true;
+  if (actor === "admin") return target !== "admin" && next !== "admin";
+  return false;
 }
 
 const ROLE_KEYS: Record<SpaceRole, string> = {
@@ -40,9 +51,12 @@ export default function OrganizationMembers({ space }: { space: SpaceSummary }) 
   const [notice, setNotice] = useState<string | null>(null);
   const [transferTo, setTransferTo] = useState<OrganizationMember | null>(null);
   const [removeTarget, setRemoveTarget] = useState<OrganizationMember | null>(null);
+  // The member whose remove button opened the dialog, so the focus can go back to it.
+  const removeTrigger = useRef<string | null>(null);
+  const transferTrigger = useRef<string | null>(null);
+  const rowButtons = useRef(new Map<string, HTMLButtonElement>());
 
   const load = useCallback(async () => {
-    setError(null);
     try {
       const response = await bffFetch(`/api/bff/spaces/${encodeURIComponent(space.id)}/members`, { cache: "no-store" });
       if (!response.ok) {
@@ -52,6 +66,9 @@ export default function OrganizationMembers({ space }: { space: SpaceSummary }) 
       const body = (await response.json()) as MemberListResponse;
       setActor(body.role ?? null);
       setMembers(Array.isArray(body.members) ? body.members : []);
+      // The list was read, so a message of an earlier failure no longer holds. A failure of the
+      // list itself keeps its own message.
+      setError(null);
     } catch {
       setError(t("membersLoadFailed"));
     } finally {
@@ -128,10 +145,27 @@ export default function OrganizationMembers({ space }: { space: SpaceSummary }) 
 
   const label = (member: OrganizationMember) => member.email ?? member.userId;
 
+  // The dialog of the removal has no trigger of its own, so the focus is sent back to the button
+  // that opened it.
+  function restoreFocus() {
+    const userId = removeTrigger.current;
+    removeTrigger.current = null;
+    if (!userId) return;
+    rowButtons.current.get(userId)?.focus();
+  }
+
+  // The same for the dialog that hands the ownership over.
+  function restoreTransferFocus() {
+    const userId = transferTrigger.current;
+    transferTrigger.current = null;
+    if (!userId) return;
+    rowButtons.current.get(userId)?.focus();
+  }
+
   return (
     <Card aria-labelledby="org-members-title">
       <Card.Header>
-        <Card.Title id="org-members-title">{t("orgMembersTitle")}</Card.Title>
+        <CardSectionTitle id="org-members-title">{t("orgMembersTitle")}</CardSectionTitle>
         <Card.Description>{t("orgMembersHint")}</Card.Description>
       </Card.Header>
       <Card.Content className="flex flex-col gap-4">
@@ -161,7 +195,9 @@ export default function OrganizationMembers({ space }: { space: SpaceSummary }) 
                       onSelectionChange={(key) => key && changeRole(member, String(key))}
                       aria-label={`${t("role")}: ${label(member)}`}
                       isDisabled={busy}
-                      className="w-36">
+                      // A fixed width cut the role name on a narrow screen, so the dropdown takes
+                      // the room it needs.
+                      className="w-full min-w-32 sm:w-36">
                       <Select.Trigger>
                         <Select.Value />
                         <Select.Indicator />
@@ -170,13 +206,14 @@ export default function OrganizationMembers({ space }: { space: SpaceSummary }) 
                         <ListBox>
                           {/* The admin role stays visible for every manager: only the owner can hand
                               it out, but an admin that cannot see their own role reads an empty
-                              dropdown. */}
-                          <ListBox.Item id="admin" textValue={t(ROLE_KEYS.admin)} isDisabled={actor !== "owner"}>
+                              dropdown. The roles the server would refuse are disabled, so the
+                              dropdown never offers a change that fails. */}
+                          <ListBox.Item id="admin" textValue={t(ROLE_KEYS.admin)} isDisabled={!canChangeRole(actor, member.role, "admin")}>
                             {t(ROLE_KEYS.admin)}
                             <ListBox.ItemIndicator />
                           </ListBox.Item>
-                          <ListBox.Item id="member" textValue={t(ROLE_KEYS.member)}>{t(ROLE_KEYS.member)}<ListBox.ItemIndicator /></ListBox.Item>
-                          <ListBox.Item id="viewer" textValue={t(ROLE_KEYS.viewer)}>{t(ROLE_KEYS.viewer)}<ListBox.ItemIndicator /></ListBox.Item>
+                          <ListBox.Item id="member" textValue={t(ROLE_KEYS.member)} isDisabled={!canChangeRole(actor, member.role, "member")}>{t(ROLE_KEYS.member)}<ListBox.ItemIndicator /></ListBox.Item>
+                          <ListBox.Item id="viewer" textValue={t(ROLE_KEYS.viewer)} isDisabled={!canChangeRole(actor, member.role, "viewer")}>{t(ROLE_KEYS.viewer)}<ListBox.ItemIndicator /></ListBox.Item>
                         </ListBox>
                       </Select.Popover>
                     </Select>
@@ -185,7 +222,18 @@ export default function OrganizationMembers({ space }: { space: SpaceSummary }) 
                   )}
 
                   {actor === "owner" && member.role === "admin" ? (
-                    <Button size="sm" variant="secondary" isDisabled={busy} onPress={() => setTransferTo(member)}>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      isDisabled={busy}
+                      ref={(node) => {
+                        if (node) rowButtons.current.set(member.userId, node);
+                        else rowButtons.current.delete(member.userId);
+                      }}
+                      onPress={() => {
+                        transferTrigger.current = member.userId;
+                        setTransferTo(member);
+                      }}>
                       {t("transferOwnership")}
                     </Button>
                   ) : null}
@@ -197,7 +245,16 @@ export default function OrganizationMembers({ space }: { space: SpaceSummary }) 
                       isIconOnly
                       aria-label={`${t("remove")}: ${label(member)}`}
                       isDisabled={busy}
-                      onPress={() => setRemoveTarget(member)}>
+                      ref={(node) => {
+                        if (node) rowButtons.current.set(member.userId, node);
+                        else rowButtons.current.delete(member.userId);
+                      }}
+                      onPress={() => {
+                        // The dialog has no trigger of its own, so the button that opened it is
+                        // remembered: the focus goes back there when the dialog closes.
+                        removeTrigger.current = member.userId;
+                        setRemoveTarget(member);
+                      }}>
                       <UserMinus aria-hidden="true" size={16} />
                     </Button>
                   ) : null}
@@ -208,10 +265,11 @@ export default function OrganizationMembers({ space }: { space: SpaceSummary }) 
         )}
 
         {notice ? <FeedbackAlert status="success">{notice}</FeedbackAlert> : null}
-        {error ? <FeedbackAlert status="danger">{error}</FeedbackAlert> : null}
+        {/* While a dialog is open the failure is shown inside it, so it is not repeated here. */}
+        {error && !removeTarget && !transferTo ? <FeedbackAlert status="danger">{error}</FeedbackAlert> : null}
       </Card.Content>
 
-      <Modal isOpen={removeTarget !== null} onOpenChange={(open) => { if (!open) setRemoveTarget(null); }}>
+      <Modal isOpen={removeTarget !== null} onOpenChange={(open) => { if (!open) { setRemoveTarget(null); restoreFocus(); } }}>
         <Modal.Backdrop>
           <Modal.Container>
             <Modal.Dialog>
@@ -222,6 +280,8 @@ export default function OrganizationMembers({ space }: { space: SpaceSummary }) 
                   </Modal.Header>
                   <Modal.Body className="flex flex-col gap-3">
                     <p className="text-sm">{t("removeBody")}</p>
+                    {/* The failure belongs to the dialog the user is looking at. */}
+                    {error ? <FeedbackAlert status="danger">{error}</FeedbackAlert> : null}
                   </Modal.Body>
                   <Modal.Footer className="flex justify-end gap-2">
                     <Button variant="tertiary" onPress={close}>{t("cancel")}</Button>
@@ -242,7 +302,7 @@ export default function OrganizationMembers({ space }: { space: SpaceSummary }) 
         </Modal.Backdrop>
       </Modal>
 
-      <Modal isOpen={transferTo !== null} onOpenChange={(open) => { if (!open) setTransferTo(null); }}>
+      <Modal isOpen={transferTo !== null} onOpenChange={(open) => { if (!open) { setTransferTo(null); restoreTransferFocus(); } }}>
         <Modal.Backdrop>
           <Modal.Container>
             <Modal.Dialog>
@@ -253,6 +313,8 @@ export default function OrganizationMembers({ space }: { space: SpaceSummary }) 
                   </Modal.Header>
                   <Modal.Body className="flex flex-col gap-3">
                     <p className="text-sm">{t("transferBody")}</p>
+                    {/* The failure belongs to the dialog the user is looking at. */}
+                    {error ? <FeedbackAlert status="danger">{error}</FeedbackAlert> : null}
                   </Modal.Body>
                   <Modal.Footer className="flex justify-end gap-2">
                     <Button variant="tertiary" onPress={close}>{t("cancel")}</Button>

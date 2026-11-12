@@ -696,6 +696,26 @@ export class AppStore {
     }));
   }
 
+  /** One Project by its id, without a Space filter. The caller checks the permission first. */
+  async getProject(projectId: string): Promise<ProjectRecord | null> {
+    const result = await this.pool.query(
+      `SELECT p.id, t.space_id, p.team_id, p.name, p.created_by
+       FROM mlbox_projects p
+       JOIN mlbox_teams t ON t.id = p.team_id
+       WHERE p.id = $1 AND p.deleted_at IS NULL`,
+      [projectId],
+    );
+    const row = result.rows[0];
+    if (!row) return null;
+    return {
+      id: String(row.id),
+      spaceId: String(row.space_id),
+      teamId: String(row.team_id),
+      name: String(row.name),
+      createdBy: String(row.created_by),
+    };
+  }
+
   async ensureSandboxProject(userId: string, email: string, sandboxName: string, hubUsername = email): Promise<ProjectRecord> {
     const result = await this.pool.query(
       `WITH personal_space AS (

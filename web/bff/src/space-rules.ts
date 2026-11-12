@@ -54,9 +54,21 @@ export function deleteConfirmationMatches(name: string, typed: unknown): boolean
 
 export const ORGANIZATION_NAME_MAX_LENGTH = 60;
 
+// The name of a Project is shown in the page title and in the tables of the quota page, so it is
+// bounded as well.
+export const PROJECT_NAME_MAX_LENGTH = 80;
+
 export function validateOrganizationName(name: unknown): { ok: true; value: string } | { ok: false } {
   if (typeof name !== "string") return { ok: false };
   const value = name.trim();
   if (!value || value.length > ORGANIZATION_NAME_MAX_LENGTH) return { ok: false };
+  return { ok: true, value };
+}
+
+/** The name of a Project: it has to be there and it has to fit on a page. */
+export function validateProjectName(name: unknown): { ok: true; value: string } | { ok: false } {
+  if (typeof name !== "string") return { ok: false };
+  const value = name.trim();
+  if (!value || value.length > PROJECT_NAME_MAX_LENGTH) return { ok: false };
   return { ok: true, value };
 }

@@ -50,8 +50,10 @@ const plans: readonly MockPlan[] = [
   { id: "personal_free", spaceType: "personal", name: "Personal Free", amountCents: 0, currency: "USD", billingInterval: "month", status: "active", artifactRetentionDays: 7, credits: 20, concurrentSandboxes: 1, storageGb: 5, gpuAccess: false },
   { id: "personal_plus", spaceType: "personal", name: "Personal Plus", amountCents: 800, currency: "USD", billingInterval: "month", status: "active", artifactRetentionDays: 14, credits: 100, concurrentSandboxes: 2, storageGb: 25, gpuAccess: true },
   { id: "personal_pro", spaceType: "personal", name: "Personal Pro", amountCents: 1900, currency: "USD", billingInterval: "month", status: "active", artifactRetentionDays: 30, credits: 300, concurrentSandboxes: 5, storageGb: 100, gpuAccess: true },
-  { id: "org_team", spaceType: "organization", name: "Organization Team", amountCents: 1900, currency: "USD", billingInterval: "month", status: "active", artifactRetentionDays: 14, credits: 300, concurrentSandboxes: 5, storageGb: 100, gpuAccess: true, members: 3 },
-  { id: "org_growth", spaceType: "organization", name: "Organization Growth", amountCents: 800, currency: "USD", billingInterval: "month", status: "active", artifactRetentionDays: 30, credits: 1000, concurrentSandboxes: 15, storageGb: 500, gpuAccess: true, members: null },
+  // The names are shown to the user, so they use the product wording: a Space of a team is a "Team",
+  // never an "organization".
+  { id: "org_team", spaceType: "organization", name: "Team", amountCents: 1900, currency: "USD", billingInterval: "month", status: "active", artifactRetentionDays: 14, credits: 300, concurrentSandboxes: 5, storageGb: 100, gpuAccess: true, members: 3 },
+  { id: "org_growth", spaceType: "organization", name: "Team Plus", amountCents: 800, currency: "USD", billingInterval: "month", status: "active", artifactRetentionDays: 30, credits: 1000, concurrentSandboxes: 15, storageGb: 500, gpuAccess: true, members: null },
 ];
 
 // Storage and retention for a Space. Without an active subscription the Space has the free tier.

@@ -5,6 +5,7 @@ import {
   classifyProjectResponse,
   filterProjects,
   getCreateProjectNavigation,
+  PROJECT_NAME_MAX_LENGTH,
   resolveProject,
   validateProjectName,
   type ProjectRecord,
@@ -35,8 +36,15 @@ test("resolveProject only returns an exact match from the authorized list", () =
 });
 
 test("validateProjectName rejects whitespace and trims accepted names", () => {
-  assert.deepEqual(validateProjectName("  "), { ok: false });
+  assert.deepEqual(validateProjectName("  "), { ok: false, reason: "empty" });
   assert.deepEqual(validateProjectName("  Vision Lab  "), { ok: true, value: "Vision Lab" });
+});
+
+test("validateProjectName refuses a name that is longer than the limit", () => {
+  const tooLong = "x".repeat(PROJECT_NAME_MAX_LENGTH + 1);
+  assert.deepEqual(validateProjectName(tooLong), { ok: false, reason: "tooLong" });
+  // The limit itself is still accepted.
+  assert.equal(validateProjectName("x".repeat(PROJECT_NAME_MAX_LENGTH)).ok, true);
 });
 
 test("classifyProjectResponse distinguishes authentication and availability states", () => {

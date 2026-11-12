@@ -26,6 +26,7 @@ import {
   classifyProjectResponse,
   filterProjects,
   getCreateProjectNavigation,
+  PROJECT_NAME_MAX_LENGTH,
   validateProjectName,
   type ProjectListResponse,
   type ProjectLoadState,
@@ -58,7 +59,11 @@ export default function ProjectBoard() {
     "loading",
   );
   const [projectName, setProjectName] = useState("");
-  const [createError, setCreateError] = useState(false);
+  // The dialog for a new project is opened from the header and from the empty state.
+  const [createOpen, setCreateOpen] = useState(false);
+  // Why the last attempt failed: a wrong name, a name that is too long, no room in the plan, or a
+  // failed request. The user gets the reason instead of one generic message.
+  const [createError, setCreateError] = useState<"empty" | "tooLong" | "quota" | "failed" | null>(null);
   const [creating, setCreating] = useState(false);
 
   const activeSpaceId = activeSpace?.id ?? null;
@@ -127,10 +132,14 @@ export default function ProjectBoard() {
     close: () => void,
   ) => {
     event.preventDefault();
-    setCreateError(false);
+    setCreateError(null);
     const validated = validateProjectName(projectName);
-    if (!validated.ok || !activeSpaceId) {
-      setCreateError(true);
+    if (!validated.ok) {
+      setCreateError(validated.reason);
+      return;
+    }
+    if (!activeSpaceId) {
+      setCreateError("failed");
       return;
     }
     setCreating(true);
@@ -140,7 +149,7 @@ export default function ProjectBoard() {
       if (isOrganization) {
         teamId = teams[0]?.id;
         if (!teamId) {
-          setCreateError(true);
+          setCreateError("failed");
           return;
         }
       }
@@ -154,19 +163,22 @@ export default function ProjectBoard() {
         }),
       });
       if (!response.ok) {
-        setCreateError(true);
+        // The BFF answers with a reason (QUOTA_EXCEEDED, INVALID_INPUT, …); the user gets the
+        // reason instead of a generic failure.
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        setCreateError(body.error === "QUOTA_EXCEEDED" ? "quota" : "failed");
         return;
       }
       const body = (await response.json()) as CreateProjectResponse;
       const destination = getCreateProjectNavigation(body);
       if (!destination) {
-        setCreateError(true);
+        setCreateError("failed");
         return;
       }
       close();
       router.push(destination);
     } catch {
-      setCreateError(true);
+      setCreateError("failed");
     } finally {
       setCreating(false);
     }
@@ -239,8 +251,14 @@ export default function ProjectBoard() {
         </div>
         <div className="flex flex-col items-end gap-3">
           <Modal
+            isOpen={createOpen}
             onOpenChange={(open) => {
-              if (!open) setCreateError(false);
+              // A new dialog starts empty: the previous name and error are not carried over.
+              setCreateOpen(open);
+              if (!open) {
+                setCreateError(null);
+                setProjectName("");
+              }
             }}>
             <Modal.Trigger>
               <Button variant="primary">
@@ -263,7 +281,7 @@ export default function ProjectBoard() {
                           value={projectName}
                           onChange={setProjectName}
                           autoFocus
-                          isInvalid={createError}>
+                          isInvalid={createError !== null}>
                           <Label>{t("projectName")}</Label>
                           <Input
                             placeholder={t("projectNamePlaceholder")}
@@ -272,9 +290,13 @@ export default function ProjectBoard() {
                           />
                           {createError ? (
                             <FieldError>
-                              {projectName.trim()
-                                ? t("projectCreateFailed")
-                                : t("projectNameRequired")}
+                              {createError === "empty"
+                                ? t("projectNameRequired")
+                                : createError === "tooLong"
+                                  ? t("projectNameTooLong", { max: PROJECT_NAME_MAX_LENGTH })
+                                  : createError === "quota"
+                                    ? t("projectCreateQuotaExceeded")
+                                    : t("projectCreateFailed")}
                             </FieldError>
                           ) : null}
                         </TextField>
@@ -310,10 +332,20 @@ export default function ProjectBoard() {
       {projects.length === 0 ? (
         <Card className="p-6" aria-labelledby="projects-empty-title">
           <h2 id="projects-empty-title">{t("projectsEmptyTitle")}</h2>
+          <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>{t("projectsEmptyBody")}</p>
+          {/* The empty state says what to do, so it offers the action as well. */}
+          <Button
+            variant="primary"
+            className="mt-4"
+            onPress={() => setCreateOpen(true)}>
+            <Plus aria-hidden="true" size={16} />
+            {t("projectsEmptyAction")}
+          </Button>
         </Card>
       ) : visibleProjects.length === 0 ? (
         <Card className="p-6" aria-labelledby="projects-results-title">
           <h2 id="projects-results-title">{t("noResultsTitle")}</h2>
+          <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>{t("noResultsBody")}</p>
         </Card>
       ) : (
         <section

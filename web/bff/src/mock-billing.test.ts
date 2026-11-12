@@ -42,6 +42,18 @@ test("plan lookup and filtering preserve the server-owned space type", () => {
   ]);
 });
 
+test("the plan names shown to the user never say organization", () => {
+  // The product has no organizations: a Space of several people is a team. The name of a plan is
+  // printed on the subscription page and on the checkout page.
+  for (const plan of listMockPlans()) {
+    assert.equal(
+      /organization/i.test(plan.name),
+      false,
+      `plan ${plan.id} shows the word organization to the user`,
+    );
+  }
+});
+
 test("mock payment outcomes map to explicit subscription states", () => {
   assert.equal(resolveSubscriptionStatus("succeeded"), "active");
   assert.equal(resolveSubscriptionStatus("pending"), "pending");

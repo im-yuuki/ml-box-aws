@@ -24,7 +24,7 @@ const UNIT_KEYS: Record<string, string> = {
   credits: "billingCredits",
   members: "billingMembers",
   cpu_hours: "billingHours",
-  gpu_hours: "billingHours",
+  gpu_hours: "billingGpuHours",
 };
 
 /** The label of a limit; unknown resources keep their raw id so nothing is hidden. */

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Button, Card, Chip, Label, ListBox, Select, Spinner } from "@heroui/react";
 import FeedbackAlert from "@/components/FeedbackAlert";
+import CardSectionTitle from "@/components/CardSectionTitle";
 import { ExternalLink, Play, Square } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
@@ -44,7 +45,7 @@ export default function ProjectRuntimePanel({ projectId }: { projectId: string }
   return (
     <Card>
       <Card.Header>
-        <Card.Title>{t("title")}</Card.Title>
+        <CardSectionTitle>{t("title")}</CardSectionTitle>
       </Card.Header>
       <Card.Content className="flex flex-col gap-4">
         {loading && !data ? <div className="flex items-center gap-2 text-sm" role="status"><Spinner size="sm" /><span>{t("loading")}</span></div> : null}
@@ -79,6 +80,10 @@ export default function ProjectRuntimePanel({ projectId }: { projectId: string }
         <div className="flex flex-wrap gap-2">
           {running && url ? (
             <Button variant="secondary" size="sm" onPress={() => { setOpenFailed(false); void openNotebookViaHandoff(url).then((ok) => { if (!ok) setOpenFailed(true); }); }} fullWidth><ExternalLink aria-hidden="true" size={14} />{t("open")}</Button>
+          ) : running ? (
+            // The sandbox runs but has no address yet. A "Start" button would start a second
+            // notebook, so the state is shown instead.
+            <p className="w-full text-sm" style={{ color: "var(--muted)" }}>{t("starting")}</p>
           ) : (
             <Button variant="primary" size="sm" isDisabled={busy || loading || !canOperate || stateKey === "starting"} onPress={() => void act("start", profile)} fullWidth>
               <Play aria-hidden="true" size={14} />

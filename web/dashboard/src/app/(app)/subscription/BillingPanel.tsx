@@ -8,6 +8,7 @@ import { Ban, Check, Circle, CircleCheck, CreditCard, RotateCcw } from "lucide-r
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 import FeedbackAlert from "@/components/FeedbackAlert";
+import CardSectionTitle from "@/components/CardSectionTitle";
 import { useActiveSpace } from "@/hooks/useActiveSpace";
 import { entitlementLabel, entitlementValue } from "@/lib/billing";
 
@@ -160,12 +161,16 @@ export default function BillingPanel() {
   const planName = (planId: string) =>
     plans.find((plan) => plan.id === planId || plan.name === planId)?.name ?? planId;
   const visiblePlans = plans.filter(
-    (plan) => !details || plan.spaceType === details.spaceType,
+    (plan) => plan.spaceType === planSpaceType,
   );
   const activePlans = visiblePlans.filter((plan) => plan.status === "active");
+  // The BFF reports the plan of the subscription by its id ("org_team"), the catalogue knows it by
+  // id and by name. Comparing only the name made the pay button appear for the plan the Space is
+  // already subscribed to.
   const alreadySubscribed =
     !!selectedPlan &&
-    details?.subscription?.plan === selectedPlan.name &&
+    !!details?.subscription &&
+    (details.subscription.plan === selectedPlan.id || details.subscription.plan === selectedPlan.name) &&
     ["active", "pending"].includes(details.subscription.status);
 
   const cancelSubscription = async () => {
@@ -173,10 +178,12 @@ export default function BillingPanel() {
     setError(null);
     setMessage(null);
     try {
+      // The cancellation belongs to the Space in the switcher. Without the spaceId the BFF would
+      // cancel the personal Space of the user instead.
       const response = await bffFetch("/api/bff/subscription/cancel", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: "{}",
+        body: JSON.stringify({ spaceId }),
       });
       if (!response.ok) {
         const body = (await response.json().catch(() => ({}))) as ErrorBody;
@@ -202,16 +209,25 @@ export default function BillingPanel() {
           ? t("billingPerMember")
           : t("billingPerMonth"));
 
-  const statusLabel = (status: string) =>
-    t(
-      `billingStatus${status.charAt(0).toUpperCase()}${status.slice(1)}` as "billingStatusActive",
-    );
+  // A status the dashboard does not know would print the raw key, so it falls back to the status
+  // the server sent.
+  const statusLabel = (status: string) => {
+    const key = `billingStatus${status.charAt(0).toUpperCase()}${status.slice(1)}`;
+    const known = ["Active", "Pending", "Past_due", "Cancelled", "Inactive"];
+    return known.includes(status.charAt(0).toUpperCase() + status.slice(1))
+      ? t(key as "billingStatusActive")
+      : status;
+  };
+  // The plan list is filtered by the type of the Space in the switcher, so the personal plans do
+  // not show up on the page of a team before the subscription of the Space has been read.
+  const planSpaceType = spaceType;
   const formatDate = (date: Date) =>
     new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(date);
   const outcomeLabel = (value: PaymentOutcome) =>
     t(
       `billingOutcome${value.charAt(0).toUpperCase()}${value.slice(1)}` as "billingOutcomeSucceeded",
     );
+
   // The entitlement resource ids come from the BFF (mock-billing.ts). Every one of them needs a
   // label and a value: unknown ids used to be printed raw ("concurrent_sandboxes"), every resource
   // was rendered with the "hours" unit ("5 hours" for a sandbox count) and a single sandbox was
@@ -254,7 +270,7 @@ export default function BillingPanel() {
 
       <Card>
         <Card.Header>
-          <Card.Title>{t("currentSubscription")}</Card.Title>
+          <CardSectionTitle>{t("currentSubscription")}</CardSectionTitle>
         </Card.Header>
         <Card.Content className="flex flex-col gap-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -306,7 +322,7 @@ export default function BillingPanel() {
 
       <Card>
         <Card.Header>
-          <Card.Title>{t("choosePlan")}</Card.Title>
+          <CardSectionTitle>{t("choosePlan")}</CardSectionTitle>
         </Card.Header>
         <Card.Content className="flex flex-col gap-4">
           <div className="flex flex-col gap-3 sm:flex-row">
@@ -359,7 +375,9 @@ export default function BillingPanel() {
                 variant="primary"
                 onPress={() =>
                   router.push(
-                    `/payment/checkout?plan=${encodeURIComponent(selectedPlan.id)}`,
+                    // The Space travels with the link, so the checkout buys the plan for the Space
+                    // that is shown on this page.
+                    `/payment/checkout?plan=${encodeURIComponent(selectedPlan.id)}&spaceId=${encodeURIComponent(spaceId ?? "")}`,
                   )
                 }
                 isDisabled={pending}
@@ -376,7 +394,7 @@ export default function BillingPanel() {
 
       <Card>
         <Card.Header>
-          <Card.Title>{t("paymentHistory")}</Card.Title>
+          <CardSectionTitle>{t("paymentHistory")}</CardSectionTitle>
         </Card.Header>
         <Card.Content className="flex flex-col gap-4">
           {payments.length === 0 ? (
@@ -395,8 +413,8 @@ export default function BillingPanel() {
                       {planName(payment.planId)} · {outcomeLabel(payment.status)}
                     </p>
                     <p className="text-xs" style={{ color: "var(--muted)" }}>
-                      {payment.createdAt ? `${formatDate(new Date(payment.createdAt))} · ` : null}
-                      {payment.id}
+                      {/* The id of the payment is internal data with no meaning for the user. */}
+                      {payment.createdAt ? formatDate(new Date(payment.createdAt)) : null}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">

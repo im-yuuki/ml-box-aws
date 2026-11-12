@@ -44,6 +44,10 @@ export default function ProjectRuntimeControl({ sandbox }: { sandbox: Sandbox })
           <ExternalLink aria-hidden="true" size={14} />
           {t("open")}
         </Button>
+      ) : running ? (
+        // The sandbox runs but has no address yet. A "Start" button would start a second notebook,
+        // so the state is shown instead.
+        <span className="text-xs" style={{ color: "var(--muted)" }}>{t("starting")}</span>
       ) : (
         <Button
           size="sm"
@@ -57,6 +61,8 @@ export default function ProjectRuntimeControl({ sandbox }: { sandbox: Sandbox })
       )}
       {error && data ? <div className="w-full"><FeedbackAlert status="danger">{t(error)}</FeedbackAlert></div> : null}
       {openFailed ? <div className="w-full"><FeedbackAlert status="danger">{t("openFailed")}</FeedbackAlert></div> : null}
+      {/* A disabled button without a reason looks broken, so the reason is written next to it. */}
+      {data && !canOperate ? <span className="text-xs" style={{ color: "var(--muted)" }}>{t("readOnly")}</span> : null}
     </div>
   );
 }

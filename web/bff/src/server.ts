@@ -48,7 +48,9 @@ import {
   canTransferOwnership,
   deleteConfirmationMatches,
   isSpaceMemberRole,
+  PROJECT_NAME_MAX_LENGTH,
   validateOrganizationName,
+  validateProjectName,
 } from "./space-rules.js";
 import { verifyTurnstile } from "./turnstile.js";
 import {
@@ -1012,6 +1014,24 @@ app.get<{ Querystring: { spaceId?: string } }>("/v1/projects", async (request, r
   }
 });
 
+// One Project by its id. The details page needs the Project itself, not the whole list of the Space.
+app.get<{ Params: { projectId: string } }>("/v1/projects/:projectId", async (request, reply) => {
+  const session = await requireSession(request, reply);
+  if (!session) return;
+  if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Project storage is not configured." });
+  const projectId = request.params.projectId;
+  try {
+    const permission = await appStore.projectPermission(session.subject, projectId);
+    if (!permission) return reply.code(404).send({ error: "NOT_FOUND", message: "Project không tồn tại hoặc bạn không có quyền truy cập." });
+    const project = await appStore.getProject(projectId);
+    if (!project) return reply.code(404).send({ error: "NOT_FOUND", message: "Project không tồn tại hoặc bạn không có quyền truy cập." });
+    return { project: { ...project, canManage: permission.canManage } };
+  } catch (error) {
+    request.log.error({ err: error }, "Project lookup failed");
+    return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Project storage is temporarily unavailable." });
+  }
+});
+
 // Deleting a Project needs manager rights and a stopped sandbox. Stored artifacts are removed from S3
 // before the rows, so a failure part-way leaves the Project listed and the delete can be retried.
 app.delete<{ Params: { projectId: string } }>("/v1/projects/:projectId", async (request, reply) => {
@@ -1233,6 +1253,10 @@ app.post<{ Body: ProjectBody }>("/v1/projects", async (request, reply) => {
   const teamId = requiredString(request.body?.teamId) ?? `personal-team:${session.subject}`;
   const name = requiredString(request.body?.name);
   if (!name) return reply.code(400).send({ error: "INVALID_INPUT", message: "Project name is required." });
+  // The name is shown in the page title and in the tables of the quota page, so it is bounded.
+  if (!validateProjectName(name).ok) {
+    return reply.code(400).send({ error: "INVALID_INPUT", message: `Project name is too long (max ${PROJECT_NAME_MAX_LENGTH} characters).` });
+  }
   try {
     // The number of kept Projects is not capped; once the plan's storage is used up, no new Project can be created.
     const policy = await artifactPolicy(appStore, spaceId);
@@ -1650,6 +1674,23 @@ async function projectActionAllowed(reply: FastifyReply, userId: string, project
   return true;
 }
 
+// Sandbox profiles offered to Projects. GPU profiles appear only when the deployment enables them.
+const sandboxGpuProfiles = process.env.SANDBOX_GPU_PROFILES === "true";
+
+// The profiles a Project can run. The list is the same for every Project of a Space, so it is sent
+// with the sandbox of the Project: the list of Projects then needs one request per Project instead
+// of two.
+async function sandboxProfilesForProject(projectId: string) {
+  // Profiles the Space's plan cannot run are listed as unavailable, so the UI does not offer a start
+  // that will be refused.
+  const spacePlan = await appStore!.spaceAndPlanForProject(projectId);
+  const plan = effectivePlanForSpace(spacePlan?.planId);
+  return listSandboxProfiles(sandboxGpuProfiles).map((profile) => ({
+    ...profile,
+    available: profile.available && planAllowsRuntime(plan, runtimeClassForProfile(profile.kind)) === null,
+  }));
+}
+
 app.get<{ Params: { projectId: string } }>("/v1/projects/:projectId/sandbox", async (request, reply) => {
   const session = await requireSession(request, reply);
   if (!session) return;
@@ -1661,7 +1702,8 @@ app.get<{ Params: { projectId: string } }>("/v1/projects/:projectId/sandbox", as
     const runtime = await appStore.getProjectSandboxRuntime(projectId);
     // The Project's last started profile; null before its first start, which launches the default.
     const preferredProfile = runtime?.profile ?? null;
-    if (!runtime) return { projectId, canOperate: permission?.canOperate ?? false, preferredProfile, sandbox: null };
+    const profiles = await sandboxProfilesForProject(projectId);
+    if (!runtime) return { projectId, canOperate: permission?.canOperate ?? false, preferredProfile, profiles, sandbox: null };
     const hub = runtimeConfig();
     const server = await readHubServer(hub, runtime.hubUsername, runtime.serverName).catch((error) => {
       if (hubStatus(error) === 404) return null;
@@ -1674,6 +1716,7 @@ app.get<{ Params: { projectId: string } }>("/v1/projects/:projectId/sandbox", as
       projectId,
       canOperate: permission?.canOperate ?? false,
       preferredProfile,
+      profiles,
       sandbox: {
         name: runtime.serverName,
         state: observedState,
@@ -1689,23 +1732,13 @@ app.get<{ Params: { projectId: string } }>("/v1/projects/:projectId/sandbox", as
   }
 });
 
-// Sandbox profiles offered to Projects. GPU profiles appear only when the deployment enables them.
-const sandboxGpuProfiles = process.env.SANDBOX_GPU_PROFILES === "true";
-
 app.get<{ Params: { projectId: string } }>("/v1/projects/:projectId/sandbox/profiles", async (request, reply) => {
   const session = await requireSession(request, reply);
   if (!session) return;
   if (!appStore) return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Project storage is not configured." });
   try {
     if (!(await projectActionAllowed(reply, session.subject, request.params.projectId, "read"))) return;
-    // Profiles the Space's plan cannot run are listed as unavailable, so the UI does not offer a start that will be refused.
-    const spacePlan = await appStore.spaceAndPlanForProject(request.params.projectId);
-    const plan = effectivePlanForSpace(spacePlan?.planId);
-    const profiles = listSandboxProfiles(sandboxGpuProfiles).map((profile) => ({
-      ...profile,
-      available: profile.available && planAllowsRuntime(plan, runtimeClassForProfile(profile.kind)) === null,
-    }));
-    return { projectId: request.params.projectId, profiles };
+    return { projectId: request.params.projectId, profiles: await sandboxProfilesForProject(request.params.projectId) };
   } catch (error) {
     request.log.error({ err: error }, "Sandbox profile list failed");
     return reply.code(503).send({ error: "APP_DATABASE_UNAVAILABLE", message: "Project storage is temporarily unavailable." });

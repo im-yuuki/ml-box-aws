@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 import { notifySpacesChanged, type SpaceSummary } from "@/lib/spaces";
 import FeedbackAlert from "@/components/FeedbackAlert";
+import CardSectionTitle from "@/components/CardSectionTitle";
 
 const ERROR_KEYS: Record<string, string> = {
   SANDBOX_RUNNING: "deleteRunning",
@@ -54,7 +55,7 @@ export default function OrganizationDangerZone({ space }: { space: SpaceSummary 
   return (
     <Card aria-labelledby="org-danger-title">
       <Card.Header>
-        <Card.Title id="org-danger-title">{t("dangerTitle")}</Card.Title>
+        <CardSectionTitle id="org-danger-title">{t("dangerTitle")}</CardSectionTitle>
         <Card.Description>{t("dangerBody", { name: space.name })}</Card.Description>
       </Card.Header>
       <Card.Content>

@@ -41,4 +41,11 @@ test("credits, storage and members keep their unit", () => {
   assert.equal(entitlementValue("credits", 20, t), "20 billingCredits");
   assert.equal(entitlementValue("storage_gb", 5, t), "5 billingGb");
   assert.equal(entitlementValue("members", 3, t), "3 billingMembers");
+  assert.equal(entitlementValue("projects", 4, t), "4 billingProjects");
+});
+
+test("GPU hours are not written as plain hours", () => {
+  // "10 hours" next to a "GPU hours" label reads as the wrong unit.
+  assert.equal(entitlementValue("gpu_hours", 10, t), "10 billingGpuHours");
+  assert.equal(entitlementValue("cpu_hours", 10, t), "10 billingHours");
 });

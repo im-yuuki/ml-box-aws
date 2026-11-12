@@ -1,20 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button, Card, Spinner } from "@heroui/react";
 import { ArrowLeft, RotateCcw } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { bffFetch } from "@/lib/bffFetch";
 import {
-  resolveProject,
-  type ProjectListResponse,
   type ProjectRecord,
 } from "@/lib/projects";
 import { useActiveSpace } from "@/hooks/useActiveSpace";
 import ProjectArtifactsPanel from "@/components/ProjectArtifactsPanel";
 import ProjectRuntimePanel from "@/components/ProjectRuntimePanel";
 import CopyableText from "@/components/CopyableText";
+import CardSectionTitle from "@/components/CardSectionTitle";
 import ProjectDeleteButton from "@/components/ProjectDeleteButton";
 
 export default function ProjectDetail({ projectId }: { projectId: string }) {
@@ -25,18 +24,21 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
     null,
   );
 
-  const { activeSpace, loading: spacesLoading, failed: spacesFailed, reload: reloadSpaces } = useActiveSpace();
-  const activeSpaceId = activeSpace?.id ?? null;
+  const { spaces, loading: spacesLoading, failed: spacesFailed, reload: reloadSpaces } = useActiveSpace();
+  // The name of the Space the Project belongs to, so the page shows a name instead of an id.
+  const spaceName = useMemo(
+    () => spaces.find((space) => space.id === project?.spaceId)?.name ?? null,
+    [spaces, project?.spaceId],
+  );
 
   const loadProject = useCallback(async () => {
-    // Without a Space the Project cannot be looked up. The request only starts once the Spaces
-    // are known; a failing Spaces request is answered by the error state below.
-    if (!activeSpaceId) return;
+    // The Project is loaded by its own id. The details page used to download the whole list of the
+    // Space and pick the Project out of it, which grew with the Space.
     setLoading(true);
     setError(null);
     try {
       const response = await bffFetch(
-        `/api/bff/projects?spaceId=${encodeURIComponent(activeSpaceId)}`,
+        `/api/bff/projects/${encodeURIComponent(projectId)}`,
         { cache: "no-store" },
       );
       if (response.status === 401 || response.status === 403) {
@@ -47,23 +49,23 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
         setError("unavailable");
         return;
       }
-      const body = (await response.json()) as ProjectListResponse;
-      setProject(resolveProject(body.projects ?? [], projectId));
+      const body = (await response.json()) as { project?: ProjectRecord };
+      setProject(body.project ?? null);
     } catch {
       setError("unavailable");
     } finally {
       setLoading(false);
     }
-  }, [projectId, activeSpaceId]);
+  }, [projectId]);
 
   useEffect(() => {
     const task = window.setTimeout(() => void loadProject(), 0);
     return () => window.clearTimeout(task);
   }, [loadProject]);
 
-  // The Spaces request failed (or returned none), so the Project cannot be loaded. This has to be
-  // an error state, not an endless spinner.
-  if (!spacesLoading && (spacesFailed || !activeSpace)) {
+  // The Project is loaded by its id, so the Spaces request is only needed for the name of the
+  // Space. A failing Spaces request must not hide the Project itself.
+  if (!spacesLoading && spacesFailed) {
     return (
       <DetailState
         title={t("unavailableTitle")}
@@ -131,7 +133,7 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
         <div className="workspace-detail-main">
           <Card>
             <Card.Header>
-              <Card.Title>{t("projectOverview")}</Card.Title>
+              <CardSectionTitle>{t("projectOverview")}</CardSectionTitle>
             </Card.Header>
             <Card.Content>
               <dl className="workspace-detail-facts">
@@ -142,8 +144,10 @@ export default function ProjectDetail({ projectId }: { projectId: string }) {
                 <div>
                   <dt>{t("space")}</dt>
                   <dd>
-                    {project.spaceId ? (
-                      <CopyableText value={project.spaceId} label={t("space")} />
+                    {spaceName ? (
+                      // The name of the Space, not its id: an id like "org:8751767b-…" means
+                      // nothing to the user.
+                      <span title={project.spaceId}>{spaceName}</span>
                     ) : (
                       t("space")
                     )}

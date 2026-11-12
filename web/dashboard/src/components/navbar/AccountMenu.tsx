@@ -24,11 +24,13 @@ export default function AccountMenu() {
   const t = useTranslations("navbar");
   const tWorkspace = useTranslations("workspace");
   const router = useRouter();
-  const { activeSpace } = useActiveSpace();
+  const { activeSpace, spaces } = useActiveSpace();
   const [profile, setProfile] = useState<AccountProfile | null>(null);
   const [signingOut, setSigningOut] = useState(false);
-  // Teams manage an organization; a personal Space has none.
-  const showTeams = activeSpace?.type === "organization";
+  // The Teams page belongs to the Space in the switcher, so it only makes sense for an organization.
+  // It is offered whenever the user belongs to one, otherwise a member of several teams could never
+  // reach the page of the team that is not selected.
+  const showTeams = spaces.some((space) => space.type === "organization");
 
   useEffect(() => {
     let cancelled = false;
