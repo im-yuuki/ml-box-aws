@@ -1031,3 +1031,246 @@ Trước khi sửa, cùng thao tác đó để lại claim `mlbox-x-5992fd17-…
   `team-project-fresh` (`742a750d-…`), subscription `org_team` active, 1 thành viên thật
   (`mlbox-member-mwbo5r1i-q6dn3@fldubai.com`), **không còn lời mời pending**, sandbox đã dừng.
 - Account cũ `tadirab921@bwingmedia.com` và các Space cũ (`e2e-org-2026-11-11`, `123`) không đụng tới.
+
+---
+
+# Vòng verify E2E lần 9 — 2026-11-12 (lỗi hệ thống + lỗi giao diện)
+
+Deploy đang chạy khi bắt đầu vòng: `82f4611` (= master). Công cụ: chrome-devtools (a11y snapshot,
+viewport 360/1280, chặn `fetch` để xem body của request), script API, đọc code BFF/dashboard.
+
+Vòng này rà **hai lớp**: hành vi hệ thống (API + cluster) và trải nghiệm giao diện (browser thật).
+
+## ✅ Lỗi hệ thống
+
+### 1. Mua gói của nhóm luôn thất bại (`SPACE_PLAN_MISMATCH`)
+
+**Hiện tượng:** bấm "Thanh toán gói …" ở trang Gói đăng ký của một Space nhóm → trang thanh toán báo
+"Không hoàn tất được thanh toán".
+
+**Nguyên nhân:** trang thanh toán (`/payment/checkout`) gửi `planId` nhưng **không gửi `spaceId`**.
+BFF đọc `spaceId` từ body, thiếu thì lấy Space **cá nhân** của người dùng ⇒ Space cá nhân
+(`personal`) ≠ Space của gói (`organization`) ⇒ `400 SPACE_PLAN_MISMATCH`.
+
+**Đã verify live:** `POST /api/bff/subscriptions/mock/checkout` với `planId=org_team` → `400
+{"error":"SPACE_PLAN_MISMATCH"}`. Bấm nút "Thanh toán thành công" trên UI → cùng lỗi.
+
+**Cách sửa:** `spaceId` đi kèm link tới trang thanh toán và được gửi trong body.
+
+### 2. Huỷ gói đăng ký huỷ nhầm Space cá nhân
+
+**Nguyên nhân:** `POST /api/bff/subscription/cancel` gửi body `{}` (không có `spaceId`) ⇒ BFF huỷ
+subscription của Space **cá nhân**, không phải Space đang xem.
+
+**Đã verify live:** chặn `fetch` khi bấm "Huỷ gói đăng ký" → body đúng là `"{}"`.
+
+**Cách sửa:** gửi `spaceId` của Space trong switcher.
+
+### 3. Nút "Thanh toán" hiện dù Space đã đăng ký đúng gói đó
+
+**Nguyên nhân:** BFF lưu `mlbox_space_subscriptions.plan` là **plan id** (`org_team`), còn
+`alreadySubscribed` ở dashboard so `subscription.plan` với `selectedPlan.name` (`"Organization
+Team"`) ⇒ không bao giờ khớp ⇒ nút thanh toán luôn hiện.
+
+**Cách sửa:** so sánh cả id và tên.
+
+### 4. Tên gói lọt chữ "organization" vào giao diện
+
+Tên gói là dữ liệu người dùng đọc: "Organization Team" / "Organization Growth" hiện ở trang Gói
+đăng ký, trên nút thanh toán và ở trang thanh toán. Sản phẩm không có "organization" — một Space có
+nhiều người là **nhóm**.
+
+**Cách sửa:** `org_team` → "Team", `org_growth` → "Team Plus". Cột `plan` trong DB lưu **id** nên dữ
+liệu cũ không bị ảnh hưởng. Có test chốt lại: không gói nào được chứa "organization".
+
+### 5. `GET /v1/projects/:id` trả 405; trang chi tiết tải cả danh sách
+
+Trang chi tiết Project tải **toàn bộ** danh sách Project của Space rồi mới chọn ra một cái, và
+`GET /api/bff/projects/<id>` không tồn tại (`405 Method Not Allowed`).
+
+**Cách sửa:** thêm `GET /v1/projects/:projectId` (có kiểm tra quyền) và dùng nó ở trang chi tiết.
+
+### 6. Trang chi tiết Project hiện id kỹ thuật của Space
+
+Dòng "Không gian làm việc" in ra `org:8751767b-8683-46f8-a02e-06feedfbfab8` — id không có ý nghĩa
+gì với người dùng.
+
+**Cách sửa:** in **tên** của Space (lấy từ danh sách Space đã dùng chung).
+
+### 7. Tên Project không bị giới hạn
+
+`POST /v1/projects` với tên 300 ký tự vẫn trả `201`. Tên hiện ở tiêu đề trang và các bảng của trang
+Hạn mức.
+
+**Cách sửa:** giới hạn 80 ký tự ở BFF (`validateProjectName`) và ở dashboard.
+
+### 8. Endpoint của Space không thuộc người dùng trả 200 thay vì 403
+
+`GET /v1/spaces/:id/invitations`, `GET /v1/payments?spaceId=…` và `GET /v1/spaces/:id/teams` trả
+`200` với danh sách rỗng cho một Space **không thuộc** người gọi (khác với `/v1/usage`,
+`/v1/projects` trả `403`). Không rò rỉ dữ liệu (truy vấn có điều kiện thành viên), nhưng UI hiển thị
+"chưa có gì" thay vì "không có quyền".
+
+## ✅ Lỗi giao diện
+
+### 9. Toast hiện raw key khi tạo nhóm
+
+`navbar.createOrganizationSuccess` **không có** trong `en.json`/`vi.json` ⇒ next-intl in ra chính key.
+Đã verify live: sau khi tạo nhóm, góc dưới phải hiện `navbar.createOrganizationSuccess`.
+
+**Cách sửa:** thêm key. Đồng thời thêm **test** quét mọi key mà component đọc và đối chiếu với cả
+hai file ⇒ lỗi loại này không lọt nữa (test bắt được ngay khi đổi `openFailed` thành `openFailedTYPO`).
+
+### 10. Trang Nhóm không vào được khi đang chọn Space cá nhân
+
+Mục "Nhóm" trong menu tài khoản chỉ hiện khi Space đang chọn là Space nhóm, còn `/teams` lại
+redirect về `/projects` khi Space đang chọn là Space cá nhân ⇒ người thuộc nhiều nhóm không vào được
+trang của nhóm khác.
+
+**Cách sửa:** mục "Nhóm" hiện khi người dùng thuộc ít nhất một nhóm; `/teams` chọn nhóm đầu tiên
+hoặc cho chọn trong danh sách.
+
+### 11. Switcher không đọc được danh sách Space thì không có cách thử lại
+
+Trạng thái lỗi hiện một `<span>` trông như nút nhưng không bấm được ⇒ chỉ còn cách tải lại trang.
+
+**Cách sửa:** nút thật gọi `reload()`.
+
+### 12. Bảng "Chi tiết dùng credit" tràn ngang ở 360px
+
+Bảng có `min-w-[32rem]` (512px) nên ở màn 360px phải cuộn ngang, không có dấu hiệu.
+
+**Cách sửa:** ở màn nhỏ hiện danh sách xếp dọc, ở màn rộng mới hiện bảng (kèm `<caption>`).
+
+### 13. Thứ tự tiêu đề đi từ `h1` xuống `h3`
+
+`Card.Title` của HeroUI cứng là `h3`, nên trang nào có `h1` (tiêu đề trang) rồi tới card là nhảy
+thẳng `h1 → h3`.
+
+**Cách sửa:** thêm `CardSectionTitle` render `h2` với cùng lớp `card__title`.
+
+### 14. Lỗi trong hộp thoại hiện ngoài hộp thoại
+
+Hộp thoại "Xoá thành viên" và "Chuyển chủ nhóm" đưa lỗi ra ngoài hộp thoại ⇒ người dùng đang nhìn
+trong hộp thoại không thấy lỗi.
+
+**Cách sửa:** đưa lỗi vào thân hộp thoại.
+
+### 15. Dropdown vai trò cho phép chọn thứ server sẽ từ chối
+
+Quản trị viên thấy dropdown trên thành viên khác cũng là quản trị viên, đổi được sang "Thành viên"
+⇒ server trả `403` (quản trị viên không quản lý quản trị viên).
+
+**Cách sửa:** khóa đúng các lựa chọn mà server sẽ từ chối (theo đúng luật của BFF).
+
+### 16. Hộp thoại tạo Project giữ lại tên cũ và lỗi cũ
+
+Đóng rồi mở lại hộp thoại vẫn thấy tên Project của lần trước.
+
+**Cách sửa:** reset cả tên lẫn lỗi khi đóng.
+
+### 17. Lỗi tạo Project không nói lý do
+
+Mọi lỗi (tên rỗng, tên quá dài, hết dung lượng, lỗi mạng) hiện cùng một câu.
+
+**Cách sửa:** tách từng lý do; hết dung lượng (`QUOTA_EXCEEDED`) có câu riêng.
+
+### 18. Nút bị khoá không giải thích
+
+Người chỉ xem (viewer) thấy nút "Khởi động" mờ mà không biết vì sao.
+
+**Cách sửa:** in lý do ngay cạnh nút ở cả danh sách lẫn trang chi tiết.
+
+### 19. Biểu đồ chỉ đọc được bằng chuột
+
+Thanh của biểu đồ chỉ có `onPointerEnter`, nên bàn phím và trình đọc màn hình không đọc được từng ngày.
+
+**Cách sửa:** thêm bảng `sr-only` chứa đúng số liệu.
+
+### 20. Thông báo thành công chỉ nằm trong toast
+
+Toast là hình ảnh: người dùng trình đọc màn hình không nghe được "Vai trò đã cập nhật."
+
+**Cách sửa:** lặp lại thông điệp trong một live region ẩn.
+
+### 21. Một request ghi có thể được gửi hai lần
+
+`bffFetch` gửi lại **cả body** sau khi refresh token: bấm "Khởi động" khi token vừa hết hạn có thể
+mở **hai** notebook.
+
+**Cách sửa:** chỉ gửi lại request an toàn (GET/PUT/DELETE, hoặc POST có `idempotencyKey`).
+
+### 22. Poll trạng thái sandbox không dừng
+
+Sandbox "starting" được hỏi lại mãi ⇒ trình duyệt bận vô ích nếu pod kẹt.
+
+**Cách sửa:** dừng sau 5 phút.
+
+### 23. Mỗi Project trong danh sách gọi 2 request
+
+Mỗi dòng Project gọi `/sandbox` **và** `/sandbox/profiles` ⇒ 20 Project là 40 request.
+
+**Cách sửa:** BFF gửi kèm `profiles` trong câu trả lời của `/sandbox` ⇒ còn 1 request mỗi Project.
+
+### 24. Landing page hardcode tiếng Anh
+
+"Core ·", "ML ·", "RAM", "4 / 24 GB" nằm cứng trong JSX ⇒ trang tiếng Việt vẫn hiện tiếng Anh.
+
+**Cách sửa:** đưa qua `next-intl`.
+
+## Ghi chú
+
+- Lỗi "organization" trong tên gói là lỗi **mô hình sản phẩm** (copy người dùng đọc), không phải lỗi
+  kỹ thuật — nhưng cần sửa cả catalogue BFF lẫn mock của dashboard cho khớp.
+- Bảng `mlbox_space_subscriptions.plan` lưu **plan id** nên đổi tên hiển thị không phá dữ liệu cũ.
+- Các lỗi "số 405/403 thay vì 404" là về tính nhất quán của API, không phải rò rỉ dữ liệu: mọi truy
+  vấn đều lọc theo thành viên của Space.
+
+### 25. Trạng thái rỗng không nói phải làm gì
+
+Danh sách Project rỗng chỉ có một câu tiêu đề, không có hướng dẫn và không có nút ⇒ người dùng phải tự
+đoán. Tìm kiếm không ra kết quả cũng vậy.
+
+**Cách sửa:** thêm phần mô tả và nút "Tạo dự án" mở đúng hộp thoại.
+
+### 26. Lỗi của danh sách thành viên bị xoá ngay khi tải lại
+
+`load()` xoá `error` ở đầu hàm, nên lỗi vừa hiện biến mất khi danh sách được tải lại sau một
+thao tác.
+
+**Cách sửa:** chỉ xoá lỗi khi danh sách đọc **thành công**; lỗi của chính việc đọc giữ nguyên.
+
+### 27. Nút của thanh điều hướng quá nhỏ trên điện thoại
+
+Nút cài đặt giao diện cao 36px, dưới mức 44px mà ngón tay cần.
+
+**Cách sửa:** trên màn hẹp, nút rộng 44px.
+
+### 28. Focus không trở lại nút đã bấm sau khi đóng hộp thoại
+
+Hộp thoại "Xoá thành viên" và "Chuyển chủ nhóm" không có `Modal.Trigger`, nên react-aria không biết
+trả focus về đâu ⇒ bàn phím phải đi lại từ đầu trang.
+
+**Cách sửa:** nhớ nút đã bấm và trả focus về nó khi hộp thoại đóng.
+
+### 29. Tiêu đề nhỏ bỏ một cấp
+
+Danh sách lời mời dùng `h4` ngay sau tiêu đề `h2` của thẻ.
+
+**Cách sửa:** dùng `h3`.
+
+### 30. Dropdown vai trò bị cắt chữ trên màn hẹp
+
+`w-36` cố định nên "Chủ nhóm" bị cắt thành "Chủ nh…".
+
+**Cách sửa:** chiều rộng co giãn, có chiều rộng tối thiểu.
+
+## Ghi chú
+
+- Lỗi "organization" trong tên gói là lỗi **mô hình sản phẩm** (copy người dùng đọc), không phải lỗi
+  kỹ thuật — nhưng cần sửa cả catalogue BFF lẫn mock của dashboard cho khớp.
+- Bảng `mlbox_space_subscriptions.plan` lưu **plan id** nên đổi tên hiển thị không phá dữ liệu cũ.
+- Các lỗi "số 405/403 thay vì 404" là về tính nhất quán của API, không phải rò rỉ dữ liệu: mọi truy
+  vấn đều lọc theo thành viên của Space.
+- Test mới của `messages.test.ts` quét **mọi** key mà component đọc và đối chiếu với cả `en.json`
+  lẫn `vi.json`: lỗi "in ra raw key" không còn lọt qua nữa.
