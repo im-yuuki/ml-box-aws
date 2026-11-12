@@ -1274,3 +1274,25 @@ Danh sách lời mời dùng `h4` ngay sau tiêu đề `h2` của thẻ.
   vấn đều lọc theo thành viên của Space.
 - Test mới của `messages.test.ts` quét **mọi** key mà component đọc và đối chiếu với cả `en.json`
   lẫn `vi.json`: lỗi "in ra raw key" không còn lọt qua nữa.
+
+### 31. Trang chi tiết Project không mở được (405)
+
+Route của proxy cho `/api/bff/projects/<id>` chỉ có phương thức `DELETE`, nên lời gọi `GET` trả
+`405 Method Not Allowed`. Trang chi tiết Project rơi vào trạng thái lỗi dù Project tồn tại.
+
+**Đã verify live** sau khi deploy: console báo `405`, trang hiện "Không thể tải dự án".
+
+**Cách sửa:** thêm phương thức `GET` vào route của proxy.
+
+### 32. Trang Gói đăng ký không mở được (lỗi "before initialization")
+
+Danh sách gói được lọc theo kiểu của Space, mà biến đó khai báo **sau** trong cùng component ⇒
+trình duyệt báo `Cannot access 'x' before initialization` và cả trang sập.
+
+**Đã verify live** sau khi deploy: console báo lỗi, trang hiện "This page couldn't load".
+
+**Cách sửa:** khai báo biến trước chỗ dùng.
+
+> Hai lỗi này chỉ xuất hiện **sau khi deploy**, nên chúng không thấy được bằng `tsc`: kiểu dữ liệu
+> vẫn đúng, chỉ thứ tự khai báo sai. Bài học: sau mỗi lần sửa phải mở lại từng trang trên
+> production, không chỉ dựa vào test.
