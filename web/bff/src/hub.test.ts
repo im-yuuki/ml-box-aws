@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  deleteHubSandbox,
   ensureHubUser,
   hubActivationState,
   hubActivationUrl,
@@ -29,6 +30,40 @@ test("lab URLs use the authenticated username and reject unsafe sandbox names", 
   assert.equal(sandboxUrl("https://notebook.example", "user-a@example.com", "default"), "https://notebook.example/user/user-a%40example.com/");
   assert.throws(() => sandboxUrl("https://notebook.example", "user-a@example.com", "user-b/server"), /Invalid sandbox name/);
   assert.throws(() => sandboxUrl("javascript:alert(1)", "user-a@example.com", "sandbox-a"), /Invalid Hub public URL/);
+});
+
+test("deleting a sandbox removes the server of the session user", async () => {
+  const calls: Array<{ method: string; path: string }> = [];
+  const result = await deleteHubSandbox({
+    username: "user-a@example.com",
+    serverName: "sandbox-a",
+    request: async (method, path) => {
+      calls.push({ method, path });
+      return { status: 204 };
+    },
+  });
+  assert.equal(result, "deleted");
+  assert.deepEqual(calls, [{ method: "DELETE", path: "/hub/api/users/user-a%40example.com/servers/sandbox-a" }]);
+});
+
+test("a sandbox that is already gone is not an error", async () => {
+  const result = await deleteHubSandbox({
+    username: "user-a@example.com",
+    serverName: "sandbox-a",
+    request: async () => ({ status: 404 }),
+  });
+  assert.equal(result, "missing");
+});
+
+test("a failing delete is reported", async () => {
+  await assert.rejects(
+    deleteHubSandbox({
+      username: "user-a@example.com",
+      serverName: "sandbox-a",
+      request: async () => ({ status: 500 }),
+    }),
+    /Hub returned 500/,
+  );
 });
 
 test("Hub activation state exposes a retryable trusted link", () => {

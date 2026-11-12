@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { bffFetch } from "@/lib/bffFetch";
 import {
   ACTIVE_SPACE_EVENT,
@@ -20,6 +20,39 @@ export type ActiveSpaceState = {
   reload: () => void;
 };
 
+/**
+ * One shared state for the Spaces of the user.
+ *
+ * The hook used to be instantiated in every panel that needs the workspace. Each instance kept
+ * its own state and fetched GET /api/bff/spaces again, so a page fired the request several times
+ * and two panels could show two different states of the same list: the navbar said "Workspaces
+ * unavailable" while the page below still said "Loading projects…". The store below fetches once
+ * and shares the result with every panel.
+ */
+type Store = {
+  spaces: SpaceSummary[];
+  storedId: string | null;
+  loading: boolean;
+  failed: boolean;
+};
+
+const initialState: Store = { spaces: [], storedId: null, loading: true, failed: false };
+
+let state: Store = initialState;
+let loaded = false;
+let inFlight: Promise<void> | null = null;
+let eventsBound = false;
+const listeners = new Set<() => void>();
+
+function emit() {
+  for (const listener of listeners) listener();
+}
+
+function update(patch: Partial<Store>) {
+  state = { ...state, ...patch };
+  emit();
+}
+
 function readStoredSpaceId(): string | null {
   try {
     return window.localStorage.getItem(ACTIVE_SPACE_STORAGE_KEY);
@@ -28,54 +61,64 @@ function readStoredSpaceId(): string | null {
   }
 }
 
+async function loadSpaces() {
+  update({ loading: true });
+  try {
+    const response = await bffFetch("/api/bff/spaces", { cache: "no-store" });
+    if (!response.ok) throw new Error("spaces unavailable");
+    const body = await response.json() as SpaceListResponse;
+    loaded = true;
+    update({
+      spaces: Array.isArray(body.spaces) ? body.spaces : [],
+      failed: false,
+      loading: false,
+    });
+  } catch {
+    update({ failed: true, loading: false });
+  }
+}
+
+// The first panel that mounts starts the request, the others join it.
+function ensureLoaded(force = false) {
+  if (loaded && !force) return;
+  if (!inFlight) {
+    inFlight = loadSpaces().finally(() => {
+      inFlight = null;
+    });
+  }
+}
+
+function bindEvents() {
+  if (eventsBound || typeof window === "undefined") return;
+  eventsBound = true;
+  // The user picked another Space in the switcher.
+  window.addEventListener(ACTIVE_SPACE_EVENT, () => update({ storedId: readStoredSpaceId() }));
+  // A Space was created or deleted: the list has to be read again.
+  window.addEventListener(SPACES_CHANGED_EVENT, () => {
+    update({ storedId: readStoredSpaceId() });
+    loaded = false;
+    ensureLoaded(true);
+  });
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+const getSnapshot = () => state;
+const getServerSnapshot = () => initialState;
+
 export function useActiveSpace(): ActiveSpaceState {
-  const [spaces, setSpaces] = useState<SpaceSummary[]>([]);
-  const [storedId, setStoredId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [failed, setFailed] = useState(false);
-  const [attempt, setAttempt] = useState(0);
+  const store = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const response = await bffFetch("/api/bff/spaces", { cache: "no-store" });
-        if (!response.ok) throw new Error("spaces unavailable");
-        const body = await response.json() as SpaceListResponse;
-        if (!cancelled) {
-          setSpaces(Array.isArray(body.spaces) ? body.spaces : []);
-          setFailed(false);
-        }
-      } catch {
-        if (!cancelled) setFailed(true);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    const task = window.setTimeout(() => {
-      setStoredId(readStoredSpaceId());
-      void load();
-    }, 0);
-    const onChange = () => setStoredId(readStoredSpaceId());
-    window.addEventListener(ACTIVE_SPACE_EVENT, onChange);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(task);
-      window.removeEventListener(ACTIVE_SPACE_EVENT, onChange);
-    };
-  }, [attempt]);
-
-  // Retry after a failed load. Without this a failure would stay on screen until a full page reload.
-  const reload = useCallback(() => {
-    setLoading(true);
-    setAttempt((value) => value + 1);
-  }, []);
-
-  // Another component created or deleted a Space: refresh the list without showing the loading state.
-  useEffect(() => {
-    const onChanged = () => setAttempt((value) => value + 1);
-    window.addEventListener(SPACES_CHANGED_EVENT, onChanged);
-    return () => window.removeEventListener(SPACES_CHANGED_EVENT, onChanged);
+    bindEvents();
+    // The stored choice is read on the client only.
+    update({ storedId: readStoredSpaceId() });
+    ensureLoaded();
   }, []);
 
   const setActiveSpaceId = useCallback((id: string) => {
@@ -84,15 +127,22 @@ export function useActiveSpace(): ActiveSpaceState {
     } catch {
       // Storage may be unavailable (private mode); the in-memory choice still applies below.
     }
-    setStoredId(id);
+    update({ storedId: id });
     window.dispatchEvent(new Event(ACTIVE_SPACE_EVENT));
   }, []);
 
+  // Retry after a failed load. Without this a failure would stay on screen until a full page reload.
+  const reload = useCallback(() => {
+    loaded = false;
+    update({ loading: true, failed: false });
+    ensureLoaded(true);
+  }, []);
+
   return {
-    spaces,
-    activeSpace: chooseActiveSpace(spaces, storedId),
-    loading,
-    failed,
+    spaces: store.spaces,
+    activeSpace: chooseActiveSpace(store.spaces, store.storedId),
+    loading: store.loading,
+    failed: store.failed,
     setActiveSpaceId,
     reload,
   };

@@ -101,6 +101,24 @@ export async function ensureHubUser(username: string, request: HubRequest): Prom
 }
 
 export type HubStartResult = HubRequestResponse<HubServerLike>;
+
+/**
+ * Deletes a server of the Hub. The server owns its pod, and the pod owns the notebook storage
+ * claim, so removing the server is what frees the storage of a Project. A server that is already
+ * gone is not an error.
+ */
+export async function deleteHubSandbox(options: {
+  username: string;
+  serverName: string;
+  request: (method: string, path: string) => Promise<{ status: number }>;
+}): Promise<"deleted" | "missing"> {
+  const response = await options.request("DELETE", sandboxPath(options.username, options.serverName));
+  if (response.status === 404) return "missing";
+  if (response.status < 200 || response.status >= 300) {
+    throw new Error(`Hub returned ${response.status} deleting the server`);
+  }
+  return "deleted";
+}
 export type HubStartFlow = {
   userExists: boolean;
   ensureUser: () => Promise<void>;

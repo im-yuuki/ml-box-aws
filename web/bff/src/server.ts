@@ -22,7 +22,7 @@ import { validCsrfPair } from "./csrf.js";
 import { authErrorStatus, confirmErrorStatus, confirmPublicError, errorName, publicError } from "./auth-errors.js";
 import { bearerMatches } from "./hub-bridge.js";
 import { HANDOFF_TTL_SECONDS, buildHandoffUrl, generateHandoffCode, hashHandoffCode, sanitizeNextPath } from "./hub-handoff.js";
-import { ensureHubUser, hubActivationState, hubActivationUrl, hubFailure, hubServerFromUserRecord, mapHubServerState, sandboxPath, sandboxUrl, startHubSandbox, type HubError, type HubRequestResponse, type HubLifecycleState, type HubServerLike } from "./hub.js";
+import { deleteHubSandbox, ensureHubUser, hubActivationState, hubActivationUrl, hubFailure, hubServerFromUserRecord, mapHubServerState, sandboxPath, sandboxUrl, startHubSandbox, type HubError, type HubRequestResponse, type HubLifecycleState, type HubServerLike } from "./hub.js";
 import { requestHubResponse, resolveStartLifecycle, shouldStartHubSandbox, shouldUseHubActivationFallback } from "./lifecycle.js";
 import {
   buildUsageResponse,
@@ -1043,7 +1043,18 @@ app.delete<{ Params: { projectId: string } }>("/v1/projects/:projectId", async (
       if (!artifactStorage) return reply.code(503).send({ error: "ARTIFACTS_NOT_CONFIGURED", message: "Artifact storage is not configured." });
       for (const artifact of stored) await artifactStorage.deleteObject(artifact.objectKey);
     }
-    // The notebook storage claim goes too, so the files are removed with the Project.
+    // The sandbox of the Project goes too: it owns the pod, and the pod owns the notebook storage
+    // claim. Without this the claim stays and the EFS access point with its files keeps the space.
+    if (runtime) {
+      const hub = runtimeConfig();
+      await deleteHubSandbox({
+        username: runtime.hubUsername,
+        serverName: runtime.serverName,
+        request: async (method, path) => ({ status: (await hubRequestResponse(hub, method, path)).status }),
+      });
+    }
+    // The notebook storage claim goes too, so the files are removed with the Project. The claim is
+    // found by the annotation of the Hub, because its name changed with the Hub release.
     await deleteProjectClaim(projectId);
     await appStore.deleteProject(projectId);
     return { ok: true, deletedArtifacts: stored.length };
