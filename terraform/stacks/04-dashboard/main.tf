@@ -390,10 +390,12 @@ resource "kubectl_manifest" "bff_pod_reader_role" {
         verbs     = ["get", "list"]
       },
       {
-        # Deleting a Project removes its notebook storage claim (mlbox-<project id>).
+        # Deleting a Project removes its notebook storage claim. The claims are found by the
+        # annotation of the Hub, because the name of a claim depends on the Hub release, so the
+        # BFF has to list them.
         apiGroups = [""]
         resources = ["persistentvolumeclaims"]
-        verbs     = ["get", "delete"]
+        verbs     = ["get", "list", "delete"]
       },
     ]
   })
