@@ -989,6 +989,32 @@ notebook của project đã xoá vẫn nằm trên EFS**.
   tên; vẫn hỗ trợ claim legacy đặt tên theo Project id.
 - Storage class `efs-sc` có `deleteAccessPointRootDir: "true"` ⇒ khi claim bị xoá, CSI driver xoá luôn
   access point và thư mục của nó.
+- **RBAC:** BFF cần `list` trên `persistentvolumeclaims` trong namespace `hub` (trước chỉ có
+  `get` + `delete` theo tên) ⇒ `terraform/stacks/04-dashboard/main.tf` thêm verb `list` cho role
+  `bff-pod-reader`.
+
+### ✅ Verify trên production (image `f649255`)
+
+| Bước | Kết quả |
+|---|---|
+| Tạo project + start sandbox | ✅ `bbcc9b93-84c9-4410-8782-08d2aa150369` → pod `jupyter-cognito-e96e6498--bbcc9b93-…` + claim `mlbox-bbcc9b93-84c9-4410-8782-08d2aa150369` (Bound) + access point cho `pvc-8da9e37a-…` |
+| Xoá project | ✅ API trả **200**, project biến khỏi danh sách |
+| Pod của server | ✅ **biến mất** (server Hub đã bị xoá) |
+| Claim (PVC) | ✅ **biến mất** — `mlbox-bbcc9b93-…` không còn trong `kubectl -n hub get pvc` |
+| EFS access point | ✅ **biến mất** — 5 access point → 4 (CSI driver xoá theo claim) |
+| Dọn claim dư của project đã xoá trước đó | ✅ xoá `mlbox-x-5992fd17-…` → access point `fsap-061581ad077c738bf` cũng biến mất |
+
+Trước khi sửa, cùng thao tác đó để lại claim `mlbox-x-5992fd17-…---87ff134b` và access point
+`fsap-061581ad077c738bf` mãi không xoá.
+
+### Bug 9 — verify trên production (image `f649255`)
+
+| Trang | Số request `GET /api/bff/spaces` |
+|---|---|
+| `/projects` | ✅ **1** (trước: 2 — navbar + board) |
+| `/projects/<id>` | ✅ **1** (trước: 2) |
+| `/quota` | ✅ **1** |
+| `/subscription` | ✅ **1** |
 
 ## Ghi chú vận hành (bổ sung)
 
