@@ -1,0 +1,34 @@
+{
+  "name": "mlbox-admin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test dist/*.test.js",
+    "start": "node dist/server.js",
+    "dev": "tsx watch src/server.ts",
+    "hash-password": "node dist/hash-password.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-acm": "^3.968.0",
+    "@aws-sdk/client-cognito-identity-provider": "^3.968.0",
+    "@aws-sdk/client-cost-explorer": "^3.968.0",
+    "@aws-sdk/client-ec2": "^3.968.0",
+    "@aws-sdk/client-efs": "^3.968.0",
+    "@aws-sdk/client-eks": "^3.968.0",
+    "@aws-sdk/client-elastic-load-balancing-v2": "^3.968.0",
+    "@aws-sdk/client-rds": "^3.968.0",
+    "@aws-sdk/client-route-53": "^3.968.0",
+    "@aws-sdk/client-s3": "^3.968.0",
+    "@fastify/cookie": "^11.0.2",
+    "fastify": "^5.6.1",
+    "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.23.1",
+    "tsx": "^4.20.6",
+    "typescript": "^5.0.0"
+  }
+}

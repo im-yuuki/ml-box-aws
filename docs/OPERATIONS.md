@@ -221,6 +221,20 @@ access token, refresh token, password hoặc mã OTP.
 Test user dùng cho QA phải được xóa hoặc disable sau khi kiểm tra. Không đưa email/password test vào
 repo hoặc tài liệu public.
 
+## Admin console
+
+Dashboard vận hành chỉ-đọc cho một quản trị viên, tại `https://admin.<domain>` (stack `07-admin`, mã nguồn `web/admin`).
+Đăng nhập riêng, không qua Cognito. Hiển thị health, sandbox toàn hệ thống, tra cứu user, audit, workload và tài nguyên
+AWS bằng IAM role của pod (IRSA), không dùng access key.
+
+```bash
+kubectl -n admin get pods,svc,targetgroupbinding
+kubectl -n admin logs deployment/admin-console --since=15m   # nhật ký thao tác của quản trị viên
+```
+
+Đổi mật khẩu: tạo hash bằng `npm run hash-password` trong `web/admin`, cập nhật `admin_password_hash`, apply `07-admin`.
+Chi tiết: [`web/admin/README.md`](../web/admin/README.md), [`terraform/stacks/07-admin/README.md`](../terraform/stacks/07-admin/README.md).
+
 ## Locale và theme
 
 Dashboard locale dùng cookie `mlbox-locale`, hỗ trợ `en` và `vi`. Kiểm tra sau khi đổi locale bằng

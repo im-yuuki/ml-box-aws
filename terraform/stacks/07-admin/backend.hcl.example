@@ -1,0 +1,3 @@
+bucket = "<your-tfstate-bucket>"
+key    = "dev/ap-southeast-2/07-admin.tfstate"
+region = "ap-southeast-2"

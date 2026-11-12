@@ -53,3 +53,5 @@ Thumbs.db
 **/.AppleDB
 **/.AppleDesktop
 **/.apdisk
+
+web/admin/dist/

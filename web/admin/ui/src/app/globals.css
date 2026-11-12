@@ -1,0 +1,357 @@
+/* ============================================================================
+ * MLBox — Admin console global stylesheet.
+ *
+ * Same layering as web/dashboard/src/app/globals.css: Tailwind v4 + HeroUI v3
+ * first, then the shared design tokens (web/theme/tokens/heroui-tokens.css) so
+ * every HeroUI component takes MLBox's colours, radius and motion.
+ *
+ * The `workspace-*` shell classes below are carried over from the dashboard so
+ * both apps share one navbar, page heading and sub-navigation. Do not add a
+ * colour here: use a token (var(--accent), var(--muted), ...).
+ * ==========================================================================*/
+
+@import "tailwindcss";
+@import "@heroui/styles";
+@import "../styles/heroui-tokens.css";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --radius: 0.5rem;
+}
+
+html,
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  min-height: 100%;
+}
+
+.workspace-frame {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  background-color: var(--background);
+  background-image: linear-gradient(to right, color-mix(in oklab, var(--border) 34%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in oklab, var(--border) 22%, transparent) 1px, transparent 1px);
+  background-size: 4rem 4rem;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+/* ---------------------------------------------------------------- Brand */
+
+.workspace-brand {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 2.75rem;
+  color: var(--foreground);
+  text-decoration: none;
+}
+
+.workspace-brand-mark {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  place-items: center;
+  border-radius: 0.5rem;
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.workspace-brand-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
+  line-height: 1;
+}
+
+.workspace-brand-copy strong {
+  font-size: 0.95rem;
+  letter-spacing: -0.03em;
+}
+
+.workspace-brand-copy span {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  letter-spacing: 0.16em;
+}
+
+/* --------------------------------------------------------------- Navbar */
+
+.workspace-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  min-height: 4rem;
+  align-items: center;
+  gap: 1rem;
+  border-bottom: 1px solid var(--border);
+  padding: 0.6rem clamp(1rem, 3vw, 2rem);
+  background: color-mix(in oklab, var(--background) 88%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.workspace-navbar-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+
+.workspace-navbar-icon-button {
+  display: inline-flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+}
+
+.workspace-navbar-icon-button:hover {
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
+  color: var(--foreground);
+}
+
+.workspace-account-email {
+  max-width: 12rem;
+  overflow: hidden;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+/* ------------------------------------------------------------- Sidebar */
+
+/* The console has seven sections, so they sit in a column on the left under the navbar instead of a second bar. */
+.admin-body {
+  display: flex;
+  flex: 1;
+  align-items: flex-start;
+}
+
+.admin-sidebar {
+  position: sticky;
+  top: 4rem;
+  display: flex;
+  width: 14.5rem;
+  height: calc(100vh - 4rem);
+  flex: none;
+  flex-direction: column;
+  gap: 0.15rem;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  padding: 1rem 0.75rem;
+  background: color-mix(in oklab, var(--background) 88%, transparent);
+}
+
+.admin-sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 2.75rem;
+  border-left: 2px solid transparent;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  color: var(--muted);
+  font-size: 0.875rem;
+  text-decoration: none;
+  transition: color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
+}
+
+.admin-sidebar-link:hover {
+  background: color-mix(in oklab, var(--accent) 8%, transparent);
+  color: var(--foreground);
+}
+
+.admin-sidebar-link.is-current {
+  border-left-color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
+  color: var(--foreground);
+}
+
+.admin-sidebar-link svg {
+  flex: none;
+  color: var(--accent);
+}
+
+/* On a phone the column becomes one scrolling row above the page, so the page keeps its full width. */
+@media (max-width: 48rem) {
+  .admin-body {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-sidebar {
+    position: static;
+    width: auto;
+    height: auto;
+    flex-direction: row;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+    padding: 0.5rem 1rem;
+  }
+
+  .admin-sidebar-link {
+    flex: none;
+    white-space: nowrap;
+  }
+}
+
+/* ----------------------------------------------------------------- Main */
+
+.workspace-main {
+  width: min(100%, 72rem);
+  min-width: 0;
+  flex: 1;
+  margin: 0 auto;
+  padding: clamp(1.5rem, 4vw, 3.5rem) clamp(1.25rem, 4vw, 3rem);
+}
+
+.workspace-enter {
+  animation: workspace-enter var(--duration-slow) var(--ease-out) both;
+}
+
+@keyframes workspace-enter {
+  from { opacity: 0; transform: translateY(0.6rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.workspace-page-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.workspace-page-heading h1 {
+  margin-top: 0.35rem;
+  font-size: clamp(1.75rem, 3.2vw, 2.5rem);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  text-wrap: balance;
+}
+
+.workspace-page-heading p {
+  max-width: 65ch;
+  margin-top: 0.5rem;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.workspace-eyebrow,
+.workspace-mono-label,
+.workspace-count-label {
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+/* ------------------------------------------------- Admin-only additions */
+
+.admin-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
+.admin-stat-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+}
+
+.admin-resource-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+}
+
+.admin-kv {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.2rem 0.9rem;
+  font-size: 0.8125rem;
+}
+
+.admin-kv dt {
+  color: var(--muted);
+}
+
+.admin-kv dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-mono {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+
+.admin-login {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 1.5rem 1rem;
+}
+
+.admin-bar-row {
+  display: grid;
+  grid-template-columns: minmax(8rem, 14rem) 1fr 6rem;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.8125rem;
+}
+
+@media (max-width: 40rem) {
+  .admin-bar-row {
+    grid-template-columns: 1fr 6rem;
+  }
+  .admin-bar-row svg {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-enter {
+    animation: none;
+  }
+}

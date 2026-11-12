@@ -1,0 +1,9 @@
+# dev / build artefacts
+node_modules
+.next
+.next/
+out/
+.env*.local
+.DS_Store
+*.tsbuildinfo
+next-env.d.ts
