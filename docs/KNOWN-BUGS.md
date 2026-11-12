@@ -1296,3 +1296,33 @@ trình duyệt báo `Cannot access 'x' before initialization` và cả trang s�
 > Hai lỗi này chỉ xuất hiện **sau khi deploy**, nên chúng không thấy được bằng `tsc`: kiểu dữ liệu
 > vẫn đúng, chỉ thứ tự khai báo sai. Bài học: sau mỗi lần sửa phải mở lại từng trang trên
 > production, không chỉ dựa vào test.
+
+## ✅ Verify trên production (image `2e10bb5`)
+
+| Hạng mục | Trước | Sau |
+|---|---|---|
+| Mua gói của nhóm | `400 SPACE_PLAN_MISMATCH`, không mua được | ✅ `200`, Space đi kèm request |
+| Huỷ gói đăng ký | body `{}` ⇒ huỷ Space **cá nhân** | ✅ body có `spaceId` của Space đang xem |
+| Nút "Thanh toán" khi đã đăng ký đúng gói | luôn hiện | ✅ **ẩn** (so cả id và tên gói) |
+| Tên gói | "Organization Team" / "Organization Growth" | ✅ "Team" / "Team Plus" |
+| `GET /api/bff/projects/<id>` | `405` | ✅ `200`, Project không tồn tại ⇒ `404` |
+| Tên Project dài 300 ký tự | `201` | ✅ `400 INVALID_INPUT` |
+| Trang chi tiết Project | tải **cả** danh sách của Space | ✅ 1 request, hiện **tên** Space |
+| Toast tạo nhóm | `navbar.createOrganizationSuccess` (raw key) | ✅ "Đã tạo nhóm." |
+| Trang Nhóm từ Space cá nhân | redirect về `/projects` | ✅ tự chọn nhóm, menu có mục "Nhóm" |
+| Thứ tự tiêu đề | `h1` → `h3` | ✅ `h1` → `h2` → `h3` trên mọi trang |
+| Bảng "Chi tiết dùng credit" ở 360px | tràn ngang 514px | ✅ danh sách dọc, không tràn |
+| Nút bấm trên điện thoại | 19–36px | ✅ 44px (nút chính), nút phụ ≥34px |
+| Lỗi trong hộp thoại | hiện **ngoài** hộp thoại | ✅ hiện trong hộp thoại |
+| Focus sau khi đóng hộp thoại | về đầu trang | ✅ về nút đã bấm |
+| Request mỗi Project trong danh sách | 2 (`/sandbox` + `/sandbox/profiles`) | ✅ **1** |
+| Chart không có dữ liệu | khung trống, trông như lỗi | ✅ hiện trạng thái rỗng |
+| Console mọi trang | — | ✅ **0 lỗi** trên 10 trang |
+| Chữ "organization" trong giao diện | có ở trang Gói đăng ký | ✅ **không còn** ở bất kỳ trang nào |
+
+### Ghi chú về dữ liệu test
+
+- Subscription của nhóm `e2e-fresh-team-2026-11-11` được kích hoạt lại sau khi kiểm tra (kiểm tra
+  huỷ gói đăng ký phải huỷ thật): trạng thái `active`, gói `org_team`, entitlements đầy đủ.
+- Hai nhóm tạo ra khi kiểm tra giao diện (`e2e-ui-64ub0`, `e2e-ui2-cdlzl`) đã **xoá**.
+- Claim `mlbox-fd9407d7-…` và các claim `mlbox-x-…` cũ thuộc lần thử của agent khác nên để nguyên.
