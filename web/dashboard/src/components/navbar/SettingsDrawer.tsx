@@ -51,8 +51,8 @@ export default function SettingsDrawer() {
                     <Button
                       isIconOnly
                       variant="tertiary"
-                      size="sm"
                       aria-label={t("closeSettings")}
+                      className="min-w-11 min-h-11"
                       onPress={close}
                     >
                       <X aria-hidden="true" size={16} />
