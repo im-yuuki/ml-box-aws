@@ -160,6 +160,9 @@ export default function BillingPanel() {
   }, [details, plans]);
   const planName = (planId: string) =>
     plans.find((plan) => plan.id === planId || plan.name === planId)?.name ?? planId;
+  // The plan list is filtered by the type of the Space in the switcher, so the personal plans do
+  // not show up on the page of a team before the subscription of the Space has been read.
+  const planSpaceType = spaceType;
   const visiblePlans = plans.filter(
     (plan) => plan.spaceType === planSpaceType,
   );
@@ -218,9 +221,6 @@ export default function BillingPanel() {
       ? t(key as "billingStatusActive")
       : status;
   };
-  // The plan list is filtered by the type of the Space in the switcher, so the personal plans do
-  // not show up on the page of a team before the subscription of the Space has been read.
-  const planSpaceType = spaceType;
   const formatDate = (date: Date) =>
     new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(date);
   const outcomeLabel = (value: PaymentOutcome) =>
