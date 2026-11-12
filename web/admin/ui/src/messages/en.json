@@ -30,7 +30,10 @@
     "theme": "Display mode",
     "themeSystem": "System",
     "themeLight": "Light",
-    "themeDark": "Dark"
+    "themeDark": "Dark",
+    "capacity": "Capacity",
+    "storage": "Storage",
+    "billing": "Billing"
   },
   "login": {
     "title": "Admin console",
@@ -107,7 +110,8 @@
     "colHubUser": "Hub user",
     "duration": "{hours}h {minutes}m",
     "metering": "since {time}",
-    "longRunning": "Close to the 24 hour cap"
+    "longRunning": "Close to the 24 hour cap",
+    "colActions": "Actions"
   },
   "users": {
     "eyebrow": "Support",
@@ -133,7 +137,13 @@
     "colPlan": "Plan",
     "colProjects": "Projects",
     "colUnits": "Units this month",
-    "free": "Free"
+    "free": "Free",
+    "account": "Account",
+    "accountActive": "Active",
+    "accountDisabled": "Disabled",
+    "accountUnknown": "Unknown",
+    "actions": "Actions",
+    "colActions": "Actions"
   },
   "audit": {
     "eyebrow": "Records",
@@ -151,7 +161,16 @@
     "colAction": "Action",
     "colTarget": "Target",
     "colIp": "IP",
-    "colDetail": "Detail"
+    "colDetail": "Detail",
+    "changes": "Changes made from this console",
+    "changesEmpty": "No change has been made.",
+    "colReason": "Reason",
+    "colOutcome": "Outcome",
+    "outcome": {
+      "started": "Started",
+      "succeeded": "Succeeded",
+      "failed": "Failed"
+    }
   },
   "deployments": {
     "eyebrow": "Kubernetes",
@@ -225,6 +244,174 @@
     "byDay": "By day",
     "chartLabel": "Cost per day",
     "peak": "Highest day",
-    "empty": "No cost was reported for this period."
+    "empty": "No cost was reported for this period.",
+    "units": "Compute units, 30 days",
+    "computeCost": "EC2 compute cost",
+    "costPerUnit": "Cost per unit",
+    "costPerUnitHint": "An upper bound: the EC2 bill also pays for the idle system nodes.",
+    "noUnits": "No units in the period"
+  },
+  "actions": {
+    "reasonLabel": "Reason",
+    "reasonPlaceholder": "e.g. support ticket 123, customer asked",
+    "reasonHint": "Stored in the audit log with your IP address. {min} to {max} characters.",
+    "cancel": "Cancel",
+    "done": "Done. The change is in the audit log.",
+    "errors": {
+      "invalidReason": "Write a reason of {min} to {max} characters.",
+      "disabled": "Changes are switched off on this console (ADMIN_ACTIONS_ENABLED).",
+      "notFound": "The target no longer exists.",
+      "invalid": "The request was refused as invalid.",
+      "unavailable": "A service this change needs is not configured (Hub or Cognito).",
+      "upstream": "The Hub refused the request. Nothing was changed.",
+      "failed": "The change failed. See the audit log for the outcome."
+    },
+    "stopSandbox": {
+      "trigger": "Stop",
+      "title": "Stop this sandbox?",
+      "body": "The notebook server of the project {project} is stopped in the Hub and its open usage sessions are closed. Files on its volume are kept.",
+      "confirm": "Stop sandbox"
+    },
+    "revokeSessions": {
+      "trigger": "Sign out everywhere",
+      "title": "Sign this user out?",
+      "body": "Every signed-in session of {email} on the dashboard ends. They can sign in again.",
+      "confirm": "End sessions"
+    },
+    "disableAccount": {
+      "trigger": "Disable account",
+      "title": "Disable this account?",
+      "body": "{email} can no longer sign in, and every session ends now. Their projects and files are kept.",
+      "confirm": "Disable account"
+    },
+    "enableAccount": {
+      "trigger": "Enable account",
+      "title": "Enable this account?",
+      "body": "{email} can sign in again.",
+      "confirm": "Enable account"
+    },
+    "changePlan": {
+      "trigger": "Change plan",
+      "title": "Change the plan of {space}",
+      "body": "The Space moves to the plan below and becomes active at once, the way the mock checkout does. The limits of the plan (compute units, storage, GPU) apply immediately.",
+      "planLabel": "New plan",
+      "confirm": "Change plan"
+    }
+  },
+  "capacity": {
+    "eyebrow": "Compute",
+    "title": "Capacity",
+    "subtitle": "What the cluster has to run notebooks on: vCPU quotas, GPUs, pods that wait and nodes that are being launched.",
+    "quotas": "EC2 vCPU quotas",
+    "quotaNames": {
+      "gvt-on-demand": "G and VT instances, On-Demand",
+      "gvt-spot": "G and VT instances, Spot",
+      "standard-on-demand": "Standard instances, On-Demand",
+      "standard-spot": "Standard instances, Spot"
+    },
+    "quotaUsed": "{used} of {limit} vCPU",
+    "quotaUnknown": "{used} vCPU in use, the quota could not be read",
+    "quotaFull": "Full: the next node of this kind cannot start",
+    "gpuNodes": "GPU nodes",
+    "gpuNodesEmpty": "No node with a GPU is running.",
+    "gpuUsed": "{requested} of {total} GPUs held by pods",
+    "gpuPods": "Pods holding GPUs",
+    "pending": "Pods waiting for a node",
+    "pendingEmpty": "No pod is waiting.",
+    "nodePools": "Node pools",
+    "nodePoolsEmpty": "No Karpenter node pool found.",
+    "nodeClaims": "Nodes being launched",
+    "nodeClaimsEmpty": "Karpenter has no node in progress.",
+    "colNode": "Node",
+    "colInstance": "Instance type",
+    "colPool": "Pool",
+    "colZone": "Zone",
+    "colGpu": "GPUs",
+    "colPods": "Pods",
+    "colPod": "Pod",
+    "colNamespace": "Namespace",
+    "colReason": "Reason",
+    "colMessage": "Message",
+    "colWaiting": "Waiting",
+    "colReady": "Ready",
+    "colNodes": "Nodes",
+    "colCpu": "CPU in use",
+    "colLimit": "Limit",
+    "colName": "Claim",
+    "colStage": "Stage",
+    "colAge": "Age",
+    "minutes": "{count, plural, one {# minute} other {# minutes}}",
+    "unlimited": "No limit",
+    "ready": "Ready",
+    "notReady": "Not ready"
+  },
+  "storage": {
+    "eyebrow": "Data",
+    "title": "Storage",
+    "subtitle": "Artifacts per Space and Project, the notebook volumes in the cluster, and the leftovers worth cleaning up.",
+    "spaces": "Artifacts per Space",
+    "spacesEmpty": "No Space yet.",
+    "volumes": "Notebook volumes",
+    "volumesEmpty": "No volume found.",
+    "volumesNote": "Sizes are what the claim asks for. The volume is elastic, so it does not show what is stored.",
+    "projects": "Artifacts per Project",
+    "projectsEmpty": "No Project yet.",
+    "colSpace": "Space",
+    "colPlan": "Plan",
+    "colUsed": "Used",
+    "colClaim": "Claim",
+    "colProject": "Project",
+    "colSize": "Size",
+    "colPhase": "Phase",
+    "colStatus": "Match",
+    "colFiles": "Files",
+    "colPending": "Uploads pending",
+    "colStuck": "Stuck over 1 hour",
+    "usedOfLimit": "{used} of {limit} GB",
+    "noLimit": "{used}, no limit",
+    "claimStatus": {
+      "ok": "Project exists",
+      "deletedProject": "Project deleted",
+      "unknownProject": "No such Project",
+      "unlabelled": "No Project label"
+    },
+    "leftovers": "{count, plural, one {# volume} other {# volumes}} without a live Project",
+    "deletedProject": "deleted"
+  },
+  "billing": {
+    "eyebrow": "Billing",
+    "title": "Billing and quota",
+    "subtitle": "Plans, compute units used this month, subscriptions that need attention and the latest payments.",
+    "stats": {
+      "spaces": "Spaces",
+      "active": "Active subscriptions",
+      "attention": "Past due or pending",
+      "free": "On the free plan",
+      "overQuota": "Above 80% of units"
+    },
+    "spaces": "Spaces",
+    "spacesEmpty": "No Space yet.",
+    "payments": "Latest payments",
+    "paymentsEmpty": "No payment yet.",
+    "colSpace": "Space",
+    "colOwner": "Owner",
+    "colPlan": "Plan",
+    "colStatus": "Subscription",
+    "colUnits": "Units this month",
+    "colRenews": "Period ends",
+    "colActions": "Actions",
+    "colWhen": "When",
+    "colAmount": "Amount",
+    "colMethod": "Method",
+    "colReason": "Failure",
+    "unitsOfLimit": "{used} of {limit}",
+    "noSubscription": "none",
+    "plans": {
+      "personal_free": "Personal Free",
+      "personal_plus": "Personal Plus",
+      "personal_pro": "Personal Pro",
+      "org_team": "Team",
+      "org_growth": "Team Plus"
+    }
   }
 }

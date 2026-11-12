@@ -150,3 +150,96 @@ export async function loadAuditActions(db: Queryable) {
   const result = await db.query(`SELECT action, count(*) AS count FROM mlbox_audit_events GROUP BY action ORDER BY count DESC LIMIT 40`);
   return result.rows.map((row) => ({ action: String(row.action), count: Number(row.count) }));
 }
+
+export type BillingSpaceRow = {
+  id: string;
+  name: string;
+  type: "personal" | "organization";
+  plan: string | null;
+  status: string | null;
+  current_period_end: string | null;
+  owner_email: string | null;
+  units_this_month: number;
+};
+
+export async function loadBillingSpaces(db: Queryable): Promise<BillingSpaceRow[]> {
+  const result = await db.query(`
+    SELECT sp.id, sp.name, sp.type, sub.plan, sub.status, sub.current_period_end,
+           (SELECT u.email FROM mlbox_space_memberships m JOIN mlbox_users u ON u.id = m.user_id
+             WHERE m.space_id = sp.id AND m.role = 'owner' AND m.status = 'active' ORDER BY m.created_at LIMIT 1) AS owner_email,
+           coalesce((SELECT sum(${UNITS_EXPR}) FROM mlbox_usage_sessions s
+                      WHERE s.space_id = sp.id AND coalesce(s.ended_at, now()) >= ${MONTH_START}), 0) AS units_this_month
+      FROM mlbox_spaces sp
+      LEFT JOIN mlbox_space_subscriptions sub ON sub.space_id = sp.id
+     ORDER BY units_this_month DESC, sp.name
+     LIMIT 200`);
+  return result.rows.map((row) => ({ ...(row as Omit<BillingSpaceRow, "units_this_month">), units_this_month: Math.round(Number(row.units_this_month) * 10) / 10 }));
+}
+
+export async function loadRecentPayments(db: Queryable) {
+  const result = await db.query(`
+    SELECT p.id, p.created_at, p.plan_id, p.amount_cents, p.currency, p.status, p.payment_method, p.failure_code, sp.name AS space_name
+      FROM mlbox_payment_transactions p
+      JOIN mlbox_spaces sp ON sp.id = p.space_id
+     ORDER BY p.created_at DESC
+     LIMIT 30`);
+  return result.rows;
+}
+
+export async function loadUnitsLast30Days(db: Queryable): Promise<number> {
+  const result = await db.query(`
+    SELECT coalesce(sum(LEAST(extract(epoch FROM (coalesce(s.ended_at, now()) - GREATEST(s.started_at, now() - interval '30 days'))), 86400) / 3600.0 * s.units_per_hour), 0) AS units
+      FROM mlbox_usage_sessions s
+     WHERE coalesce(s.ended_at, now()) >= now() - interval '30 days'`);
+  return Math.round(Number(result.rows[0]?.units ?? 0) * 10) / 10;
+}
+
+export type StorageProjectRow = {
+  project_id: string;
+  project_name: string;
+  project_deleted_at: string | null;
+  space_id: string;
+  space_name: string;
+  ready_count: string;
+  ready_bytes: string;
+  pending_count: string;
+  stuck_count: string;
+};
+
+/** Artifact usage per Project, including deleted Projects (their leftovers are what the console wants to find). */
+export async function loadStorageProjects(db: Queryable): Promise<StorageProjectRow[]> {
+  const result = await db.query(`
+    SELECT p.id AS project_id, p.name AS project_name, p.deleted_at AS project_deleted_at, sp.id AS space_id, sp.name AS space_name,
+           count(a.id) FILTER (WHERE a.status = 'ready') AS ready_count,
+           coalesce(sum(a.size_bytes) FILTER (WHERE a.status = 'ready'), 0) AS ready_bytes,
+           count(a.id) FILTER (WHERE a.status = 'pending') AS pending_count,
+           count(a.id) FILTER (WHERE a.status = 'pending' AND a.created_at < now() - interval '1 hour') AS stuck_count
+      FROM mlbox_projects p
+      JOIN mlbox_teams t ON t.id = p.team_id
+      JOIN mlbox_spaces sp ON sp.id = t.space_id
+      LEFT JOIN mlbox_artifacts a ON a.project_id = p.id AND a.deleted_at IS NULL
+     GROUP BY p.id, sp.id
+     ORDER BY ready_bytes DESC, p.name
+     LIMIT 300`);
+  return result.rows as StorageProjectRow[];
+}
+
+export async function loadSpacePlans(db: Queryable) {
+  const result = await db.query(`
+    SELECT sp.id, sp.name, sp.type, sub.plan, sub.status
+      FROM mlbox_spaces sp LEFT JOIN mlbox_space_subscriptions sub ON sub.space_id = sp.id
+     ORDER BY sp.type, sp.name`);
+  return result.rows as { id: string; name: string; type: "personal" | "organization"; plan: string | null; status: string | null }[];
+}
+
+/** The only pool that may write. It is created only when actions are switched on, and only actions.ts uses it. */
+export function createWritePool(config: Pick<AdminConfig, "databaseUrl" | "databaseCaPath">): pg.Pool | null {
+  if (!config.databaseUrl) return null;
+  return new pg.Pool({
+    connectionString: config.databaseUrl,
+    max: 3,
+    connectionTimeoutMillis: 5000,
+    statement_timeout: 15000,
+    ssl: config.databaseCaPath ? { ca: readFileSync(config.databaseCaPath, "utf8"), rejectUnauthorized: true } : undefined,
+  });
+}

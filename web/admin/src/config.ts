@@ -17,6 +17,10 @@ export type AdminConfig = {
   databaseUrl: string | null;
   databaseCaPath: string | null;
   costExplorerEnabled: boolean;
+  /** Changes (stop a sandbox, lock an account, change a plan) are refused unless this is on. Off by default. */
+  actionsEnabled: boolean;
+  hubUrl: string | null;
+  hubApiToken: string | null;
   healthTargets: HealthTarget[];
 };
 
@@ -55,6 +59,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AdminConfig {
     databaseUrl: env.APP_DATABASE_URL || null,
     databaseCaPath: env.DATABASE_CA_PATH || null,
     costExplorerEnabled: env.ENABLE_COST_EXPLORER === "true",
+    actionsEnabled: env.ADMIN_ACTIONS_ENABLED === "true",
+    hubUrl: env.HUB_URL || null,
+    hubApiToken: env.HUB_API_TOKEN || null,
     healthTargets: parseHealthTargets(env.HEALTH_TARGETS),
   };
 }

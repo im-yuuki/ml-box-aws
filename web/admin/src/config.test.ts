@@ -26,5 +26,6 @@ test("config applies safe defaults", () => {
   assert.equal(config.secureCookies, true);
   assert.equal(config.costExplorerEnabled, false);
   assert.equal(config.databaseUrl, null);
+  assert.equal(config.actionsEnabled, false, "the console is read-only until actions are switched on");
   assert.equal(config.sessionTtlSeconds, 8 * 3600);
 });

@@ -105,6 +105,13 @@ export default function CostPage() {
                     <div className="admin-stat-grid">
                       <StatCard label={t("total")} value={money(cost.total)} hint={`${cost.period.start} → ${cost.period.end}`} />
                       <StatCard label={t("average")} value={money(cost.total / Math.max(cost.daily.length, 1))} />
+                      <StatCard label={t("units")} value={cost.unitsLast30Days === null ? "—" : format.number(cost.unitsLast30Days, { maximumFractionDigits: 1 })} />
+                      <StatCard label={t("computeCost")} value={cost.computeCost === null ? "—" : money(cost.computeCost)} />
+                      <StatCard
+                        label={t("costPerUnit")}
+                        value={cost.costPerUnit === null ? t("noUnits") : format.number(cost.costPerUnit, { style: "currency", currency: cost.currency, maximumFractionDigits: 3 })}
+                        hint={cost.costPerUnit === null ? undefined : t("costPerUnitHint")}
+                      />
                     </div>
                     <div className="flex flex-col gap-3">
                       <h3 className="workspace-mono-label">{t("byService")}</h3>

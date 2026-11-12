@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Cloud, DollarSign, LayoutDashboard, LogOut, Package, ScrollText, Server, Users, type LucideIcon } from "lucide-react";
+import { Cloud, Cpu, Database, DollarSign, LayoutDashboard, LogOut, Package, Receipt, ScrollText, Server, Users, type LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import BrandMark from "@/components/BrandMark";
 import SettingsDrawer from "@/components/SettingsDrawer";
 import { useSession } from "@/components/SessionProvider";
 
-type NavItem = { href: string; key: "overview" | "sandboxes" | "users" | "audit" | "deployments" | "aws" | "cost"; icon: LucideIcon };
+type NavItem = { href: string; key: "overview" | "sandboxes" | "users" | "audit" | "deployments" | "capacity" | "storage" | "billing" | "aws" | "cost"; icon: LucideIcon };
 
 const NAV: NavItem[] = [
   { href: "/", key: "overview", icon: LayoutDashboard },
@@ -16,6 +16,9 @@ const NAV: NavItem[] = [
   { href: "/users/", key: "users", icon: Users },
   { href: "/audit/", key: "audit", icon: ScrollText },
   { href: "/deployments/", key: "deployments", icon: Package },
+  { href: "/capacity/", key: "capacity", icon: Cpu },
+  { href: "/storage/", key: "storage", icon: Database },
+  { href: "/billing/", key: "billing", icon: Receipt },
   { href: "/aws/", key: "aws", icon: Cloud },
   { href: "/cost/", key: "cost", icon: DollarSign },
 ];

@@ -14,5 +14,8 @@ admin_password_hash = "scrypt$16384$8$1$<salt>$<hash>"
 enable_database      = true
 enable_cost_explorer = false
 
+# Changes from the console (stop a sandbox, lock an account, sign a user out, change a plan). Off keeps it read-only.
+enable_actions = false
+
 # First apply: false creates IAM, certificate, DNS and target group only.
 deploy_admin = false

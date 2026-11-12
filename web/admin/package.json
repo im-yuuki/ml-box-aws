@@ -21,6 +21,7 @@
     "@aws-sdk/client-rds": "^3.968.0",
     "@aws-sdk/client-route-53": "^3.968.0",
     "@aws-sdk/client-s3": "^3.968.0",
+    "@aws-sdk/client-service-quotas": "^3.1167.0",
     "@fastify/cookie": "^11.0.2",
     "fastify": "^5.6.1",
     "pg": "^8.23.1"

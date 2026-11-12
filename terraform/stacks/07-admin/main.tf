@@ -42,6 +42,8 @@ locals {
   db_password_encoded = replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(local.db_password, "%", "%25"), "@", "%40"), ":", "%3A"), "/", "%2F"), "?", "%3F"), "#", "%23"), "&", "%26"), "=", "%3D"), "[", "%5B"), "]", "%5D")
   database_url        = var.enable_database ? "postgresql://${data.terraform_remote_state.platform.outputs.dashboard_usage_db_username}:${local.db_password_encoded}@${data.terraform_remote_state.platform.outputs.dashboard_usage_db_address}:${data.terraform_remote_state.platform.outputs.dashboard_usage_db_port}/${data.terraform_remote_state.platform.outputs.dashboard_usage_db_name}" : ""
 
+  cognito_user_pool_arn = "arn:aws:cognito-idp:${var.region}:${data.aws_caller_identity.current.account_id}:userpool/${data.terraform_remote_state.platform.outputs.cognito_user_pool_id}"
+
   health_targets = join(";", [
     "bff=http://bff.dashboard.svc.cluster.local:4000/v1/health",
     "dashboard=http://dashboard.dashboard.svc.cluster.local:3000/",
@@ -101,6 +103,8 @@ resource "aws_iam_role_policy" "admin_read_only" {
           "elasticloadbalancing:DescribeTargetHealth",
           "rds:DescribeDBInstances",
           "elasticfilesystem:DescribeFileSystems",
+          "ec2:DescribeInstanceTypes",
+          "servicequotas:GetServiceQuota",
           "s3:ListAllMyBuckets",
           "route53:ListHostedZonesByName",
           "route53:ListResourceRecordSets",
@@ -111,6 +115,37 @@ resource "aws_iam_role_policy" "admin_read_only" {
         Resource = "*"
       },
     ]
+  })
+}
+
+# Reads whether an account is locked. Limited to the user pool of the product.
+resource "aws_iam_role_policy" "admin_cognito_read" {
+  name = "cognito-read-user"
+  role = aws_iam_role.admin.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["cognito-idp:AdminGetUser"]
+      Resource = local.cognito_user_pool_arn
+    }]
+  })
+}
+
+# The only write access of the console, and only when enable_actions is on: lock, unlock and sign out accounts of the
+# product's user pool. It cannot create or delete users, change attributes or touch any other pool.
+resource "aws_iam_role_policy" "admin_actions" {
+  count = var.enable_actions ? 1 : 0
+
+  name = "cognito-account-actions"
+  role = aws_iam_role.admin.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["cognito-idp:AdminDisableUser", "cognito-idp:AdminEnableUser", "cognito-idp:AdminUserGlobalSignOut"]
+      Resource = local.cognito_user_pool_arn
+    }]
   })
 }
 
@@ -299,7 +334,7 @@ resource "kubectl_manifest" "cluster_role" {
       },
       {
         apiGroups = ["karpenter.sh"]
-        resources = ["nodepools"]
+        resources = ["nodepools", "nodeclaims"]
         verbs     = ["get", "list"]
       },
     ]
@@ -340,6 +375,8 @@ resource "kubectl_manifest" "secret" {
       ADMIN_PASSWORD_HASH  = var.admin_password_hash
       ADMIN_SESSION_SECRET = random_password.session_secret.result
       APP_DATABASE_URL     = local.database_url
+      # The Hub service token is only given to the console when changes are on; it can stop any notebook server.
+      HUB_API_TOKEN = var.enable_actions ? data.terraform_remote_state.hub_app.outputs.bff_api_token : ""
     }
   })
 
@@ -381,6 +418,8 @@ resource "kubectl_manifest" "deployment" {
               { name = "COGNITO_USER_POOL_ID", value = data.terraform_remote_state.platform.outputs.cognito_user_pool_id },
               { name = "DATABASE_CA_PATH", value = "/etc/ssl/certs/rds-ca-bundle.pem" },
               { name = "ENABLE_COST_EXPLORER", value = tostring(var.enable_cost_explorer) },
+              { name = "ADMIN_ACTIONS_ENABLED", value = tostring(var.enable_actions) },
+              { name = "HUB_URL", value = "http://proxy-public.hub.svc.cluster.local" },
               { name = "HEALTH_TARGETS", value = local.health_targets },
               { name = "SECURE_COOKIES", value = "true" },
             ]

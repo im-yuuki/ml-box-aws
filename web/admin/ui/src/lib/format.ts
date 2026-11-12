@@ -41,3 +41,31 @@ export function formatDuration(seconds: number): { hours: number; minutes: numbe
   const total = Math.max(0, Math.round(Number.isFinite(seconds) ? seconds : 0));
   return { hours: Math.floor(total / 3600), minutes: Math.floor((total % 3600) / 60) };
 }
+
+/** Binary units, one decimal: 12000000 -> "11.4 MiB". */
+export function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  const units = ["B", "KiB", "MiB", "GiB", "TiB"];
+  let value = bytes;
+  let index = 0;
+  while (value >= 1024 && index < units.length - 1) {
+    value /= 1024;
+    index += 1;
+  }
+  return `${index === 0 ? Math.round(value) : value.toFixed(1)} ${units[index]}`;
+}
+
+/** The status of a quantity measured against a limit: a warning from 80 percent, an error when it is used up. */
+export function usageStatus(used: number, limit: number | null): "ok" | "warn" | "error" | "info" {
+  if (limit === null) return "info";
+  if (limit <= 0) return used > 0 ? "error" : "info";
+  const ratio = used / limit;
+  if (ratio >= 1) return "error";
+  return ratio >= 0.8 ? "warn" : "ok";
+}
+
+/** Percent of a limit that is used, between 0 and 100. */
+export function usagePercent(used: number, limit: number | null): number {
+  if (limit === null || limit <= 0) return 0;
+  return Math.min(100, Math.max(0, (used / limit) * 100));
+}

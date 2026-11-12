@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import https from "node:https";
 
+import { podGpuRequest, unschedulableReason, type VolumeClaimRow } from "./capacity.js";
+
 const TOKEN_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/token";
 const CA_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt";
 
@@ -59,10 +61,11 @@ type RawNode = {
 
 type RawPod = {
   metadata: Meta;
-  spec?: { nodeName?: string; containers?: { name: string; image: string }[] };
+  spec?: { nodeName?: string; containers?: { name: string; image: string; resources?: { requests?: Record<string, string>; limits?: Record<string, string> } }[] };
   status?: {
     phase?: string;
     reason?: string;
+    conditions?: { type: string; status: string; reason?: string; message?: string }[];
     containerStatuses?: { name: string; ready: boolean; restartCount: number; state?: { waiting?: { reason?: string }; terminated?: { reason?: string } } }[];
   };
 };
@@ -222,13 +225,91 @@ export async function loadDeployments(): Promise<DeploymentSummary[]> {
   ].sort((a, b) => Number(SYSTEM_NAMESPACES.has(a.namespace)) - Number(SYSTEM_NAMESPACES.has(b.namespace)) || a.namespace.localeCompare(b.namespace) || a.name.localeCompare(b.name));
 }
 
-export async function loadVolumeClaims(): Promise<{ namespace: string; name: string; phase: string; size: string | null; storageClass: string | null }[]> {
-  const list = await kubeGet<KubeList<{ metadata: Meta; spec?: { storageClassName?: string; resources?: { requests?: { storage?: string } } }; status?: { phase?: string } }>>("/api/v1/persistentvolumeclaims");
+export async function loadVolumeClaims(): Promise<VolumeClaimRow[]> {
+  const list = await kubeGet<KubeList<{ metadata: Meta & { annotations?: Record<string, string> }; spec?: { storageClassName?: string; resources?: { requests?: { storage?: string } } }; status?: { phase?: string } }>>("/api/v1/persistentvolumeclaims");
   return list.items.map((claim) => ({
     namespace: claim.metadata.namespace ?? "",
     name: claim.metadata.name,
     phase: claim.status?.phase ?? "Unknown",
     size: claim.spec?.resources?.requests?.storage ?? null,
     storageClass: claim.spec?.storageClassName ?? null,
+    // The Hub writes the Project id here; the name of the claim changed with the Hub release.
+    serverName: claim.metadata.annotations?.["hub.jupyter.org/servername"] ?? null,
   }));
+}
+
+export type GpuNode = { name: string; instanceType: string | null; nodePool: string | null; zone: string | null; allocatable: number; requested: number; pods: { namespace: string; name: string; gpu: number }[] };
+export type PendingPod = { namespace: string; name: string; reason: string; message: string; gpu: number; ageMinutes: number | null };
+export type NodePoolCapacity = { name: string; ready: boolean | null; nodes: number | null; cpu: string | null; gpu: string | null; limits: { cpu: string | null; memory: string | null; gpu: string | null } };
+export type NodeClaimSummary = { name: string; nodePool: string | null; instanceType: string | null; ready: boolean; stage: string; message: string; ageMinutes: number | null };
+export type CapacitySnapshot = { gpuNodes: GpuNode[]; pending: PendingPod[]; nodePools: NodePoolCapacity[]; nodeClaims: NodeClaimSummary[] };
+
+type RawNodePool = { metadata: Meta; spec?: { limits?: Record<string, string> }; status?: { conditions?: { type: string; status: string }[]; resources?: Record<string, string> } };
+type RawNodeClaim = { metadata: Meta; status?: { conditions?: { type: string; status: string; reason?: string; message?: string }[] } };
+
+const minutesAgo = (iso: string | undefined, now = Date.now()): number | null => (iso ? Math.max(0, Math.floor((now - new Date(iso).getTime()) / 60000)) : null);
+
+/** What the cluster has to run notebooks on: GPUs per node against what pods hold, pods that wait, and what Karpenter is launching. */
+export async function loadCapacity(): Promise<CapacitySnapshot> {
+  const [nodes, pods, nodePools, nodeClaims] = await Promise.all([
+    kubeGet<KubeList<RawNode>>("/api/v1/nodes"),
+    kubeGet<KubeList<RawPod>>("/api/v1/pods"),
+    kubeGet<KubeList<RawNodePool>>("/apis/karpenter.sh/v1/nodepools").catch(() => ({ items: [] as RawNodePool[] })),
+    kubeGet<KubeList<RawNodeClaim>>("/apis/karpenter.sh/v1/nodeclaims").catch(() => ({ items: [] as RawNodeClaim[] })),
+  ]);
+
+  const gpuNodes: GpuNode[] = [];
+  for (const node of nodes.items) {
+    const allocatable = Number(node.status?.allocatable?.["nvidia.com/gpu"] ?? 0);
+    if (!(allocatable > 0)) continue;
+    const labels = node.metadata.labels ?? {};
+    const held = pods.items
+      .filter((pod) => pod.spec?.nodeName === node.metadata.name && pod.status?.phase !== "Succeeded" && pod.status?.phase !== "Failed")
+      .map((pod) => ({ namespace: pod.metadata.namespace ?? "", name: pod.metadata.name, gpu: podGpuRequest(pod.spec?.containers) }))
+      .filter((pod) => pod.gpu > 0);
+    gpuNodes.push({
+      name: node.metadata.name,
+      instanceType: labels["node.kubernetes.io/instance-type"] ?? null,
+      nodePool: labels["karpenter.sh/nodepool"] ?? null,
+      zone: labels["topology.kubernetes.io/zone"] ?? null,
+      allocatable,
+      requested: held.reduce((sum, pod) => sum + pod.gpu, 0),
+      pods: held,
+    });
+  }
+
+  const pending: PendingPod[] = [];
+  for (const pod of pods.items) {
+    if (pod.status?.phase !== "Pending") continue;
+    const reason = unschedulableReason(pod.status?.conditions);
+    if (!reason) continue;
+    pending.push({ namespace: pod.metadata.namespace ?? "", name: pod.metadata.name, ...reason, gpu: podGpuRequest(pod.spec?.containers), ageMinutes: minutesAgo(pod.metadata.creationTimestamp) });
+  }
+
+  return {
+    gpuNodes,
+    pending: pending.slice(0, 30),
+    nodePools: nodePools.items.map((pool) => ({
+      name: pool.metadata.name,
+      ready: pool.status?.conditions?.find((condition) => condition.type === "Ready")?.status === "True" ? true : pool.status?.conditions ? false : null,
+      nodes: pool.status?.resources?.nodes ? Number(pool.status.resources.nodes) : null,
+      cpu: pool.status?.resources?.cpu ?? null,
+      gpu: pool.status?.resources?.["nvidia.com/gpu"] ?? null,
+      limits: { cpu: pool.spec?.limits?.cpu ?? null, memory: pool.spec?.limits?.memory ?? null, gpu: pool.spec?.limits?.["nvidia.com/gpu"] ?? null },
+    })),
+    nodeClaims: nodeClaims.items.map((claim) => {
+      const conditions = claim.status?.conditions ?? [];
+      const failing = conditions.find((condition) => condition.status !== "True" && condition.type !== "Ready");
+      const ready = conditions.find((condition) => condition.type === "Ready")?.status === "True";
+      return {
+        name: claim.metadata.name,
+        nodePool: claim.metadata.labels?.["karpenter.sh/nodepool"] ?? null,
+        instanceType: claim.metadata.labels?.["node.kubernetes.io/instance-type"] ?? null,
+        ready,
+        stage: ready ? "Ready" : failing?.type ?? "Pending",
+        message: (failing?.message ?? failing?.reason ?? "").slice(0, 240),
+        ageMinutes: minutesAgo(claim.metadata.creationTimestamp),
+      };
+    }),
+  };
 }

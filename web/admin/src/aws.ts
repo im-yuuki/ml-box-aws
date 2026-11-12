@@ -1,14 +1,17 @@
 import { ACMClient, DescribeCertificateCommand, ListCertificatesCommand } from "@aws-sdk/client-acm";
-import { CognitoIdentityProviderClient, DescribeUserPoolCommand } from "@aws-sdk/client-cognito-identity-provider";
+import { AdminDisableUserCommand, AdminEnableUserCommand, AdminGetUserCommand, AdminUserGlobalSignOutCommand, CognitoIdentityProviderClient, DescribeUserPoolCommand } from "@aws-sdk/client-cognito-identity-provider";
 import { CostExplorerClient, GetCostAndUsageCommand } from "@aws-sdk/client-cost-explorer";
-import { DescribeInstancesCommand, DescribeNatGatewaysCommand, DescribeSubnetsCommand, EC2Client } from "@aws-sdk/client-ec2";
+import { DescribeInstancesCommand, DescribeInstanceTypesCommand, DescribeNatGatewaysCommand, DescribeSubnetsCommand, EC2Client } from "@aws-sdk/client-ec2";
 import { DescribeFileSystemsCommand, EFSClient } from "@aws-sdk/client-efs";
 import { DescribeAddonCommand, DescribeClusterCommand, EKSClient, ListAddonsCommand } from "@aws-sdk/client-eks";
 import { DescribeLoadBalancersCommand, DescribeTargetGroupsCommand, DescribeTargetHealthCommand, ElasticLoadBalancingV2Client } from "@aws-sdk/client-elastic-load-balancing-v2";
 import { DescribeDBInstancesCommand, RDSClient } from "@aws-sdk/client-rds";
 import { ListHostedZonesByNameCommand, ListResourceRecordSetsCommand, Route53Client } from "@aws-sdk/client-route-53";
 import { ListBucketsCommand, S3Client } from "@aws-sdk/client-s3";
+import { GetServiceQuotaCommand, ServiceQuotasClient } from "@aws-sdk/client-service-quotas";
 
+import type { CognitoAdmin } from "./actions.js";
+import { quotaFamily, type QuotaUsage } from "./capacity.js";
 import type { AdminConfig } from "./config.js";
 
 export type Status = "ok" | "warn" | "error" | "info";
@@ -73,6 +76,7 @@ export class AwsInventory {
   private readonly acm: ACMClient;
   private readonly cognito: CognitoIdentityProviderClient;
   private readonly costExplorer: CostExplorerClient;
+  private readonly quotas: ServiceQuotasClient;
   private clusterPromise: ReturnType<AwsInventory["fetchCluster"]> | null = null;
 
   constructor(private readonly config: AdminConfig) {
@@ -88,6 +92,7 @@ export class AwsInventory {
     this.cognito = new CognitoIdentityProviderClient({ region });
     // Cost Explorer is served from us-east-1 only.
     this.costExplorer = new CostExplorerClient({ region: "us-east-1" });
+    this.quotas = new ServiceQuotasClient({ region });
   }
 
   private async fetchCluster() {
@@ -349,6 +354,61 @@ export class AwsInventory {
       });
     }
     return resources;
+  }
+
+  /**
+   * EC2 vCPU quotas against what is running in the account. A node that cannot start because a quota is full looks like
+   * a capacity problem, so this is the first thing to read when a GPU notebook does not come up.
+   */
+  async vcpuQuotas(): Promise<QuotaUsage[]> {
+    const definitions = [
+      { code: "L-DB2E81BA", family: "gvt", lifecycle: "on-demand" },
+      { code: "L-3819A6DF", family: "gvt", lifecycle: "spot" },
+      { code: "L-1216C47A", family: "standard", lifecycle: "on-demand" },
+      { code: "L-34B43A08", family: "standard", lifecycle: "spot" },
+    ] as const;
+
+    const running = await this.ec2.send(new DescribeInstancesCommand({ Filters: [{ Name: "instance-state-name", Values: ["pending", "running"] }] }));
+    const instances = (running.Reservations ?? []).flatMap((reservation) => reservation.Instances ?? []);
+    const types = [...new Set(instances.map((instance) => instance.InstanceType).filter((type): type is NonNullable<typeof type> => Boolean(type)))];
+    const vcpus = new Map<string, number>();
+    for (let index = 0; index < types.length; index += 100) {
+      const page = await this.ec2.send(new DescribeInstanceTypesCommand({ InstanceTypes: types.slice(index, index + 100) }));
+      for (const item of page.InstanceTypes ?? []) if (item.InstanceType) vcpus.set(item.InstanceType, item.VCpuInfo?.DefaultVCpus ?? 0);
+    }
+
+    return Promise.all(
+      definitions.map(async (definition) => {
+        const used = instances
+          .filter((instance) => instance.InstanceType && quotaFamily(instance.InstanceType) === definition.family && (instance.InstanceLifecycle === "spot") === (definition.lifecycle === "spot"))
+          .reduce((sum, instance) => sum + (vcpus.get(instance.InstanceType as string) ?? 0), 0);
+        let limit: number | null = null;
+        try {
+          limit = (await this.quotas.send(new GetServiceQuotaCommand({ ServiceCode: "ec2", QuotaCode: definition.code }))).Quota?.Value ?? null;
+        } catch {
+          limit = null;
+        }
+        return { code: definition.code, family: definition.family, lifecycle: definition.lifecycle, limit, used };
+      }),
+    );
+  }
+
+  /** The Cognito calls the account actions need, or null when no user pool is configured. */
+  cognitoAdmin(): CognitoAdmin | null {
+    const poolId = this.config.cognitoUserPoolId;
+    if (!poolId) return null;
+    return {
+      disable: async (username) => void (await this.cognito.send(new AdminDisableUserCommand({ UserPoolId: poolId, Username: username }))),
+      enable: async (username) => void (await this.cognito.send(new AdminEnableUserCommand({ UserPoolId: poolId, Username: username }))),
+      signOut: async (username) => void (await this.cognito.send(new AdminUserGlobalSignOutCommand({ UserPoolId: poolId, Username: username }))),
+    };
+  }
+
+  /** The Cognito state of a user: a disabled account cannot sign in. The Cognito username of a user is the id the BFF stores. */
+  async cognitoUserState(username: string): Promise<{ enabled: boolean; status: string } | null> {
+    if (!this.config.cognitoUserPoolId) return null;
+    const user = await this.cognito.send(new AdminGetUserCommand({ UserPoolId: this.config.cognitoUserPoolId, Username: username }));
+    return { enabled: user.Enabled !== false, status: user.UserStatus ?? "UNKNOWN" };
   }
 
   async cost() {

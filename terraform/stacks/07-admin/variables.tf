@@ -82,6 +82,17 @@ variable "enable_database" {
   default     = true
 }
 
+variable "enable_actions" {
+  description = <<-EOT
+    Allow the console to make changes: stop a sandbox through the Hub, disable or enable a Cognito account, end the sessions
+    of a user and move a Space to another plan. Every change needs a written reason and is stored in the table
+    mlbox_admin_audit before it runs. Off by default: the console then only reads, and the IAM role and the Hub token
+    that the changes need are not created.
+  EOT
+  type        = bool
+  default     = false
+}
+
 variable "enable_cost_explorer" {
   description = "Allow ce:GetCostAndUsage and show the cost page. Cost Explorer must be enabled in the billing console; each API call costs $0.01 and results are cached for 6 hours."
   type        = bool

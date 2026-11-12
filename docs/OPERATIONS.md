@@ -223,9 +223,10 @@ repo hoặc tài liệu public.
 
 ## Admin console
 
-Dashboard vận hành chỉ-đọc cho một quản trị viên, tại `https://admin.<domain>` (stack `07-admin`, mã nguồn `web/admin`).
-Đăng nhập riêng, không qua Cognito. Hiển thị health, sandbox toàn hệ thống, tra cứu user, audit, workload và tài nguyên
-AWS bằng IAM role của pod (IRSA), không dùng access key.
+Dashboard vận hành cho một quản trị viên, tại `https://admin.<domain>` (stack `07-admin`, mã nguồn `web/admin`).
+Đăng nhập riêng, không qua Cognito. Hiển thị health, sandbox, user, audit, workload, năng lực (quota vCPU, GPU), lưu trữ,
+billing và tài nguyên AWS bằng IAM role của pod (IRSA), không dùng access key. Chỉ-đọc mặc định; `enable_actions` bật bốn
+thao tác hỗ trợ (dừng sandbox, đăng xuất/khóa user, đổi gói), mỗi thao tác cần lý do và được ghi vào `mlbox_admin_audit`.
 
 ```bash
 kubectl -n admin get pods,svc,targetgroupbinding

@@ -30,7 +30,10 @@
     "theme": "Chế độ hiển thị",
     "themeSystem": "Theo hệ thống",
     "themeLight": "Sáng",
-    "themeDark": "Tối"
+    "themeDark": "Tối",
+    "capacity": "Năng lực",
+    "storage": "Lưu trữ",
+    "billing": "Thanh toán"
   },
   "login": {
     "title": "Admin console",
@@ -107,7 +110,8 @@
     "colHubUser": "Hub user",
     "duration": "{hours} giờ {minutes} phút",
     "metering": "từ {time}",
-    "longRunning": "Gần mốc giới hạn 24 giờ"
+    "longRunning": "Gần mốc giới hạn 24 giờ",
+    "colActions": "Thao tác"
   },
   "users": {
     "eyebrow": "Hỗ trợ",
@@ -133,7 +137,13 @@
     "colPlan": "Gói",
     "colProjects": "Project",
     "colUnits": "Units tháng này",
-    "free": "Free"
+    "free": "Free",
+    "account": "Tài khoản",
+    "accountActive": "Đang hoạt động",
+    "accountDisabled": "Đã khóa",
+    "accountUnknown": "Không rõ",
+    "actions": "Thao tác",
+    "colActions": "Thao tác"
   },
   "audit": {
     "eyebrow": "Nhật ký",
@@ -151,7 +161,16 @@
     "colAction": "Action",
     "colTarget": "Đối tượng",
     "colIp": "IP",
-    "colDetail": "Chi tiết"
+    "colDetail": "Chi tiết",
+    "changes": "Thay đổi thực hiện từ console này",
+    "changesEmpty": "Chưa có thay đổi nào.",
+    "colReason": "Lý do",
+    "colOutcome": "Kết quả",
+    "outcome": {
+      "started": "Đã bắt đầu",
+      "succeeded": "Thành công",
+      "failed": "Thất bại"
+    }
   },
   "deployments": {
     "eyebrow": "Kubernetes",
@@ -225,6 +244,174 @@
     "byDay": "Theo ngày",
     "chartLabel": "Chi phí theo ngày",
     "peak": "Ngày cao nhất",
-    "empty": "Không có chi phí nào trong kỳ này."
+    "empty": "Không có chi phí nào trong kỳ này.",
+    "units": "Compute units, 30 ngày",
+    "computeCost": "Chi phí EC2 compute",
+    "costPerUnit": "Chi phí mỗi unit",
+    "costPerUnitHint": "Là cận trên: hóa đơn EC2 còn trả cho các node hệ thống chạy không tải.",
+    "noUnits": "Không có units trong kỳ"
+  },
+  "actions": {
+    "reasonLabel": "Lý do",
+    "reasonPlaceholder": "Ví dụ: ticket hỗ trợ 123, khách yêu cầu",
+    "reasonHint": "Được lưu vào audit log cùng địa chỉ IP của bạn. Từ {min} đến {max} ký tự.",
+    "cancel": "Hủy",
+    "done": "Xong. Thay đổi đã được ghi vào audit log.",
+    "errors": {
+      "invalidReason": "Viết lý do từ {min} đến {max} ký tự.",
+      "disabled": "Console này đang tắt chức năng thay đổi (ADMIN_ACTIONS_ENABLED).",
+      "notFound": "Đối tượng không còn tồn tại.",
+      "invalid": "Yêu cầu bị từ chối vì không hợp lệ.",
+      "unavailable": "Một dịch vụ mà thay đổi này cần chưa được cấu hình (Hub hoặc Cognito).",
+      "upstream": "Hub từ chối yêu cầu. Chưa có gì bị thay đổi.",
+      "failed": "Thay đổi thất bại. Xem audit log để biết kết quả."
+    },
+    "stopSandbox": {
+      "trigger": "Dừng",
+      "title": "Dừng sandbox này?",
+      "body": "Notebook server của project {project} bị dừng trong Hub và các phiên tính units đang mở được đóng lại. File trên volume vẫn được giữ.",
+      "confirm": "Dừng sandbox"
+    },
+    "revokeSessions": {
+      "trigger": "Đăng xuất mọi nơi",
+      "title": "Đăng xuất người dùng này?",
+      "body": "Mọi phiên đang đăng nhập của {email} trên dashboard sẽ kết thúc. Họ có thể đăng nhập lại.",
+      "confirm": "Kết thúc phiên"
+    },
+    "disableAccount": {
+      "trigger": "Khóa tài khoản",
+      "title": "Khóa tài khoản này?",
+      "body": "{email} không thể đăng nhập nữa và mọi phiên kết thúc ngay. Project và file của họ vẫn được giữ.",
+      "confirm": "Khóa tài khoản"
+    },
+    "enableAccount": {
+      "trigger": "Mở khóa tài khoản",
+      "title": "Mở khóa tài khoản này?",
+      "body": "{email} có thể đăng nhập lại.",
+      "confirm": "Mở khóa"
+    },
+    "changePlan": {
+      "trigger": "Đổi gói",
+      "title": "Đổi gói của {space}",
+      "body": "Space chuyển sang gói bên dưới và có hiệu lực ngay, giống bước checkout giả lập. Giới hạn của gói (compute units, lưu trữ, GPU) áp dụng tức thì.",
+      "planLabel": "Gói mới",
+      "confirm": "Đổi gói"
+    }
+  },
+  "capacity": {
+    "eyebrow": "Tính toán",
+    "title": "Năng lực",
+    "subtitle": "Những gì cluster có để chạy notebook: quota vCPU, GPU, pod đang chờ và node đang được khởi tạo.",
+    "quotas": "Quota vCPU của EC2",
+    "quotaNames": {
+      "gvt-on-demand": "Instance G và VT, On-Demand",
+      "gvt-spot": "Instance G và VT, Spot",
+      "standard-on-demand": "Instance tiêu chuẩn, On-Demand",
+      "standard-spot": "Instance tiêu chuẩn, Spot"
+    },
+    "quotaUsed": "{used} trên {limit} vCPU",
+    "quotaUnknown": "Đang dùng {used} vCPU, không đọc được quota",
+    "quotaFull": "Đã đầy: node loại này không khởi động thêm được",
+    "gpuNodes": "Node có GPU",
+    "gpuNodesEmpty": "Không có node GPU nào đang chạy.",
+    "gpuUsed": "{requested} trên {total} GPU đang được pod giữ",
+    "gpuPods": "Pod đang giữ GPU",
+    "pending": "Pod đang chờ node",
+    "pendingEmpty": "Không có pod nào đang chờ.",
+    "nodePools": "Node pool",
+    "nodePoolsEmpty": "Không tìm thấy node pool Karpenter nào.",
+    "nodeClaims": "Node đang được khởi tạo",
+    "nodeClaimsEmpty": "Karpenter không có node nào đang xử lý.",
+    "colNode": "Node",
+    "colInstance": "Loại máy",
+    "colPool": "Pool",
+    "colZone": "AZ",
+    "colGpu": "GPU",
+    "colPods": "Pod",
+    "colPod": "Pod",
+    "colNamespace": "Namespace",
+    "colReason": "Lý do",
+    "colMessage": "Nội dung",
+    "colWaiting": "Đã chờ",
+    "colReady": "Sẵn sàng",
+    "colNodes": "Số node",
+    "colCpu": "CPU đang dùng",
+    "colLimit": "Giới hạn",
+    "colName": "Claim",
+    "colStage": "Giai đoạn",
+    "colAge": "Tuổi",
+    "minutes": "{count} phút",
+    "unlimited": "Không giới hạn",
+    "ready": "Sẵn sàng",
+    "notReady": "Chưa sẵn sàng"
+  },
+  "storage": {
+    "eyebrow": "Dữ liệu",
+    "title": "Lưu trữ",
+    "subtitle": "Artifact theo Space và Project, các volume notebook trong cluster và phần còn sót lại nên dọn.",
+    "spaces": "Artifact theo Space",
+    "spacesEmpty": "Chưa có Space nào.",
+    "volumes": "Volume notebook",
+    "volumesEmpty": "Không tìm thấy volume nào.",
+    "volumesNote": "Dung lượng là mức claim yêu cầu. Volume co giãn nên không cho biết lượng dữ liệu thực.",
+    "projects": "Artifact theo Project",
+    "projectsEmpty": "Chưa có Project nào.",
+    "colSpace": "Space",
+    "colPlan": "Gói",
+    "colUsed": "Đã dùng",
+    "colClaim": "Claim",
+    "colProject": "Project",
+    "colSize": "Dung lượng",
+    "colPhase": "Pha",
+    "colStatus": "Khớp Project",
+    "colFiles": "File",
+    "colPending": "Upload đang chờ",
+    "colStuck": "Kẹt trên 1 giờ",
+    "usedOfLimit": "{used} trên {limit} GB",
+    "noLimit": "{used}, không giới hạn",
+    "claimStatus": {
+      "ok": "Project còn tồn tại",
+      "deletedProject": "Project đã xóa",
+      "unknownProject": "Không có Project này",
+      "unlabelled": "Không có nhãn Project"
+    },
+    "leftovers": "{count} volume không còn Project",
+    "deletedProject": "đã xóa"
+  },
+  "billing": {
+    "eyebrow": "Thanh toán",
+    "title": "Thanh toán và quota",
+    "subtitle": "Gói, compute units đã dùng trong tháng, gói cần chú ý và các khoản thanh toán gần nhất.",
+    "stats": {
+      "spaces": "Space",
+      "active": "Gói đang hoạt động",
+      "attention": "Quá hạn hoặc chờ xử lý",
+      "free": "Đang dùng gói Free",
+      "overQuota": "Trên 80% units"
+    },
+    "spaces": "Space",
+    "spacesEmpty": "Chưa có Space nào.",
+    "payments": "Thanh toán gần nhất",
+    "paymentsEmpty": "Chưa có thanh toán nào.",
+    "colSpace": "Space",
+    "colOwner": "Chủ sở hữu",
+    "colPlan": "Gói",
+    "colStatus": "Đăng ký",
+    "colUnits": "Units tháng này",
+    "colRenews": "Hết kỳ",
+    "colActions": "Thao tác",
+    "colWhen": "Lúc",
+    "colAmount": "Số tiền",
+    "colMethod": "Phương thức",
+    "colReason": "Lỗi",
+    "unitsOfLimit": "{used} trên {limit}",
+    "noSubscription": "không có",
+    "plans": {
+      "personal_free": "Personal Free",
+      "personal_plus": "Personal Plus",
+      "personal_pro": "Personal Pro",
+      "org_team": "Team",
+      "org_growth": "Team Plus"
+    }
   }
 }

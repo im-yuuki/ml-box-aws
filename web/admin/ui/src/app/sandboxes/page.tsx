@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import ActionButton, { useActionsEnabled } from "@/components/ActionButton";
 import DataTable from "@/components/DataTable";
 import DateTime from "@/components/DateTime";
 import InstanceType from "@/components/InstanceType";
@@ -10,6 +11,7 @@ import Section from "@/components/Section";
 import StatusChip from "@/components/StatusChip";
 import { useApi } from "@/hooks/useApi";
 import { useRelativeText } from "@/hooks/useRelativeText";
+import { sendAction } from "@/lib/actions";
 import { formatDuration, sandboxStateStatus } from "@/lib/format";
 import type { SandboxesResponse } from "@/lib/types";
 
@@ -25,6 +27,8 @@ function MeteringChip({ startedAt }: { startedAt: string }) {
 export default function SandboxesPage() {
   const t = useTranslations("sandboxes");
   const common = useTranslations("common");
+  const stop = useTranslations("actions.stopSandbox");
+  const actions = useActionsEnabled();
   const { data, error, loading, reload } = useApi<SandboxesResponse>("/api/sandboxes");
 
   return (
@@ -103,6 +107,30 @@ export default function SandboxesPage() {
                     ),
                 },
                 { key: "hub", header: t("colHubUser"), cell: (sandbox) => <span className="admin-mono">{sandbox.hub_username}</span> },
+                ...(actions
+                  ? [
+                      {
+                        key: "actions",
+                        header: t("colActions"),
+                        cell: (sandbox: (typeof sandboxes)[number]) =>
+                          sandbox.deleted_at || !(sandbox.session_started_at || sandbox.state === "running" || sandbox.state === "pending") ? null : (
+                            <ActionButton
+                              danger
+                              trigger={stop("trigger")}
+                              build={() => ({
+                                title: stop("title"),
+                                body: stop("body", { project: sandbox.project_name }),
+                                confirm: stop("confirm"),
+                                run: async (reason) => {
+                                  await sendAction("/api/actions/sandbox/stop", { projectId: sandbox.project_id }, reason);
+                                  reload();
+                                },
+                              })}
+                            />
+                          ),
+                      },
+                    ]
+                  : []),
               ]}
             />
           )}

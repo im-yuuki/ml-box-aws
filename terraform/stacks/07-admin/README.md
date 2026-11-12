@@ -13,10 +13,12 @@ Cần `terraform.tfvars` (không commit) theo `terraform.tfvars.example`.
 
 ## Tài nguyên
 
-- IAM role chỉ-đọc cho pod qua IRSA, và policy `Describe*`/`List*`; thêm `ce:GetCostAndUsage` khi `enable_cost_explorer`.
+- IAM role cho pod qua IRSA: policy `Describe*`/`List*`, Service Quotas và `AdminGetUser` (chỉ-đọc). Thêm `ce:GetCostAndUsage` khi
+  `enable_cost_explorer`; thêm `AdminDisableUser`/`AdminEnableUser`/`AdminUserGlobalSignOut` (chỉ user pool của sản phẩm) khi `enable_actions`.
 - ACM certificate cho `admin.<domain>` (xác thực DNS trong Route 53), bản ghi alias tới ALB.
 - Target group `admintg-<env>` cổng 5000, security group rules giữa ALB và node.
-- Namespace `admin`: ServiceAccount, ClusterRole chỉ-đọc, Secret `admin-config`, Deployment 1 replica, Service, TargetGroupBinding.
+- Namespace `admin`: ServiceAccount, ClusterRole chỉ-đọc (gồm NodePool và NodeClaim của Karpenter), Secret `admin-config`, Deployment 1 replica,
+  Service, TargetGroupBinding. Token của Hub chỉ vào Secret khi `enable_actions`.
 - Listener rule (priority 110) theo host, tùy chọn giới hạn `admin_allowed_cidrs`.
 
 ## Cách apply
@@ -31,6 +33,8 @@ terraform init -backend-config=backend.hcl
 terraform plan
 terraform apply
 ```
+
+`enable_actions` mặc định tắt. Bật nó là quyết định riêng: console khi đó có thể dừng notebook, khóa tài khoản và đổi gói.
 
 Quyền của người apply cần thêm: tạo role IAM, ACM, bản ghi Route 53. Cost Explorer phải được bật trong Billing console
 trước khi bật `enable_cost_explorer`.

@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import CardSectionTitle from "@/components/CardSectionTitle";
 import DataTable from "@/components/DataTable";
 import DateTime from "@/components/DateTime";
+import StatusChip from "@/components/StatusChip";
 import PageHeading from "@/components/PageHeading";
 import PageError from "@/components/PageState";
 import Section from "@/components/Section";
@@ -67,6 +68,25 @@ export default function AuditPage() {
                 { key: "space", header: t("colSpace"), cell: (event) => event.space_name },
                 { key: "action", header: t("colAction"), cell: (event) => <span className="admin-mono">{event.action}</span> },
                 { key: "target", header: t("colTarget"), cell: (event) => <span className="admin-mono">{event.target}</span> },
+              ]}
+            />
+          )}
+        </Section>
+
+        <Section title={t("changes")} result={data?.changes}>
+          {(changes) => (
+            <DataTable
+              label={t("changes")}
+              rows={changes}
+              rowId={(change) => change.id}
+              empty={t("changesEmpty")}
+              columns={[
+                { key: "when", header: t("colWhen"), cell: (change) => <DateTime value={change.created_at} /> },
+                { key: "action", header: t("colAction"), cell: (change) => <span className="admin-mono">{change.action}</span> },
+                { key: "target", header: t("colTarget"), cell: (change) => <span className="admin-mono">{change.target}</span> },
+                { key: "reason", header: t("colReason"), cell: (change) => change.reason },
+                { key: "outcome", header: t("colOutcome"), cell: (change) => <StatusChip status={change.outcome === "succeeded" ? "ok" : change.outcome === "failed" ? "error" : "warn"}>{t(`outcome.${change.outcome}`)}</StatusChip> },
+                { key: "ip", header: t("colIp"), cell: (change) => <span className="admin-mono">{change.ip}</span> },
               ]}
             />
           )}
