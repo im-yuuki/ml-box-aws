@@ -110,9 +110,10 @@ export function useProjectSandbox(projectId: string) {
   const [profiles, setProfiles] = useState<SandboxProfileOption[]>([]);
 
   // The profiles arrive with the sandbox, so no second request per Project is needed. The separate
-  // endpoint is only asked when the BFF did not send them (an older deployment).
+  // endpoint is only asked when the BFF did not send them (an older deployment). The request waits
+  // for the sandbox to be read: asking right away would send it before the answer arrives.
   useEffect(() => {
-    if (data?.profiles) return;
+    if (!data || data.profiles) return;
     let cancelled = false;
     const task = window.setTimeout(() => {
       bffFetch(`${base}/profiles`, { cache: "no-store" })
@@ -126,7 +127,7 @@ export function useProjectSandbox(projectId: string) {
       cancelled = true;
       window.clearTimeout(task);
     };
-  }, [base, data?.profiles]);
+  }, [base, data]);
 
   const stateKey: RuntimeStateKey = runtimeStateKey(data?.sandbox?.state);
 

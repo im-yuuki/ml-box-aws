@@ -140,8 +140,8 @@ body {
 
 /* The clear button of the search field was 19 by 19 pixels, too small for a finger. */
 .workspace-navbar-search [data-slot="search-field-clear-button"] {
-  width: 2rem;
-  height: 2rem;
+  width: 2.75rem;
+  height: 2.75rem;
 }
 
 .workspace-navbar-actions {
