@@ -943,6 +943,60 @@ CLI): khi hết hạn phải chạy `aws sso login --profile AdministratorAccess
 cache mới được ghi. Lần này đã deploy image dashboard bằng `kubectl set image` trước, rồi apply
 `04-dashboard` để state khớp (cả hai image đều là `bf774cc`).
 
+---
+
+# Vòng sửa cuối — 2026-11-12 (Bug 9 + rò rỉ storage khi xoá project)
+
+Hai lỗi còn lại trong danh sách, lần này đã có **quyền cluster** nên đã verify được thật.
+
+## ✅ Bug 9 — `useActiveSpace()` bị instantiate 4 lần → request trùng + trạng thái lệch nhau
+
+**Hiện tượng:** navbar hiện "Workspaces unavailable" trong khi thân trang vẫn "Loading projects…".
+
+**Nguyên nhân:** mỗi component (`SpaceSwitcher`, `ProjectBoard`, `ProjectDetail`, `TeamBoard`) gọi
+`useActiveSpace()`, mỗi lần tạo state riêng và tự gọi `GET /api/bff/spaces`.
+
+**Cách sửa:** hook đọc từ **một store dùng chung** (`useSyncExternalStore`): danh sách Space được
+tải đúng một lần, mọi panel cùng nhìn thấy một trạng thái; đổi Space trong switcher thì tất cả
+panel cập nhật theo; Space mới/xoá thì store nạp lại.
+
+## ✅ Rò rỉ storage khi xoá Project (PVC + EFS access point còn lại)
+
+**Verify trên cluster (có kubectl + AWS):** xoá project `e2e-fresh-2026-11-11` qua API → trả 200,
+project biến khỏi danh sách, **nhưng claim vẫn còn**:
+
+```
+NAME                                                     STATUS   VOLUME   STORAGECLASS
+mlbox-x-5992fd17-b149-4ac7-ab23-d514f8a5a57---87ff134b   Bound    pvc-…    efs-sc      ← của project đã xoá
+```
+
+và EFS access point `fsap-061581ad077c738bf` (thư mục `/pvc-f8e4a25e-…`) vẫn tồn tại ⇒ **file
+notebook của project đã xoá vẫn nằm trên EFS**.
+
+**Nguyên nhân (2 tầng):**
+
+1. BFF xoá claim theo tên `mlbox-<projectId>` (`projectClaimName`), nhưng Hub (kubespawner 7) đặt
+   tên claim là `mlbox-x-<serverName>---<hash>` ⇒ tên không khớp ⇒ API trả 404 ⇒ coi như "không có
+   claim" ⇒ **xoá rỗng**. Claim cũ (từ lúc chart cũ) đúng tên nên vẫn bị xoá được.
+2. BFF **không xoá server của Hub** khi xoá project ⇒ pod của server vẫn tồn tại ⇒ claim (loại
+   dynamic) sống theo pod ⇒ không bao giờ được dọn.
+
+**Cách sửa:**
+
+- Xoá server Hub trước (`DELETE /hub/api/users/{user}/servers/{server}`): server sở hữu pod, pod sở hữu
+  claim.
+- Tìm claim theo **annotation** `hub.jupyter.org/servername` (ổn định qua các bản Hub) thay vì đoán
+  tên; vẫn hỗ trợ claim legacy đặt tên theo Project id.
+- Storage class `efs-sc` có `deleteAccessPointRootDir: "true"` ⇒ khi claim bị xoá, CSI driver xoá luôn
+  access point và thư mục của nó.
+
+## Ghi chú vận hành (bổ sung)
+
+- Terraform không đọc được cache SSO của AWS CLI (cache theo `startUrl` khác cache device-flow của
+  CLI): khi hết hạn phải chạy `aws sso login --profile AdministratorAccess-451058046864` cho tới khi
+  cache mới được ghi. Lần này đã deploy image dashboard bằng `kubectl set image` trước, rồi apply
+  `04-dashboard` để state khớp (cả hai image đều là `bf774cc`).
+
 ## Dữ liệu test còn lại (từ lần verify này)
 
 - Space cá nhân `mlbox-mwbnjiti-us6t8@fldubai.com` (`personal:e96e6498-f0a1-70e3-d22d-eea93c0bde32`):
