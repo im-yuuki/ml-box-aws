@@ -46,7 +46,7 @@ bản ghi NS delegation ở parent zone.
    ```bash
    aws acm describe-certificate --certificate-arn <certificate_arn> --query status --output text
    ```
-2. Apply `03-hub-app`. Stack này tự poll chờ cert `ISSUED` (tối đa 15 phút) rồi mới tạo listener HTTPS.
+2. Apply `03-hub-app`. Stack này tự chờ cert `ISSUED` (`aws acm wait certificate-validated`) rồi mới tạo listener HTTPS.
 3. Apply `04-dashboard` để tạo dashboard ở apex `https://mlbox.<domain>`.
 4. Áp theme:
    ```bash
