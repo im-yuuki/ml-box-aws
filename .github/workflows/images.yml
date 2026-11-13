@@ -1,7 +1,8 @@
-# Build the four OCI images of the MLBox stack and push them to GHCR.
+# Build the five OCI images of the MLBox stack and push them to GHCR.
 #
 #   ghcr.io/<owner>/mlbox-dashboard   web/dashboard/Dockerfile   (Next.js dashboard)
 #   ghcr.io/<owner>/mlbox-bff         web/bff/Dockerfile         (Cognito/JupyterHub BFF)
+#   ghcr.io/<owner>/mlbox-admin       web/admin/Dockerfile       (operations console, single admin)
 #   ghcr.io/<owner>/mlbox-cpu         images/cpu/Dockerfile      (single-user notebook, CPU)
 #   ghcr.io/<owner>/mlbox-gpu         images/gpu/Dockerfile      (single-user notebook, GPU)
 #
@@ -77,6 +78,8 @@ jobs:
             file: web/dashboard/Dockerfile
           - name: bff
             file: web/bff/Dockerfile
+          - name: admin
+            file: web/admin/Dockerfile
           - name: cpu
             file: images/cpu/Dockerfile
           - name: gpu

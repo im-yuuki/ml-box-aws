@@ -80,6 +80,8 @@ Target sản phẩm và thứ tự phase: [`docs/multi-tenant-product-plan.md`](
 
 ## Đang triển khai / cần kiểm chứng
 
+- ⚠️ **Admin console (`web/admin`, stack `07-admin`):** backend 21 test, giao diện 8 test, `terraform validate` đạt, đăng nhập và khóa thử sai kiểm qua HTTP cục bộ, giao diện (HeroUI, token chung với dashboard, en/vi, sáng/tối) kiểm trên trình duyệt với dữ liệu mô phỏng. **Chưa** publish image, chưa apply, chưa chạy trong cluster nên các khối Kubernetes/AWS/Postgres chưa kiểm với dữ liệu thật. Đã có thêm Capacity, Storage, Billing và bốn thao tác hỗ trợ có audit lưu bền (tắt mặc định, `enable_actions`); mọi truy vấn SQL và thao tác đã chạy trên PostgreSQL thật (23 test tích hợp). Còn thiếu: role DB riêng cho console, CloudWatch, xóa volume mồ côi.
+
 - ⚠️ **Notebook storage EFS (vừa apply 2026-11-10):** chưa kiểm tra spawn thật → mount → ghi file → stop → start → đọc lại file. Chưa kiểm tra xóa Project xóa PVC và access point.
 - ⚠️ **Billing metering:** chưa kiểm chứng trên Postgres thật. Cần kiểm tra mở/đóng session, cap 24 giờ, tổng units trong tháng, và gate `403/429` khi start.
 - ⚠️ **E2E trình duyệt còn thiếu:** nút đăng xuất trên UI (cần đăng nhập lại); lời mời được chấp nhận bởi người khác (cần tài khoản thứ hai); đổi email và đổi avatar; thu hồi phiên đăng nhập có hiệu lực với access token còn hạn.
