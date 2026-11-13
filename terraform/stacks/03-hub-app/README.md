@@ -130,11 +130,11 @@ the two variables if your chart version differs.
   (`networking.k8s.aws/v1beta1`, `targetType: ip`).
 - Terraform template directives use HCL syntax (`%{ if }` / `%{ endif }`).
   Go-style `{{ if }}` is emitted verbatim and breaks the YAML.
-- The certificate wait runs `aws acm describe-certificate` through the AWS
-  **CLI**, so the CLI must be able to authenticate with the same account
-  (e.g. `AWS_PROFILE` / `AWS_REGION` exported, or `~/.aws/credentials`
-  pointing at the right profile). If the CLI cannot authenticate, the poll
-  reports `UNKNOWN` and the wait times out after 15 minutes.
+- The certificate wait uses `aws acm wait certificate-validated`, so the AWS CLI must be able to
+  authenticate with the same account (e.g. `AWS_PROFILE` / `AWS_REGION` exported, or `~/.aws/credentials`
+  pointing at the right profile). The waiter polls until the certificate is `ISSUED` and exits with a
+  non-zero status if the validation never completes. No custom `interpreter` is used, so the code works
+  on Linux, macOS and Windows.
 - If the HTTPS listener fails with a "target group is not associated with the
   load balancer" error, the LB controller had not finished attaching the
   target group yet — just re-run `terraform apply` (the resource is idempotent).

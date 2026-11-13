@@ -4,10 +4,26 @@
 # don't infer from this file. Config format:
 #   version: v1 / sharing.timeSlicing.renameByDefault / failRequestsGreaterThanOne / resources[replicas]
 
+# The namespace has to exist before the ConfigMap and the Helm releases are applied.
+# On a fresh cluster only the Helm chart creates it, but the ConfigMap is applied
+# first, so the namespace is created here explicitly.
+resource "kubectl_manifest" "namespace" {
+  yaml_body = yamlencode({
+    apiVersion = "v1"
+    kind       = "Namespace"
+    metadata = {
+      name = var.namespace
+    }
+  })
+}
+
 resource "kubectl_manifest" "timeslicing_config" {
   yaml_body = templatefile("${path.module}/manifests/timeslicing-config.yaml", {
     replicas = var.gpu_shared_replicas_l4
+    namespace = var.namespace
   })
+
+  depends_on = [kubectl_manifest.namespace]
 }
 
 resource "helm_release" "device_plugin" {

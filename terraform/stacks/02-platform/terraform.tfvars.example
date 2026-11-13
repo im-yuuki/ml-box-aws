@@ -8,3 +8,7 @@ cognito_domain_prefix = "mlbox-hub-apse2"     # unique per region
 # records. 02-platform creates only the ALB and its A-alias records in that zone.
 manage_route53 = true
 # route53_zone_id is deprecated; leave it empty so the tagged bootstrap zone is discovered.
+
+# Dashboard usage database: lab values allow `terraform destroy` without losing data.
+# dashboard_usage_deletion_protection = false   # lab only: allows terraform destroy
+# dashboard_usage_final_snapshot_identifier = ""  # lab: no final snapshot on destroy

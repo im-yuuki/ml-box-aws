@@ -8,8 +8,12 @@ Triển khai [`web/admin`](../../../web/admin/README.md) tại `admin.<domain>`.
 00-bootstrap → 01-foundation → 02-platform → 03-hub-app → 07-admin
 ```
 
+Cần `terraform.tfvars` (không commit) theo `terraform.tfvars.example`. `state_bucket` là biến bắt buộc:
+điền tên bucket state mà `00-bootstrap` tạo (`jhub-gpu-sandbox-tfstate-<account-id>`), cùng bucket mà
+`backend.hcl` của stack này trỏ tới. `state_key` và `state_key_hub_app` để trống thì suy ra từ
+`env`/`region`.
+
 Đọc remote state của `02-platform` (VPC, ALB, security group, Cognito, database) và `03-hub-app` (HTTPS listener).
-Cần `terraform.tfvars` (không commit) theo `terraform.tfvars.example`.
 
 ## Tài nguyên
 
@@ -25,11 +29,11 @@ Cần `terraform.tfvars` (không commit) theo `terraform.tfvars.example`.
 
 1. Publish image `mlbox-admin` (workflow `images.yml`), điền `admin_image` bằng SHA đầy đủ.
 2. Tạo `admin_password_hash` bằng `npm run hash-password` trong `web/admin`.
-3. Lần đầu để `deploy_admin = false`, apply để tạo IAM, chứng chỉ, DNS và target group.
+3. Lần đầu để `deploy_admin = false`, apply để tạo IAM, chứng thư, DNS và target group.
 4. Đặt `deploy_admin = true`, `terraform plan` rồi apply.
 
 ```bash
-terraform init -backend-config=backend.hcl
+terraform init -reconfigure -backend-config=backend.hcl
 terraform plan
 terraform apply
 ```
@@ -38,3 +42,11 @@ terraform apply
 
 Quyền của người apply cần thêm: tạo role IAM, ACM, bản ghi Route 53. Cost Explorer phải được bật trong Billing console
 trước khi bật `enable_cost_explorer`.
+
+Kiểm tra sau khi apply:
+
+```bash
+kubectl -n admin get pods,svc,targetgroupbinding
+kubectl -n admin rollout status deployment/admin-console --timeout=300s
+curl -sS -o /dev/null -w '%{http_code}\n' https://admin.<domain>/healthz
+```

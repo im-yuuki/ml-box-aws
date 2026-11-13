@@ -5,7 +5,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: time-slicing-shared
-  namespace: gpu-operator-resources
+  namespace: ${namespace}
 data:
   # Default for nodes without the label (dedicated pool): no sharing.
   none: |-
