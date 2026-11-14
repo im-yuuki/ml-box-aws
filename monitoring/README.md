@@ -8,17 +8,16 @@
 - **Alertmanager** route tất cả alerts → SNS topic `jhub-gpu-sandbox-dev-apse2-mlbox-alerts` qua IRSA `jhub-gpu-sandbox-dev-apse2-alertmanager` (namespace `monitoring`, SA `kube-prometheus-stack-alertmanager`).
 - **PrometheusRule** `gpu-alerts` (`monitoring/gpu-alerts-rules.yaml`): `GpuMemoryHigh`, `GpuXidError`, `GpuMetricsMissing`, `GpuNodeNotReady`, `GpuNodeChurn` — đã load và evaluate OK.
 - **PrometheusRule** `crashloop-alerts` (`monitoring/crashloop-rules.yaml`): `PodCrashLooping` (2 restarts/10m).
-- **Stack `terraform/stacks/08-alerting`** (đã apply): SNS topic, IRSA roles (alertmanager, fluent-bit), log group `/mlbox` (retention 30d), 8 CloudWatch alarms (ALB hub/dashboard unhealthy + 5xx + RDS hub/usage CPU/connections/memory) — tất cả → SNS.
+- **Stack `terraform/stacks/08-alerting`** (đã apply): SNS topic, IRSA roles (alertmanager, fluent-bit), log group `/mlbox` (retention 30d), 9 CloudWatch alarms (ALB hub/dashboard unhealthy + 5xx + RDS hub/usage CPU/connections/freeable memory) — tất cả → SNS, tất cả trạng thái OK (kiểm 2026-11-14).
 
-## Bắt buộc người dùng làm
+## Trạng thái subscription SNS (2026-11-14)
 
-- **Subscription SNS chưa tạo**: topic chưa có ai nhận → alert không tới ai. Chạy `aws sns subscribe --topic-arn <arn> --protocol email --notification-endpoint <email của bạn>` rồi **xác nhận email** (AWS gửi link; click trước khi test notify lại).
-- Xác nhận delivery: khi đã subscribe, thử lại `kubectl` deploy → xem logs AM: `kubectl -n monitoring logs statefulset/alertmanager-... --tail=5` không còn lỗi; SNS CloudWatch metric `AWS/SNS NumberOfMessagesPublished` tăng.
+- **Đã xác nhận**: `me@june8th.eu.org` → topic `…-mlbox-alerts`, `PendingConfirmation=false` (kiểm lại bằng `sns get-subscription-attributes`). Alert giờ tới được email.
 
 ## Verify bằng chứng 2026-11-14
 
 - dcgm-exporter (stack 05-gpu, nodeaffinity tier shared|dedicated, serviceMonitor on): GPU metrics xuất hiện khi có GPU node (`g4dn.xlarge`): `DCGM_FI_DEV_GPU_UTIL`, `DCGM_FI_DEV_FB_USED`, `DCGM_FI_DEV_MEM_COPY_UTIL`... qua pod `gpu-smoke`.
-- Alertmanager firing cảnh báo thật: SNS `NumberOfMessagesPublished` = 1.0 @ 16:27, `NumberOfNotificationsFailed` = rỗng (topic chưa có subscriber nên không có email).
+- Alertmanager firing cảnh báo thật (2026-11-14 16:27): SNS `NumberOfMessagesPublished` = 1.0 @ 16:27, `NumberOfNotificationsFailed` = rỗng. Lúc đó topic chưa có subscriber; subscription đã được xác nhận sau đó.
 
 ## Gotchas (đã mất thời gian khắc phục)
 

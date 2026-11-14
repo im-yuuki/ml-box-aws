@@ -1,6 +1,6 @@
 # MLBox — Deployment Runbook
 
-> Cập nhật: 2026-11-13. Trạng thái chi tiết và backlog: [`TODO.md`](../TODO.md).
+> Cập nhật: 2026-11-14. Trạng thái chi tiết và backlog: [`TODO.md`](../TODO.md).
 
 Tài liệu này là quy trình triển khai **đầy đủ** của MLBox trên **một AWS account, một region**,
 từ trạng thái trống đến hệ thống chạy được. Mọi lệnh dưới đây chạy từ thư mục gốc repository.
@@ -8,29 +8,29 @@ từ trạng thái trống đến hệ thống chạy được. Mọi lệnh dư
 Bản runbook này đã được kiểm chứng bằng một lần phá toàn bộ hạ tầng và dựng lại từ đầu
 (`01-foundation` → `07-admin`) trên region `ap-southeast-2`, account `451058046864`.
 
-<<<<<<< HEAD
 | Thành phần | Trạng thái | Ghi chú |
 |---|---|---|
 | `00-bootstrap` | ✅ Đã apply fresh | S3 state, DynamoDB lock, Route53 zone, ACM certificates và validation records |
 | `01-foundation` | ✅ Đã apply | VPC, EKS, system node group, Karpenter, CPU NodePool |
 | `02-platform` | ✅ Đã apply | RDS, Cognito, ALB, Route53 aliases, Load Balancer Controller |
 | DNS / ACM | ✅ Hoàn tất | Cloudflare delegate `mlbox` sang Route53; cả hai certificate đều `ISSUED` |
+| `06-storage` | ✅ Đã apply | EFS + StorageClass `efs-sc` (một PVC mỗi Project) |
 | `03-hub-app` | ✅ Đã apply | JupyterHub tại `notebook.mlbox.june8th.me`, có BFF service token |
 | Hub theme | ✅ Đã apply | ConfigMap theme MLBox và rollout Hub |
 | `04-dashboard` | ✅ Đã apply | Dashboard + BFF, apex listener rule và healthy target |
 | `05-gpu` (tên cũ `99-unverified-gpu`) | ✅ Đã apply | Device plugin (time-slicing `nvidia.com/gpu`) và dcgm-exporter; GPU quota On-Demand G/VT = 8 vCPU |
-| `08-alerting` | ✅ Đã apply (2026-11-14) | SNS topic, IRSA roles (alertmanager, fluent-bit), 8 CloudWatch alarms (ALB, RDS) → SNS |
+| `07-admin` | ✅ Đã apply (2026-11-13) | Admin console tại `admin.mlbox.june8th.me` (lần deploy đầu lên cluster thật) |
+| `08-alerting` | ✅ Đã apply (2026-11-14) | SNS topic, IRSA roles (alertmanager, fluent-bit), 9 CloudWatch alarms (ALB, RDS) → SNS |
 | `monitoring` (kube-prometheus-stack + fluent-bit) | ✅ Đã cài (2026-11-14) | namespace `monitoring` (Prometheus/Alertmanager), `amazon-cloudwatch` (fluent-bit → `/mlbox`) |
-| GPU profile trong hub | ⚠️ Đã bật | Đã kiểm chứng trên g4dn (T4); shared L4 (g6) phụ thuộc capacity AWS |
-| BFF / dashboard | ✅ Đã deploy, ⚠️ chưa E2E | Health 200; route Project/Team/lời mời/artifact đã có; luồng trình duyệt với tài khoản thật chưa kiểm chứng |
-=======
+| GPU profile trong hub | ✅ Đã bật | Đã kiểm chứng trên g4dn (T4); shared L4 (g6) phụ thuộc capacity AWS |
+| BFF / dashboard | ✅ Đã deploy + E2E OK (2026-11-14) | register → login → project → sandbox → notebook → artifact → quota; verify code by mail đã kiểm chứng (2026-11-14) |
+
 ## 1. Nguyên tắc
->>>>>>> origin/master
 
 - 1 cluster EKS cho mỗi region. Tên cluster: `jhub-gpu-sandbox-<env>-<region code>`, ví dụ
   `jhub-gpu-sandbox-dev-apse2` (mã region ngắn vì IAM `name_prefix` giới hạn 38 ký tự).
-- 8 stack Terraform, mỗi stack một state riêng trên S3. `00-bootstrap` tạo backend state và giữ
-  state **local**; 7 stack còn lại dùng remote state.
+- 9 stack Terraform, mỗi stack một state riêng trên S3. `00-bootstrap` tạo backend state và giữ
+  state **local**; 8 stack còn lại dùng remote state.
 - Không tạo, sửa hoặc xóa resource ngoài Terraform. `kubectl edit` chỉ dùng để debug, phải đồng bộ
   lại Terraform ngay sau đó.
 - Luôn pin image theo commit SHA (`<40 hex>`). Không dùng `latest` cho production.
@@ -41,7 +41,7 @@ Bản runbook này đã được kiểm chứng bằng một lần phá toàn b�
 
 | Bước | Stack | Nội dung | Bắt buộc |
 |---|---|---|---|
-| 1 | `00-bootstrap` | Bucket state + bảng lock DynamoDB + zone Route53 + 2 chứng thư ACM + sinh `backend.hcl` cho 01–07 | ✅ 1 lần / account |
+| 1 | `00-bootstrap` | Bucket state + bảng lock DynamoDB + zone Route53 + 2 chứng thư ACM + sinh `backend.hcl` cho 01–08 | ✅ 1 lần / account |
 | 2 | `01-foundation` | VPC, EKS 1.36, managed node group, Karpenter, NodePool `cpu-user` | ✅ |
 | 3 | `02-platform` | Bucket S3 workspace, RDS (hub + usage), Cognito, ALB + target group, Load Balancer Controller, RBAC cho GitHub deployer, namespace `dashboard` | ✅ |
 | 4 | `06-storage` | EFS + addon EFS CSI driver + StorageClass `efs-sc` + IAM role của CSI | ✅ **trước 03** |
@@ -50,11 +50,13 @@ Bản runbook này đã được kiểm chứng bằng một lần phá toàn b�
 | 7 | `04-dashboard` | Dashboard + BFF, apex listener rule | ✅ |
 | 8 | `05-gpu` | NVIDIA device plugin (time-slicing) + DCGM exporter | ⭕ tuỳ chọn |
 | 9 | `07-admin` | Admin console tại `admin.<domain>` | ⭕ tuỳ chọn |
+| 10 | `08-alerting` | SNS topic, IRSA roles, 9 CloudWatch alarms (ALB, RDS), log group `/mlbox` | ⭕ tuỳ chọn (observability) |
 
 ```text
 00-bootstrap → 01-foundation → 02-platform → 06-storage → 03-hub-app → theme → 04-dashboard
                                                                                               ├→ 05-gpu
                                                                                               └→ 07-admin
+                                                                                               └→ 08-alerting  (+ kube-prometheus-stack & aws-fluent-bit bằng Helm)
 ```
 
 > `06-storage` phải apply **trước** `03-hub-app`: mỗi Project tạo một PVC với StorageClass `efs-sc`,
@@ -95,12 +97,6 @@ aws sts get-caller-identity
 
 Bản cũ hơn dùng `aws sso login --profile <tên-profile>`. Profile cần đặt trong `~/.aws/config`:
 
-<<<<<<< HEAD
-- AWS CLI, Terraform `>= 1.6`, `kubectl`, Helm provider credentials, Docker Buildx và Helm CLI (`helm repo add prometheus-community https://prometheus-community.github.io/helm-charts; helm repo add nvidia https://nvidia.github.io/dcgm-exporter/helm-charts; helm repo add eks https://aws.github.io/eks-charts`).
-- Quyền truy cập account/region đúng với backend S3.
-- Cloudflare chỉ dùng để quản lý nameserver; zone `mlbox.june8th.me` hiện do Route53 quản lý.
-- Không commit `backend.hcl`, `terraform.tfvars`, state, plan hoặc secrets.
-=======
 ```ini
 [profile <tên-profile>]
 sso_start_url = https://ssoins-<id>.portal.us-east-1.app.aws/
@@ -109,7 +105,11 @@ sso_account_id = <account-id>
 sso_role_name = AdministratorAccess
 region        = ap-southeast-2
 ```
->>>>>>> origin/master
+
+- AWS CLI, Terraform `>= 1.6`, `kubectl`, Helm provider credentials, Docker Buildx và Helm CLI (`helm repo add prometheus-community https://prometheus-community.github.io/helm-charts; helm repo add nvidia https://nvidia.github.io/dcgm-exporter/helm-charts; helm repo add eks https://aws.github.io/eks-charts`).
+- Quyền truy cập account/region đúng với backend S3.
+- Cloudflare chỉ dùng để quản lý nameserver; zone `mlbox.june8th.me` hiện do Route53 quản lý.
+- Không commit `backend.hcl`, `terraform.tfvars`, state, plan hoặc secrets.
 
 Terraform đọc profile qua biến môi trường. Trên Windows dùng wrapper `.private/aws-env.cmd`
 (file này không commit), trên macOS/Linux:
@@ -142,7 +142,7 @@ Stack này tạo:
 - zone Route53 `<domain>` và 2 chứng thư ACM (`<domain>` và `notebook.<domain>`) kèm bản ghi CNAME
   validation;
 - file `backend.hcl` cho `01-foundation`, `02-platform`, `03-hub-app`, `04-dashboard`, `05-gpu`,
-  `06-storage`, `07-admin`.
+  `06-storage`, `07-admin`, `08-alerting`.
 
 State của stack này là **local** (`terraform.tfstate` trong thư mục stack) và không được commit.
 Bảo vệ file này: mất nó thì phải `terraform import` lại toàn bộ resource của bootstrap trước khi
@@ -246,7 +246,7 @@ kubectl -n hub rollout status deployment/hub --timeout=300s
 curl -sS -o /dev/null -w '%{http_code}\n' https://notebook.<domain>/hub/login
 ```
 
-## 10. Bước 7 — `04-dashboard`
+## 10. Bước 6 — `04-dashboard`
 
 ```bash
 cd terraform/stacks/04-dashboard
@@ -273,28 +273,7 @@ aws elbv2 describe-target-health \
 curl -i https://<domain>/
 ```
 
-## 12. Monitoring + alerting + logs (tuỳ chọn, 2026-11-14)
-
-kube-prometheus-stack được cài bằng Helm với values `monitoring/kube-prometheus-stack-values.yaml` (namespace `monitoring`, chart 45.12.0). Sau khi stack monitoring sẵn, `05-gpu` apply với dcgm-exporter `serviceMonitor.enabled=true` (biến `enable_dcgm_service_monitor`, mặc định `true`). Lưu ý thứ tự: tạo CRDs (helm) **trước** khi apply dcgm-exporter, nếu không `serviceMonitor` sẽ fail. Các giá trị SNS/IRSA trong values cứng cho cluster này.
-
-Stack `08-alerting` tạo SNS topic + IRSA roles + 8 CloudWatch alarms (ALB, RDS) + log group `/mlbox` (30 ngày). Không cần apply lại các stack khác.
-
-```bash
-cd terraform/stacks/08-alerting
-terraform init -reconfigure -backend-config=backend.hcl
-terraform plan
-terraform apply
-```
-
-Sau đó apply monitoring trong `05-gpu`, rồi annotate SA (đã có trong `monitoring/kube-prometheus-stack-values.yaml`):
-
-```bash
-kubectl -n monitoring rollout restart statefulset/alertmanager-kube-prometheus-stack-alertmanager
-```
-
-Fluent Bit (không cần Terraform): `helm install aws-fluent-bit eks/aws-for-fluent-bit -n amazon-cloudwatch --create-namespace -f monitoring/fluent-bit-values.yaml`. Rollback: `helm uninstall aws-fluent-bit -n amazon-cloudwatch` và `terraform -chdir=terraform/stacks/08-alerting destroy` (xóa log group `/mlbox` + SNS topic + alarms).
-
-## 12. Bước 8 — `05-gpu` (tuỳ chọn)
+## 11. Bước 7 — `05-gpu` (tuỳ chọn)
 
 ```bash
 cd terraform/stacks/05-gpu
@@ -316,7 +295,7 @@ kubectl get nodes -l accelerator=nvidia
 kubectl -n kube-system get pods | grep -E 'nvidia|dcgm'
 ```
 
-## 13. Bước 9 — `07-admin` (tuỳ chọn)
+## 12. Bước 8 — `07-admin` (tuỳ chọn)
 
 Console quản trị tại `https://admin.<domain>`. Xem [`terraform/stacks/07-admin/README.md`](../terraform/stacks/07-admin/README.md).
 
@@ -347,6 +326,30 @@ ADMIN_PASSWORD='mật khẩu >= 12 ký tự' npm run hash-password
 
 Stack chỉ tạo IAM, chứng thư, DNS và target group khi `deploy_admin = false`; bật `true` ở lần apply
 sau để tạo namespace, Deployment, Service và listener rule.
+
+## 13. Monitoring + alerting + logs (tuỳ chọn, 2026-11-14)
+
+kube-prometheus-stack được cài bằng Helm với values `monitoring/kube-prometheus-stack-values.yaml` (namespace `monitoring`, chart 45.12.0). Sau khi stack monitoring sẵn, `05-gpu` apply với dcgm-exporter `serviceMonitor.enabled=true` (biến `enable_dcgm_service_monitor`, mặc định `true`). Lưu ý thứ tự: tạo CRDs (helm) **trước** khi apply dcgm-exporter, nếu không `serviceMonitor` sẽ fail. Các giá trị SNS/IRSA trong values cứng cho cluster này.
+
+Stack `08-alerting` tạo SNS topic + IRSA roles + 9 CloudWatch alarms (ALB, RDS — gồm 2 alarm RDS memory hub/usage) + log group `/mlbox` (30 ngày). Không cần apply lại các stack khác.
+
+```bash
+cd terraform/stacks/08-alerting
+terraform init -reconfigure -backend-config=backend.hcl
+terraform plan
+terraform apply
+```
+
+Sau đó apply monitoring trong `05-gpu`, rồi restart alertmanager statefulset (annotation SA đã có trong `monitoring/kube-prometheus-stack-values.yaml`):
+
+```bash
+kubectl -n monitoring rollout restart statefulset/alertmanager-kube-prometheus-stack-alertmanager
+```
+
+Fluent Bit (không cần Terraform): `helm install aws-fluent-bit eks/aws-for-fluent-bit -n amazon-cloudwatch --create-namespace -f monitoring/fluent-bit-values.yaml`.
+Rollback: `helm uninstall kube-prometheus-stack -n monitoring`, `helm uninstall aws-fluent-bit -n amazon-cloudwatch`, và `terraform -chdir=terraform/stacks/08-alerting destroy` (xóa log group `/mlbox` + SNS topic + alarms).
+
+Chi tiết đầy đủ, verify và rollback: [`monitoring/README.md`](../monitoring/README.md).
 
 ## 14. Image và GHCR
 
@@ -402,7 +405,7 @@ Cách 1 — xoá sạch và dựng lại (dùng khi muốn trả hệ thống v�
 cd terraform/stacks/02-platform
 terraform destroy      # xoá cả hai RDS, Cognito, bucket workspace
 cd ../..
-# dựng lại theo mục 5–10
+# dựng lại theo mục 5–12
 ```
 
 Khi destroy, cần tắt deletion protection của database usage trước:
@@ -430,10 +433,16 @@ dữ liệu, chưa có bảng nào trong DB cho đến lần đăng nhập đầ
 Thứ tự ngược phụ thuộc:
 
 ```text
+(alerting/monitoring — dọn bằng Helm + 08-alerting destroy trước)
 07-admin → 05-gpu → 04-dashboard → 03-hub-app → 06-storage → 02-platform → 01-foundation
 ```
 
 ```bash
+# Nếu đã cài monitoring/alerting:
+helm uninstall kube-prometheus-stack -n monitoring
+helm uninstall aws-fluent-bit -n amazon-cloudwatch
+cd terraform/stacks/08-alerting      && terraform destroy
+
 cd terraform/stacks/07-admin      && terraform destroy
 cd terraform/stacks/05-gpu        && terraform destroy
 cd terraform/stacks/04-dashboard  && terraform destroy
@@ -466,7 +475,7 @@ Bảng giá trị phải thay cho mọi tài khoản khác:
 | Owner GHCR trong image | `terraform.tfvars` của 03, 04, 07 | `im-yuuki` |
 | `admin_password_hash` | `terraform.tfvars` của 07 | `npm run hash-password` trong `web/admin` |
 | `state_bucket` | `terraform.tfvars` của 07 | `jhub-gpu-sandbox-tfstate-<account-id>` |
-| Region | `terraform.tfvars` của 01, 02, 03, 04, 05, 06, 07 | `ap-southeast-2` (mặc định) |
+| Region | `terraform.tfvars` của 01, 02, 03, 04, 05, 06, 07, 08 | `ap-southeast-2` (mặc định) |
 | Profile AWS | biến môi trường | `AdministratorAccess-<account-id>` |
 
 Checklist cho account mới:
@@ -476,8 +485,8 @@ Checklist cho account mới:
 3. Tạo zone `mlbox.<domain>` ở zone cha (delegate NS) trước hoặc sau khi apply `00-bootstrap` —
    sau khi apply là chuẩn, vì lấy nameserver từ output.
 4. Chờ 2 chứng thư ACM `ISSUED`.
-5. Apply lần lượt `01 → 02 → 06 → 03 → theme → 04`, rồi `05`/`07` nếu cần.
-6. Kiểm tra theo mục 14, rồi đăng ký một tài khoản thật để chứng minh luồng Cognito.
+5. Apply lần lượt `01 → 02 → 06 → 03 → theme → 04`, rồi `05`/`07` (và `08-alerting` + monitoring) nếu cần.
+6. Kiểm tra theo mục 15, rồi đăng ký một tài khoản thật để chứng minh luồng Cognito.
 
 Những giá trị đã hard-code trong code và phải chỉnh khi đổi tên/region: `project`
 (`jhub-gpu-sandbox`), `env` (`dev`), `region_short` (`apse2`) trong `01-foundation/variables.tf`;
@@ -526,9 +535,91 @@ Toàn bộ stack `01-foundation` → `07-admin` đã được **phá hủy và d
 - Khắc phục trong quá trình verify: IAM ECR cho Karpenter node (image pull), thứ tự apply của stack
   `05-gpu`, cấu hình của Karpenter node với AL2023 AMI.
 
-## 20. Tài liệu liên quan
+## 21. Kết quả kiểm chứng bổ sung (2026-11-14)
 
-- [`docs/OPERATIONS.md`](OPERATIONS.md) — health check, log, rollout, incident, chi phí.
+- **E2E trên production** (tài khoản QA tạm qua mail.tm, đã xoá sau test): register → confirm → login →
+  tạo Project → start sandbox (`c1.large`) → mở notebook qua handoff → ghi file `e2e_canary.txt` →
+  stop → start lại → file còn nguyên (EFS hoạt động) → upload artifact 31B → download về khớp →
+  xoá Project. `/quota` trả số liệu thật. Admin `/healthz` trả `{"ok":true}`. Verify code by mail
+  **đã kiểm chứng lại cùng ngày (phiên 2)**: mã 6 số từ mail.tm (`…@fldubai.com`) đến được,
+  `/v1/auth/confirm` → 200, login → session 200, `/api/bff/usage` 200 (plan `personal_free`).
+  Tài khoản test đã xoá (Cognito); mailbox disposable giữ lại nhưng không truy cập được (mật khẩu
+  chỉ tồn tại trong phiên chạy test, không lưu lại).
+- **Chu trình autoscaling GPU kiểm chứng đầy đủ 2 chiều trên production (2026-11-14)**: pod `gpu-smoke`
+  → Karpenter tạo NodeClaim `gpu-shared-l4-qrdvg` (g4dn.xlarge on-demand, ap-southeast-2a, allocatable
+  `nvidia.com/gpu: 2`) trong < 90 giây → node Ready, dcgm-exporter + NVDP chạy → pod Running → xoá pod
+  → sau `consolidateAfter: 5m` Karpenter báo `DisruptionTerminating node … Empty` → instance terminating
+  → node NotReady. Cả scale-out lẫn scale-in đều có bằng chứng events.
+- **Cross-tenant trên cluster thật (2026-11-14, 2 danh tính thật qua mail.tm)**: test matrix
+  `web/bff/test/authz-matrix.md` — 15 kiểm chứng đều PASS: B không đọc/start/list sandbox, không list
+  projects/artifacts/usage trong space của A, không tạo invitation, không complete/download artifact của A,
+  accept invitation giả → 404, complete/download attack → 403/404; A đọc/upload/complete/xóa project
+  của mình bình thường. Cả hai tài khoản test đã xoá; DB có các dòng orphan (mlbox_users …) — purge
+  sẽ làm thủ công nếu cần (kubectl exec bị chặn trong môi trường này).
+- **Observability**: `kube-prometheus-stack` và `aws-fluent-bit` đã cài (`monitoring/`), `08-alerting`
+  đã apply (SNS topic, IRSA, 9 CloudWatch alarms ALB/RDS, log group `/mlbox` retention 30d).
+  dcgm-exporter đã bật `serviceMonitor` (cả tier shared và dedicated) với metrics custom (gồm XID).
+  Alertmanager → SNS: kiểm chứng delivery qua CloudWatch metric `AWS/SNS NumberOfMessagesPublished`
+  (= 1.0 lúc 16:27 ngày 2026-11-14); subscription email `me@june8th.eu.org` **đã xác nhận**
+  (`PendingConfirmation=false`, kiểm lại 2026-11-14 bằng `sns get-subscription-attributes`).
+- **Backup/restore**: RDS "usage" snapshot → restore → SSL query từ pod BFF → khớp counts; restore
+  test instance đã xoá, snapshot giữ lại. Terraform state: version cũ serial 9 tải về + parse OK;
+  9 remote tfstate files export về `.private/state-backup-2026-11-14/` (gitignored).
+  S3 workspace: không có object đang sống, còn 1 version cũ 31 B (`upload-canary.txt`, 2026-11-14)
+  do versioning bật — không "hoàn toàn rỗng". **EFS restore — ĐÃ PASS (2026-11-14, phiên 2)**: vault
+  tự động `aws/efs/automatic-backup-vault` có resource policy **explicit deny** mọi `backup:StartRestoreJob`
+  (và Delete*/StartCopyJob/UpdateRecoveryPointLifecycle) cho principal `*`; giải pháp là vault riêng
+  `mlbox-efs-restoretest` + role riêng `mlbox-backup-restore` (trust backup.amazonaws.com, managed policy
+  `service-role/AWSBackupServiceRolePolicyForRestores` — role cũ `AWSServiceRoleForBackup` thiếu action
+  `elasticfilesystem:Restore`) → on-demand backup COMPLETED (74 B) → restore job `e70271cb-…` COMPLETED
+  → **fs mới `fs-00b265162fad248fd` available, SizeInBytes 6144 khớp source** → dọn sau verify (đã xoá fs,
+  recovery point, vault test; giữ role `mlbox-backup-restore` cho các lần restore sau).
+  Automatic plan `aws/efs/automatic-backup-plan` **đã cover cả fs hiện tại** `fs-070506268c59fa41d`
+  (2 recovery points 2026-11-14); fs GỐC `fs-0ba6…` có 4 recovery point; restore **từ vault tự động
+  là không thể** — mọi restore phải qua vault + role riêng.
+- **CI**: `.github/workflows/integration-tests.yml` (PR #14, đã merge cùng PR #15) chạy test tích hợp
+  Postgres với service postgres:16; job pass trên `master` (11:05Z 2026-11-14). CD (`deploy.yml.disabled`)
+  vẫn tắt — rollout thủ công.
+- **Kiểm chứng lại 2026-11-14 (phiên độc lập, chỉ đọc, không thay đổi hệ thống)**:
+  - **Cluster/apps**: 3 node `Ready` (AL2023, EKS v1.36.5); toàn bộ workload Running/Completed, 0 CrashLoop;
+    GPU NodePools 0 node (scale-to-zero đúng thiết kế); image app pin `…:61c5083…`, pull anonymous (GHCR
+    public); ECR **0 repositories**; endpoints `mlbox.june8th.me` → 200, `admin…/healthz` → `{"ok":true}`,
+    `notebook.…` → 302; `/mlbox` có `IncomingBytes` ≈ 26.5 MB ngày 2026-11-13 (Fluent Bit 3 replicas Running).
+  - **CloudWatch**: **9** metric alarms, tất cả `OK`, đều gắn action → SNS topic (thêm 2 alarm
+    `rds-hub-memory-low` / `rds-usage-memory-low` so với con số 8 ghi trước đây).
+  - **Budget/Cost Anomaly (Console)**: `My Monthly Cost Budget` $50/tháng, notifications ACTUAL >85%/100%
+    và FORECASTED >100% — tất cả đang **ALARM** (chi thực ~$216.96, forecast ~$591 cho kỳ hiện tại).
+    Cost Anomaly **không có monitor nào** (danh sách rỗng); claim "Console đã có sẵn Cost Anomaly
+    Detection" **không đúng** — còn thiếu. Budget không nằm trong code (quyết định 2026-11-14).
+  - **Secrets rò rỉ đã xoay xong (phiên 2, 2026-11-14, có áp dụng vào production)**:
+    `HUB_API_TOKEN` + `HUB_AUTH_BRIDGE_TOKEN` xoay qua `-replace=random_password.bff_api_token|hub_auth_bridge_token`
+    (stack `03-hub-app`, Helm release tự redeploy 1m25s — Hub/proxy rollout mới); `BFF_SESSION_SECRET`
+    xoay qua `-replace=random_password.bff_session_secret` (stack `04-dashboard`); `USAGE_DATABASE_URL`
+    xoay qua `aws secretsmanager rotate-secret --rotate-immediately` (SM quản lý bởi RDS, rotation 7 ngày/lần
+    sẵn có) — xoay 2 lần liên tiếp vì lần plan đầu in ra giá trị vừa xoay; bản in đó bị loại khỏi
+    `AWSCURRENT` trước khi apply; URL trong `bff-config` đổi theo mà không bao giờ in ra ngoài.
+    **Hub DB master password cũng đã xoay** (cùng ngày, SM `rds!db-b35dd4a8-…`): rotate-immediately →
+    `02-platform` apply (chỉ output `db_url`, 0 thay đổi tài nguyên) → `03-hub-app` re-apply
+    (Helm nhúng URL mới, Hub rollout sạch). Verify chung: `/v1/health` 200, `admin/healthz` `{"ok":true}`,
+    `/api/bff/usage` 200, audit-export `AUDIT_EXPORT_DONE` 2 lần liên tiếp với URL mới.
+  - **State bucket** (`jhub-gpu-sandbox-tfstate-451058046864`, versioning bật): có `dev/ap-southeast-2/`
+    cho `01`–`08`; state cũ `99-unverified-gpu.tfstate` (2026-11-04) còn sót; **không có** state `00-bootstrap`.
+  - **RDS**: cả hai instance `available`, `db.t4g.micro`, `BackupRetentionPeriod=7`; automated snapshots có sẵn;
+    manual snapshot `mlbox-usage-restoretest-20261114` còn giữ. Secret SM của usage RDS rotation 7 ngày/lần
+    (`OwningService=rds`, `LastRotatedDate` 2026-11-13T17:52).
+  - **Cognito pool** `ap-southeast-2_qofPqhnVZ`: `EmailSendingAccount=COGNITO_DEFAULT` (không SES) —
+    mail.tm đã nhận email xác nhận cả ngày 2026-11-14 (audit-export và test E2E) nên deliverability
+    disposable inbox không chắc chắn; `EstimatedNumberOfUsers=0` (sau khi xoá user test).
+  - **Terraform backend OK**: `terraform init` với `AWS_PROFILE=AdministratorAccess-451058046864` đọc được
+    S3 backend + lock (v1.17.1); thông tin "S3 backend không đọc được SSO cache" đã lỗi thời.
+- **Runbook**: `docs/runbooks/features.md`, `docs/runbooks/release-acceptance.md` đã viết (2026-11-14),
+  chưa kiểm chứng bằng người thứ hai.
+
+## 22. Tài liệu liên quan
+
+- [`docs/OPERATIONS.md`](OPERATIONS.md) — health check, log tập trung, monitoring, incident, chi phí.
+- [`monitoring/README.md`](../monitoring/README.md) — kiến trúc monitoring/alerting, verify, rollback.
+- [`docs/runbooks/features.md`](runbooks/features.md), [`docs/runbooks/release-acceptance.md`](runbooks/release-acceptance.md) — runbook vận hành feature và checklist release.
 - [`deploy/DNS-CLOUDFLARE.md`](../deploy/DNS-CLOUDFLARE.md) — chi tiết delegation DNS.
 - [`terraform/stacks/*/README.md`](../terraform/stacks) — tài liệu riêng từng stack.
 - [`TODO.md`](../TODO.md) — trạng thái chi tiết và backlog.
