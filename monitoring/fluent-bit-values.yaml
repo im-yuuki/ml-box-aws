@@ -1,0 +1,34 @@
+# aws-for-fluent-bit values: ship container logs to the pre-created /mlbox CloudWatch Logs group.
+# Apply with:
+#   helm install aws-for-fluent-bit eks/aws-for-fluent-bit -n amazon-cloudwatch --create-namespace \
+#     -f monitoring/fluent-bit-values.yaml
+#
+# IRSA via the SA annotation below (role created in stack 08-alerting, least privilege on /mlbox*).
+# The log group already exists: do NOT set autoCreateGroup=true.
+
+serviceAccount:
+  create: true
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::451058046864:role/jhub-gpu-sandbox-dev-apse2-fluent-bit
+
+cloudWatchLogs:
+  enabled: true
+  match: "*"
+  region: "ap-southeast-2"
+  logGroupName: "/mlbox"
+  logStreamPrefix: "mlbox-"
+  logStreamTemplate: "$kubernetes['namespace_name'].$kubernetes['pod_name'].$kubernetes['container_name']"
+  logRetentionDays: 30
+  autoCreateGroup: false
+
+cloudWatch:
+  enabled: false
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 128Mi
+
+tolerations: []

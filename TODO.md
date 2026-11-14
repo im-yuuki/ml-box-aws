@@ -26,6 +26,7 @@ Target sản phẩm và thứ tự phase: [`docs/multi-tenant-product-plan.md`](
 - ☐ **Số units và giá gói là giả định demo** (Free 20 units, Plus 100, Pro 300; $0/$8/$19). Chưa công bố; mock không thu tiền. Cần chốt trước khi công bố cho người dùng.
 - ☐ **Logo và brand pack (phase 8):** người dùng chọn concept logo.
 - ☐ **Nhánh `claude/update-backlog-2026-11-10`** (file này) chưa push. Cần xác nhận để mở PR.
+- ☐ **Secret bff-config bị lộ trong phiên làm việc 2026-11-14** (lần chạy lỗi `kubectl get secret ... -o jsonpath` vô tình in toàn bộ secret vào output): gồm `USAGE_DATABASE_URL` (mật khẩu master RDS usage), `BFF_SESSION_SECRET`, `HUB_API_TOKEN`, `HUB_AUTH_BRIDGE_TOKEN`. Cần **xoay cả bốn giá trị** theo quy trình deploy (đổi secret trong stack + apply + restart BFF/Hub). Chưa xoay vì cần thay đổi production có kiểm soát.
 
 ## Đã xong (đã kiểm chứng ở mức code/deploy)
 
@@ -66,13 +67,13 @@ Target sản phẩm và thứ tự phase: [`docs/multi-tenant-product-plan.md`](
 - ✅ Usage (MVP): phiên sandbox từ sự kiện start/stop/observed; tổng giờ theo Project và Space.
 
 ### Billing (mock)
-- ✅ Mô hình compute-unit: một pool units/tháng cho mỗi Space; CPU 1 unit/giờ, GPU 10 unit/giờ (`COMPUTE_UNIT_RATES`).
+- ✅ Mô hình compute-unit: một pool units/tháng cho mỗi Space; CPU 1 unit/giờ, GPU 10 unit/giờ (trước đây `COMPUTE_UNIT_RATES`, hiện `CREDIT_RATES` trong `web/bff/src/mock-billing.ts`).
 - ✅ Gói: Free (20 units, CPU only), Plus (100, GPU), Pro (300, GPU), Org Team và Growth. Đã xoá các gói "sắp ra mắt" (Personal Power, Organization Scale, Organization Enterprise) khỏi catalog.
 - ✅ Start sandbox bị chặn khi gói không có GPU (`403 GPU_NOT_IN_PLAN`) hoặc hết units (`429 QUOTA_EXCEEDED`, `metric: compute_units`).
 - ✅ Session lưu `units_per_hour` lúc start (migration `ADD COLUMN`, mặc định 1 cho dòng cũ). Session mở quá 24 giờ bị đóng ở mốc 24 giờ.
 - ✅ `/v1/usage` trả pool units của personal Space; panel Usage hiển thị units thay cho meter CPU/GPU giờ (không đo được).
 - ✅ Profile list đánh dấu `available: false` cho profile gói không cho phép.
-- ✅ Pricing doc và `COMPUTE_UNIT_RATES` đã cập nhật.
+- ✅ Pricing doc và bảng giá units mock đã cập nhật (`CREDIT_RATES`, tên cũ `COMPUTE_UNIT_RATES`).
 
 ### GPU
 - ✅ **NodePool shared chuyển sang g4dn.xlarge (T4) only** (2026-11-07). g6.xlarge (L4) thiếu capacity ở cả 3 AZ Sydney. Time-slicing 2 replica @ 8GB commit. Đã chạy `nvidia-smi` và pod `gpu-smoke`, allocatable `nvidia.com/gpu: 2`.
@@ -91,7 +92,7 @@ Target sản phẩm và thứ tự phase: [`docs/multi-tenant-product-plan.md`](
 
 ## GPU (còn lại)
 
-- ☐ Bật `serviceMonitor` của dcgm-exporter khi cluster có Prometheus CRD; kiểm tra metric thật.
+- ✅ Bật `serviceMonitor` của dcgm-exporter (2026-11-14): kube-prometheus-stack (namespace `monitoring`, values trong `monitoring/kube-prometheus-stack-values.yaml`), dcgm-exporter upgrade (gpu-stack module, nodeAffinity tier in shared|dedicated), evidence: `DCGM_FI_DEV_GPU_UTIL`/`_FB_USED`/`_MEM_COPY_UTIL` trong Prometheus khi GPU node up; rules `GpuMemoryHigh`/`GpuXidError`/`GpuMetricsMissing`/`GpuNodeChurn`/`GpuNodeNotReady` đã load. Ghi chú: `DCGM_FI_DEV_XID_ERRORS` là gauge → chỉ xuất hiện khi Xid đã xảy ra (không có giá trị 0 idle).
 - ⚠️ **State `01-foundation` lệch cluster:** plan muốn destroy fck-NAT, tạo NAT gateway, thay IAM. Label `nvidia.com/device-plugin.config=any` trên NodePool `gpu-shared-l4` đã được patch tay. Cần reconcile trước khi apply `01` lại.
 - ☐ Cập nhật tài liệu thiết kế GPU: `renameByDefault=false` là quyết định mới (xem `terraform/modules/gpu-stack`).
 
@@ -131,21 +132,22 @@ Target sản phẩm và thứ tự phase: [`docs/multi-tenant-product-plan.md`](
 
 - ✅ BFF unit test (`npm test`, 133 test). Test tích hợp Postgres (`npm run test:integration`, cần `DATABASE_URL`).
 - ✅ Build và push image GHCR tự động.
-- ☐ Đưa test tích hợp Postgres vào CI (hiện chạy tay).
+- ⚠️ Đưa test tích hợp Postgres vào CI (2026-11-14): PR **#14** (branch `ci/bff-integration-tests`) chứa `.github/workflows/integration-tests.yml` và sửa test cũ đang bị stale (`unitsPerHourForRuntime` → `creditsPerHourForRuntime`). Job `integration` **pass 37s** (nền workflow `.github/workflows/integration-tests.yml`, service postgres:16). Chưa merge (đợi bạn review/merge; gpu image job pending).
 - ☐ Test dashboard cho component và route (hiện chỉ có test helper).
 - ☐ CD: `deploy.yml.disabled` vẫn tắt. Rollout hiện thủ công theo `docs/DEPLOYMENT.md`; cần rollout có approval.
 
 ## Vận hành
 
 - ☐ **Repo gốc `terraform/stacks/03-hub-app/terraform.tfvars` vẫn trỏ `cpu_image`/`gpu_image` sang ECR** (đã xóa). Cập nhật sang GHCR trước khi chạy lại stack từ repo gốc.
-- ☐ **Backup notebook storage:** EFS hiện giữ file người dùng nhưng chưa có backup/restore được kiểm chứng.
-- ☐ Runbook rollout: pin tag SHA, apply theo thứ tự `02` → `03` → `04`, rollout deployment; cách rollback bằng tag cũ.
-- ☐ Monitoring/alert cho EKS, ALB, target health, pod restart, RDS, quota GPU.
-- ☐ Log retention, audit trail và hướng dẫn điều tra incident.
-- ☐ Backup/restore test cho RDS, S3 workspace và Terraform state.
+- ⚠️ **Backup notebook storage:** EFS on-demand backup job `0f4317bd…` COMPLETED 2026-11-14 (fs-070506268c59fa41d; 6KB, gần như trống). Tự động hàng ngày đã bật (plan `aws/efs/automatic-backup-plan`) nhưng chỉ cover fs GỐC `fs-0ba6…` — fs hiện tại chưa có recovery point (đổi fs 2026-11-13), cần chờ lịch hoặc chạy on-demand định kỳ. **Restore test bị chặn**: `backup:StartRestoreJob` bị explicit deny ở resource-based policy của account (ACCESS_DENIED, không phải lỗi técnico). Cần xin quyền hoặc dùng recovery via restore tới fs mới nếu được phép.
+- ☐ Runbook rollout: đã viết `docs/runbooks/release-acceptance.md` (smoke sau rollout, rollback, CD decision) và `docs/runbooks/features.md` (teams/invitations, sandbox, artifacts, billing units, admin actions) — 2026-11-14. **Chưa** kiểm chứng bước "người thứ hai làm theo runbook" — cần người vận hành thứ hai làm thử.
+- Monitoring/alerting: metrics/alert rules GPU, Alertmanager → SNS, CloudWatch alarms ALB/RDS, pod CrashLoop rule (`PodCrashLooping`) đã hoạt động (2026-11-14, xem mục GPU). Còn thiếu: chốt email/SNS subscription — **đã tạo** subscription `me@june8th.eu.org` (pending confirmation, chờ bạn click link); quota GPU G/VT 8 vCPU chưa có cảnh báo (giới hạn của AWS Service Quotas metric — cân nhắc dùng Usage Alarm qua quotas API hoặc CloudWatch Usage metric); audit export đã có (CronJob `audit-export` → `/mlbox`).
+- ✅ Log tập trung: Fluent Bit → `/mlbox` retention 30d đã triển khai; hub/bff/dashboard/karpenter/admin logs đều trong đó (tìm bằng CloudWatch Logs Insights).
+- ⚠️ Budget và cost anomaly alert: chưa tạo (theo quyết định 2026-11-14 — AWS Console đã có sẵn Budget + Cost Anomaly Detection; không làm lại trong code). Cần một quyết định rõ ràng trước khi tuyên bố production-ready.
+- ⚠️ Backup/restore test cho RDS, S3 workspace và Terraform state (2026-11-14): **RDS usage instance** snapshot `mlbox-usage-restoretest-20261114` → restore sang instance mới → kết nối SSL từ pod bff → counts `mlbox_users/projects/audit_events/usage_sessions` = 0/0/0/0 khớp bản source; restore test instance đã xoá sau verify. **Terraform state** versioning enabled; version không-mới-nhất (serial 9) tải về + parse JSON OK. **S3 workspace** bucket `jhub-gpu-sandbox-dev-apse2-workspace-…` versioning enabled nhưng **rỗng** (không object nào) — restore chưa có gì để test. **EFS restore** bị chặn explicit deny như mục "Backup notebook storage".
 - ☐ Budget và cost anomaly alert; quy trình dừng lab khi không dùng.
-- ☐ Runbook và rollback cho các tính năng mới (team, lời mời, sandbox theo Project, artifact, usage, billing units).
-- ☐ Acceptance checklist cho release dashboard và BFF trước khi tuyên bố production-ready.
+- ⚠️ Runbook và rollback cho các tính năng mới (2026-11-14): đã viết `docs/runbooks/features.md` và `docs/runbooks/release-acceptance.md`. **Chưa** kiểm chứng bằng người thứ hai.
+- ✅ Acceptance checklist chạy thật trên môi trường production (2026-11-14, tài khoản QA tạm `mlbox-test-*` qua mail.tm): register → confirm (admin-confirm do mail không đến được disposable inbox từ default Cognito sender — **verify code by mail chưa kiểm chứng cuối**) → login → tạo project → start sandbox (`c1.large` CPU profile) → mở notebook qua handoff → ghi file `e2e_canary.txt` → stop → start lại → không mất file (EFS OK) → upload artifact 31B → download về nội dung khớp → xóa project. `/quota` trả số liệu thật (19.9/20 credits, 0.1 credits active). Admin `/healthz` trả `{"ok":true}`. Test user đã xóa; sandbox pod xóa. Build/runbook releases giữ checklist này.
 
 ## Phase còn lại của kế hoạch multi-tenant
 

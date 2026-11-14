@@ -17,6 +17,8 @@ Tài liệu này là quy trình triển khai hiện tại cho một region. Quy 
 | Hub theme | ✅ Đã apply | ConfigMap theme MLBox và rollout Hub |
 | `04-dashboard` | ✅ Đã apply | Dashboard + BFF, apex listener rule và healthy target |
 | `05-gpu` (tên cũ `99-unverified-gpu`) | ✅ Đã apply | Device plugin (time-slicing `nvidia.com/gpu`) và dcgm-exporter; GPU quota On-Demand G/VT = 8 vCPU |
+| `08-alerting` | ✅ Đã apply (2026-11-14) | SNS topic, IRSA roles (alertmanager, fluent-bit), 8 CloudWatch alarms (ALB, RDS) → SNS |
+| `monitoring` (kube-prometheus-stack + fluent-bit) | ✅ Đã cài (2026-11-14) | namespace `monitoring` (Prometheus/Alertmanager), `amazon-cloudwatch` (fluent-bit → `/mlbox`) |
 | GPU profile trong hub | ⚠️ Đã bật | Đã kiểm chứng trên g4dn (T4); shared L4 (g6) phụ thuộc capacity AWS |
 | BFF / dashboard | ✅ Đã deploy, ⚠️ chưa E2E | Health 200; route Project/Team/lời mời/artifact đã có; luồng trình duyệt với tài khoản thật chưa kiểm chứng |
 
@@ -43,7 +45,7 @@ kubectl get nodes
 
 Cần có:
 
-- AWS CLI, Terraform `>= 1.6`, `kubectl`, Helm provider credentials và Docker Buildx.
+- AWS CLI, Terraform `>= 1.6`, `kubectl`, Helm provider credentials, Docker Buildx và Helm CLI (`helm repo add prometheus-community https://prometheus-community.github.io/helm-charts; helm repo add nvidia https://nvidia.github.io/dcgm-exporter/helm-charts; helm repo add eks https://aws.github.io/eks-charts`).
 - Quyền truy cập account/region đúng với backend S3.
 - Cloudflare chỉ dùng để quản lý nameserver; zone `mlbox.june8th.me` hiện do Route53 quản lý.
 - Không commit `backend.hcl`, `terraform.tfvars`, state, plan hoặc secrets.
@@ -188,7 +190,31 @@ Chỉ đánh dấu dashboard hoàn tất end-to-end sau khi môi trường AWS m
 - sandbox list/start/stop chạy với user thật và không thể truy cập user khác;
 - BFF readiness `/v1/health` trả `200` sau khi Secret và remote states được cấu hình.
 
+## Alerting + centralized logs (08-alerting)
+
+Stack `08-alerting` tạo SNS topic + IRSA roles + 8 CloudWatch alarms (ALB, RDS) + log group `/mlbox`. Không cần apply lại các stack khác.
+
+```bash
+cd terraform/stacks/08-alerting
+terraform init -reconfigure -backend-config=backend.hcl
+terraform plan
+terraform apply
+```
+
+Sau đó annotate SA (đã làm qua helm trong `monitoring/kube-prometheus-stack-values.yaml`):
+
+```bash
+kubectl -n monitoring rollout restart statefulset/alertmanager-kube-prometheus-stack-alertmanager
+```
+
+Fluent Bit: `helm install aws-fluent-bit eks/aws-for-fluent-bit -n amazon-cloudwatch --create-namespace -f monitoring/fluent-bit-values.yaml`. Rollback: `helm uninstall aws-fluent-bit -n amazon-cloudwatch` và `terraform -chdir=terraform/stacks/08-alerting destroy` (xóa log group `/mlbox` + SNS topic).
+
+Lưu ý thứ tự: apply stack monitoring (kube-prometheus-stack) + dcgm-exporter **trước**, stack 08 **sau**, fluent-bit cuối. Các giá trị SNS/IRSA trong values cứng cho cluster này.
+
 ## GPU (optional)
+
+Monitoring (2026-11-14): kube-prometheus-stack được cài bằng Helm với values `monitoring/kube-prometheus-stack-values.yaml` (chart 45.12.0, namespace `monitoring`). Sau khi stack monitoring sẵn, `05-gpu` apply với dcgm-exporter `serviceMonitor.enabled=true` (biến `enable_dcgm_service_monitor`, mặc định `true`). Lưu ý thứ tự: tạo CRDs (helm) trước khi apply dcgm-exporter, nếu không `serviceMonitor` sẽ fail.
+
 
 Chỉ chạy sau khi AWS cấp quota cho instance GPU và đã xác nhận image GPU:
 

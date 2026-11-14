@@ -1,0 +1,20 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: crashloop-alerts
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+    app.kubernetes.io/part-of: kube-prometheus-stack
+spec:
+  groups:
+    - name: pods.rules
+      rules:
+        - alert: PodCrashLooping
+          expr: rate(kube_pod_container_restarts_total[10m]) * 10 > 2
+          for: 3m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Pod restarting repeatedly"
+            description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} container {{ $labels.container }} restarted {{ $value | printf \"%.1f\" }} times in 10 minutes."

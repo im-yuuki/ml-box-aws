@@ -19,6 +19,12 @@ variable "enable_dcgm_exporter" {
   default     = true
 }
 
+variable "enable_dcgm_service_monitor" {
+  description = "Create a ServiceMonitor for dcgm-exporter (requires Prometheus Operator CRDs, e.g. from kube-prometheus-stack)."
+  type        = bool
+  default     = true
+}
+
 variable "gpu_shared_replicas_l4" {
   description = "replicas for L4 time-slicing @ 8GB commit factor 1.0. L4 24GB -> 3."
   type        = number

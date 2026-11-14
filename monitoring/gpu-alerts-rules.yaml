@@ -1,0 +1,70 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: gpu-alerts
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+    app.kubernetes.io/part-of: kube-prometheus-stack
+spec:
+  groups:
+    - name: gpu.rules
+      rules:
+        # FB used/(used+free) > 90% for 10m — T4 has 15096 MiB total
+        - alert: GpuMemoryHigh
+          expr: |
+            (sum by (instance) (DCGM_FI_DEV_FB_USED))
+            /
+            (sum by (instance) (DCGM_FI_DEV_FB_USED) + sum by (instance) (DCGM_FI_DEV_FB_FREE))
+            > 0.9
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "GPU memory usage > 90%"
+            description: "GPU {{ $labels.instance }} framebuffer usage is {{ $value | humanizePercentage }} of 15 GiB."
+
+        # DCGM exports XID_ERRORS only when an Xid occurred, so the series' presence == error
+        - alert: GpuXidError
+          expr: count(DCGM_FI_DEV_XID_ERRORS) > 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "GPU Xid error reported"
+            description: "NVIDIA driver reported an Xid error on {{ $labels.hostname }} ({{ $labels.err_msg }}). Consider cordoning the node."
+
+        # A GPU node of our two tiers not ready while its GPU pods are scheduled
+        - alert: GpuNodeNotReady
+          expr: |
+            kube_node_status_condition{condition="Ready",status="false"} * on (node) group_left()
+            kube_node_labels{tier=~"shared|dedicated"}
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "GPU node NotReady"
+            description: "GPU node {{ $labels.node }} (tier={{ $labels.tier }}) not Ready for 5m."
+
+        # dcgm-exporter target missing while GPU nodes exist (GPU metrics gone)
+        - alert: GpuMetricsMissing
+          expr: |
+            sum(kube_node_labels{tier=~"shared|dedicated"}) > 0
+            and on()
+            sum(up{job="dcgm-exporter"}) == 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "dcgm-exporter not scraping"
+            description: "GPU node(s) exist but no dcgm-exporter target is scrapeable for 5m."
+
+        - alert: GpuNodeChurn
+          expr: |
+            changes(kube_node_labels{tier=~"shared|dedicated"}[1h]) > 4
+          for: 10m
+          labels:
+            severity: info
+          annotations:
+            summary: "GPU node churn"
+            description: "GPU nodes churned more than 4 times in the last hour ({{ $value }}). Check Karpenter disruption budgets and consolidation."
