@@ -10,13 +10,15 @@ mặc định dùng account `451058046864`, region `ap-southeast-2` và cluster
 - Dashboard là public frontend tại `https://mlbox.june8th.me`.
 - Luồng bắt buộc đã được redeploy fresh; CPU baseline đang chạy trên cluster
   `jhub-gpu-sandbox-dev-apse2`.
+- E2E production đã kiểm chứng (2026-11-14): register → confirm → login → project → sandbox →
+  notebook (handoff) → artifact → `/quota` (tài khoản QA tạm, đã xoá). Mail xác nhận mã chưa kiểm
+  chứng cuối; xem `docs/DEPLOYMENT.md` mục 21.
 - Dashboard production đã được xác nhận qua ALB: `/` và `/login` trả `200`, target healthy,
   không còn lỗi `DYNAMIC_SERVER_USAGE`. BFF readiness nội bộ `/v1/health` trả `200` **và** ping được
   Postgres (trả `503` khi DB không truy cập được). Liveness dùng `/v1/health/live` (chỉ kiểm tra config,
   không chạm DB, để DB sự cố không làm kubelet restart pod).
-- Authenticated Cognito và sandbox lifecycle chưa được test end-to-end trên trình duyệt với tài khoản thật.
 - GPU: stack `05-gpu` (tên cũ `99-unverified-gpu`) đã apply; profile GPU trong hub đã bật. Shared L4 (g6) phụ thuộc
-  capacity AWS; đã kiểm chứng time-slicing trên g4dn (T4). Không apply `01-foundation` khi chưa reconcile state.
+  capacity AWS; đã kiểm chứng time-slicing trên g4dn (T4), gồm cả dcgm metrics qua kube-prometheus-stack.
 - Luôn pin image bằng tag immutable, ví dụ `dev-<git-short-sha>`. Không dùng `latest` cho rollout.
 - Không sửa hoặc xóa state Terraform, secret, backend config hay resource production thủ công nếu
   chưa xác định stack sở hữu resource đó.
@@ -196,14 +198,14 @@ curl -i https://mlbox.june8th.me/login
 
 Các chức năng hiện có mức độ hoàn thiện khác nhau:
 
-- Login/register/confirm đã gọi Cognito qua BFF; cần test với user thật sau khi redeploy.
+- Login/register/confirm/logout đã test thật trên production với tài khoản QA tạm (2026-11-14);
+  verify code qua mail **đã kiểm chứng lại** cùng ngày: mã 6 số từ mail.tm (domain fldubai.com)
+  nhận được, confirm → 200, login OK. Lưu ý: Cognito dùng sender mặc định (`COGNITO_DEFAULT`) nên
+  deliverability tới disposable inbox không ổn định — cân nhắc SES trước khi mở rộng.
 - BFF verify JWT, mã hóa session cookie và proxy list/start/stop tới JupyterHub; readiness chỉ đạt
   khi Secret, remote state và Hub service token đã được cấu hình.
-- Sandboxes đã dùng API thật cho list/start/stop; `/sandboxes/new`, rename, account và usage vẫn là
-  scaffold/mock.
-
-Không dùng dashboard làm nguồn sự thật cho quota cho đến khi usage API thật được triển khai. Khi
-điều tra sandbox, đối chiếu dashboard với Hub/Kubernetes và AWS console/CLI.
+- Sandboxes dùng API thật cho list/start/stop và profile khi sandbox dừng; trang `/quota` hiển thị
+  usage/quota thật theo Space đang chọn. Billing vẫn là mock (credits, không thanh toán thật).
 
 ## Cognito và session
 
@@ -351,6 +353,7 @@ Luôn chạy `terraform plan` trước destroy và lưu plan/output phục vụ 
 
 kube-prometheus-stack cài trong namespace `monitoring` (values trong `monitoring/kube-prometheus-stack-values.yaml`).
 DCGM exporter scrape job `dcgm-exporter` chỉ hiển thị targets khi có GPU node (gpu-shared min=0); stack dcgm-exporter mở rộng sang tier `dedicated` và serviceMonitor bật.
+Alertmanager route tất cả alerts → SNS topic `jhub-gpu-sandbox-dev-apse2-mlbox-alerts` qua IRSA. Subscription email `me@june8th.eu.org` **đã xác nhận** (`PendingConfirmation=false`, kiểm lại 2026-11-14 bằng `sns get-subscription-attributes`). Kiểm tra trạng thái delivery bằng CloudWatch metric `AWS/SNS NumberOfMessagesPublished/Failed`.
 
 Các thao tác thường dùng:
 
@@ -393,6 +396,26 @@ Cảnh báo GPU node churn (`GpuNodeChurn`) đếm số node GPU thay đổi tro
 
 ## Giới hạn đã biết
 
-- Login/register/confirm/logout và sandbox list/start/stop đã có code thật, nhưng chưa end-to-end với Cognito/JupyterHub vì chưa có test user.
-- GPU: quota On-Demand G/VT = 8 vCPU; stack `05-gpu` (tên cũ `99-unverified-gpu`) đã apply và hub đã bật GPU profiles; chưa spawn được session GPU qua L4 (g6) — capacity từng thiếu ở các AZ đã thử (xem TODO). Metrics GPU qua dcgm-exporter + kube-prometheus-stack (namespace `monitoring`) đã hoạt động trên g4dn (T4) — xem mục Monitoring trong file này.
-- Monitoring: metrics GPU + alert rules đã hoạt động (2026-11-14); log tập trung qua Fluent Bit → CloudWatch Logs `/mlbox` (retention 30d) đã hoạt động; CI test tích hợp Postgres đã được thêm vào GitHub Actions (`.github/workflows/integration-tests.yml`) nhưng **chưa push/merge**, chưa kiểm chứng trên PR. Backup/restore: EFS backup on-demand OK, RDS snapshot/restore được kiểm chứng OK. CD vẫn tắt.
+- GPU: quota On-Demand G/VT = 8 vCPU; stack `05-gpu` đã apply và hub đã bật GPU profiles; spawn GPU qua
+  g4dn (T4) đã kiểm chứng (`nvidia-smi`, time-slicing 2 replica @ 8GB commit, dcgm metrics). L4 (g6) vẫn
+  chờ capacity AWS. Metric filter 5xx trong `/mlbox` chưa làm; quota GPU G/VT chưa có alert (cần CloudWatch Usage metric hoặc quotas API).
+- Monitoring: metrics/alert rules GPU (kube-prometheus-stack, namespace `monitoring`) + Alertmanager → SNS +
+  CloudWatch alarms (ALB, RDS — **9** alarms, tất cả OK) đã hoạt động (2026-11-14); log tập trung qua
+  Fluent Bit → `/mlbox` (30d, `IncomingBytes` ≈ 26.5 MB ngày 2026-11-13) đã hoạt động; audit admin
+  console export qua CronJob `audit-export`. Subscription SNS `me@june8th.eu.org` đã xác nhận.
+- Backup/restore: Automatic plan `aws/efs/automatic-backup-plan` **đã cover cả fs hiện tại**
+  `fs-070506268c59fa41d` (2 recovery points 2026-11-14) và fs GỐC `fs-0ba6…` (4 recovery points);
+  **restore test PASS (2026-11-14)**: vault tự động deny mọi `StartRestoreJob` (policy inline) — restore
+  phải đi qua vault + role riêng (`mlbox-backup-restore`, policy `service-role/AWSBackupServiceRolePolicyForRestores`);
+  fs mới `available`, size 6144 khớp source. RDS usage instance snapshot → restore → query PASS;
+  Terraform state version check PASS + export backup về `.private/state-backup-2026-11-14/`; S3 workspace
+  còn 1 version cũ 31 B (`upload-canary.txt`) — không có object sống.
+- CI: test tích hợp Postgres đã merge vào `master` (PR #14, workflow `integration-tests.yml`, pass trên
+  `master` 11:05Z 2026-11-14) cùng PR #15 (observability). CD (`deploy.yml.disabled`) vẫn tắt — rollout
+  thủ công theo DEPLOYMENT.md; cần quyết định rollout có approval.
+- Budget và cost anomaly alert: Console có `My Monthly Cost Budget` $50/tháng, mọi notification đang
+  **ALARM** (chi thực ~$216.96, forecast ~$591); **Cost Anomaly Detection chưa có monitor nào** (rỗng).
+  Budget không nằm trong code (quyết định 2026-11-14 là theo dõi qua Console) — cần quyết định trước
+  khi tuyên bố production-ready.
+- State local `00-bootstrap` đã mất: không plan/destroy được `00-bootstrap` nếu chưa `import` lại tài nguyên;
+  cần export backup state cho mọi account trước khi bàn giao.
