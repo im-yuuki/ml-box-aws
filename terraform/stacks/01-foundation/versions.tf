@@ -2,7 +2,7 @@
 # Region: ap-southeast-2 (Sydney) — required variable, no hard-coded default
 # Latest decisions:
 # - No MIG for now (no MIG manager installed)
-# - First GPU shared pool: L4 (g6), commit 8GiB / ceiling 12GiB, replicas=3 @ factor 1.0
+# - GPU shared pool: g4dn (T4), commit 8GiB / ceiling 12GiB, replicas=2 @ factor 1.0 (renameByDefault=false)
 # - Outbound only: IPv4 single NAT GW + IPv6 dual-stack, user pods get no inbound
 # - 1 NAT GW (dev, single point of failure — prod should use 1/AZ)
 

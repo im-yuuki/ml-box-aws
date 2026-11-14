@@ -4,4 +4,4 @@
 # env                        = "dev"
 # device_plugin_chart_version = "0.20.1"  # verify 2026-10-12
 # dcgm_exporter_chart_version = "4.8.4"   # verify 2026-10-12
-# gpu_shared_replicas_l4      = 3         # commit 8GB @ L4 24GB
+# gpu_shared_replicas_l4      = 2         # commit 8GB @ T4 16GB (name kept for compatibility)

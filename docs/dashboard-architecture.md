@@ -60,17 +60,16 @@ hardening tiếp theo.
 
 - MVP đọc realtime từ Hub REST API (`GET /hub/api/users/<username>`): server state,
   `last_activity` và resource metadata nếu Hub trả về.
-- Quota policy được inject vào BFF runtime qua Terraform: `32 CPU-hours`, `24 GB RAM`,
-  `20 GB storage`, `0 GPU-hours`.
+- Quota & entitlement áp dụng ở BFF theo plan (credits/units pool mỗi Space, GPU gate `403 GPU_NOT_IN_PLAN`,
+  `429 QUOTA_EXCEEDED` khi hết) — xem `web/bff/src/mock-billing.ts` (`CREDIT_RATES`). Mock, không thanh toán thật.
 - CPU-hours và storage usage không được suy diễn từ `last_activity` hoặc server state;
   API trả `null` và UI hiển thị trạng thái chưa tracking/chưa có dữ liệu.
 - RAM footprint chỉ được cộng khi resource metadata hợp lệ; thiếu metadata trả `null`.
-- Kỳ 2 (khi có GPU + kế toán): ghi nhận GPU-hours trong spawn hook vào bảng riêng
-  trong hub DB (Postgres RDS) — BFF đọc qua hub API, không truy cập DB trực tiếp.
+- GPU tính theo `compute_units` trong session billing mock (GPU 10 units/giờ, CPU 1 unit/giờ; lưu `units_per_hour` lúc start).
 
 ## Hạ tầng (stack `04-dashboard`, đã fresh apply)
 
-- Terraform định nghĩa ECR immutable cho `dashboard` + `bff`.
+- CI build và push image GHCR (public) cho `dashboard` + `bff` mỗi lần merge vào `master`; rollout pin tag SHA qua `terraform.tfvars`.
 - Namespace `dashboard` có Dashboard Deployment/Service/TargetGroupBinding và
   BFF Deployment/Service/Secret nội bộ; ALB host-header rule dùng apex
   `mlbox.june8th.me` và ACM certificate từ `00-bootstrap` (được `02-platform`
@@ -80,7 +79,7 @@ hardening tiếp theo.
 - Lỗi production `DYNAMIC_SERVER_USAGE` đã được xử lý trong code bằng cách tắt
   `cacheComponents`/`partialPrefetching`; isolated production build/start trả 200.
   ALB target đã healthy và Cognito resources đã được apply; authenticated Cognito/Hub
-  end-to-end vẫn cần test bằng test user.
+  end-to-end đã kiểm chứng trên production (2026-11-14, tài khoản QA tạm, mail.tm).
 - `mlbox.june8th.me` đã được delegate về Route53; cả hai ACM certificate đã `ISSUED`.
   DNS/ACM không cần thao tác lại khi chỉ rollout application stack.
 - Chi tiết lệnh deploy và kiểm tra nằm trong [`docs/DEPLOYMENT.md`](DEPLOYMENT.md)

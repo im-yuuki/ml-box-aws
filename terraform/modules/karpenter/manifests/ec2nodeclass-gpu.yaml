@@ -1,4 +1,4 @@
-# EC2NodeClass GPU (shared L4 or dedicated). No MIG.
+# EC2NodeClass GPU (shared T4 or dedicated). No MIG.
 # Fields must be cross-checked against the karpenter-provider-aws release in use (v1 API).
 apiVersion: karpenter.k8s.aws/v1
 kind: EC2NodeClass

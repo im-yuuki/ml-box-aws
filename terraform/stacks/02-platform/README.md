@@ -29,7 +29,7 @@ ALB và target group nằm ở đây; Route53 zone và ACM certificates được
 03-hub-app       JupyterHub (Z2JH) + TargetGroupBinding + listener + profile CPU
 04-dashboard     Dashboard + BFF + apex listener rule
 
-05-gpu (tên cũ 99-unverified-gpu) device plugin + DCGM + L4 shared [TÙY CHỌN - đã apply 2026-11-07]
+05-gpu (tên cũ 99-unverified-gpu) device plugin + DCGM + T4 shared [TÙY CHỌN - đã apply 2026-11-07]
 ```
 
 ## GitHub Actions OIDC

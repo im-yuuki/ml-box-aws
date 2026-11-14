@@ -33,4 +33,4 @@ Không sửa module.
 - [ ] Xác nhận họ GPU cần dùng có sẵn ở region đó (khác nhau giữa các region)
 - [ ] Giá NAT/EC2/RDS ở region mới (Sydney/Singapore/Jakarta khác nhau)
 - [ ] Domain/Route53 routing (latency hoặc geolocation) trỏ về ALB đúng region
-- [ ] ECR: replication chéo region hoặc build image riêng mỗi region
+- [ ] GHCR: replication chéo region hoặc build image riêng mỗi region

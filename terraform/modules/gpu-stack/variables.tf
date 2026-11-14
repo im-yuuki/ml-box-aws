@@ -26,9 +26,9 @@ variable "enable_dcgm_service_monitor" {
 }
 
 variable "gpu_shared_replicas_l4" {
-  description = "replicas for L4 time-slicing @ 8GB commit factor 1.0. L4 24GB -> 3."
+  description = "Time-slicing replicas @ 8GB commit, factor 1.0 (T4 16GB -> 2)."
   type        = number
-  default     = 3
+  default     = 2
 }
 
 variable "namespace" {

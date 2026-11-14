@@ -31,7 +31,7 @@
 - `manifests/nodepool-cpu-user.yaml`: bỏ pin `kubernetes.io/arch: amd64`,
   cho phép `In [amd64, arm64]` → Karpenter tự chọn node rẻ nhất (Graviton rẻ hơn
   x86 cùng size ~20-25%, cho phiên CPU).
-- Điều kiện bắt buộc: image CPU trong ECR phải build **multi-arch** — hiện chỉ
+- Điều kiện bắt buộc: image CPU trên GHCR phải build **multi-arch** — hiện chỉ
   có tag amd64; pod ARM trên image amd64 sẽ `exec format error` ngay khi spawn.
 - GPU NodePool giữ nguyên (hình đã có sẵn driver agent; không đổi arch).
 - Mức này chỉ giảm chi phí per-session, không đổi fixed cost.
@@ -52,7 +52,7 @@
   system MNG giữ **On-Demand**. Spot đã dùng đúng chỗ ở NodePool `cpu-user`
   (nơi gián đoạn chỉ ảnh hưởng 1 phiên riêng).
 - Không đổi: fck_nat ($4/th), ALB, Secrets Manager, cấu hình GPU pools.
-- Tuỳ chọn sau (chưa chốt): lifecycle S3 expire noncurrent 7-14 ngày; ECR giữ
+- Tuỳ chọn sau (chưa chốt): lifecycle S3 expire noncurrent 7-14 ngày; GHCR giữ
   2-3 image (GPU image 5-10GB/tag phình nhanh); thay ALB bằng Cloudflare tunnel
   chỉ dev (-$25/th).
 
@@ -66,7 +66,7 @@
 | fck_nat (lab) | ~$4 + data | ~$4 + data |
 | ALB | ~$25 + LCU | ~$25 + LCU |
 | RDS db.t4g.micro + 20GB gp3 | ~$22 | ~$22 |
-| S3 + ECR + Secrets + Route53 + SQS/CW ~ | ~$5 | ~$5 |
+| S3 + GHCR + Secrets + Route53 + SQS/CW ~ | ~$5 | ~$5 |
 | **Tổng fixed — lab** | **≈ $320** | **≈ $180** |
 | NAT managed ×3 (prod) | $129 + data | $129 + data |
 | VPC endpoints interface (prod) | ~$147 | ~$147 |
@@ -84,7 +84,7 @@
 1. Mục 1 + 2: sửa eks module + var `system_instance_types` → `terraform plan`
    kiểm rolling-replace → apply lúc vắng user.
 2. Mục 3: build multi-arch image CPU (Dockerfile `FROM --platform` cho
-   arm64/amd64) ⇒ push 2 image lên ECR ⇒ sửa endpoint `nodepool-cpu-user.yaml`
+   arm64/amd64) ⇒ push 2 image lên GHCR ⇒ sửa endpoint `nodepool-cpu-user.yaml`
    ⇒ apply Karpenter manifest.
 3. Mục 4: log group retention + EKS cluster logging selectors.
 4. Bonus: emission note lên `docs/aws-cost-report.md` mục 2 (cột "sau tối ưu").

@@ -26,7 +26,7 @@
 | VPC Endpoint interface | ~$7.3/AZ/endpoint | **~$10/AZ/endpoint (≈)** | đường riêng tới dịch vụ AWS từ subnet private, tránh phí data NAT | 5 endpoint × 3 AZ khi bật ở prod |
 | fck-nat (t4g.nano) | $0.0042/giờ ≈ $3/th | **~$4/th** | NAT tự quản thay NAT gw: outbound IPv4 rẻ cho lab | chỉ IPv4 outbound, + phí data qua NAT |
 | S3 Standard workspace | $0.023/GB-th | **$0.025/GB-th** | workspace user (backup/sync) + TF state stack 00 | versioning + request rẻ |
-| ECR storage | $0.10/GB-th | **$0.10/GB-th (≈)** | lưu image CPU/GPU dùng khi spawn phiên | 2 repo (CPU + GPU ~5-10GB) |
+| GHCR storage | $0 (public packages) | **$0** | lưu image CPU/GPU + dashboard + BFF + admin | GHCR public; ECR đã xóa hoàn toàn 2026-11-10 |
 | Secrets Manager (secret RDS) | $0.40/secret-th | $0.40/secret-th | chứa master password RDS (hub DB) | phẳng |
 | KMS customer key | $1/key-th | $1/key-th | mã hoá EBS tùy chọn | phẳng; default `alias/aws/ebs` thì $0 |
 | Route53 (zone) | $0.50/zone-th | $0.50/zone-th | DNS zone (tùy chọn khi DNS đã trả về Cloudflare) | phẳng + query |
@@ -37,7 +37,7 @@
 
 Cấu hình từ stacks `01-foundation` → `04-dashboard`: VPC dual-stack 3 AZ,
 EKS 1.36 + 4 addon, MNG system 2 × m6i.large (min=desired=2, max=4), ALB + 2 TargetGroup,
-RDS hub, Secrets, S3 workspace, ECR, Cognito, SQS interruption.
+RDS hub, Secrets, S3 workspace, GHCR, Cognito, SQS interruption.
 
 | Khoản | us-east-1/th | ap-southeast-2/th |
 |---|---|---|
@@ -49,7 +49,7 @@ RDS hub, Secrets, S3 workspace, ECR, Cognito, SQS interruption.
 | ALB | $16.4 + LCU | ~$25 + LCU (≈) |
 | RDS db.t4g.micro + 20GB gp3 | ~$15 | ~$20 (≈) |
 | VPC Endpoints interface (chỉ prod: 5 × 3 AZ) | $110 | ~$147 (≈) |
-| S3 + ECR + Secrets + KMS + Route53 + SQS/CW ~ | ~$4 | ~$5 |
+| S3 + GHCR + Secrets + KMS + Route53 + SQS/CW ~ | ~$4 | ~$5 |
 | **Tổng idle khi 0 user — lab** | **≈ $260** | **≈ $320** |
 | **Tổng idle khi 0 user — prod** | **≈ $460** | **≈ $570** |
 

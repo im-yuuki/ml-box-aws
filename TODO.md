@@ -21,7 +21,7 @@ Target sản phẩm và thứ tự phase: [`docs/multi-tenant-product-plan.md`](
   - ECR đã bị xóa. Không còn image nào trên ECR.
 - **Database:** hai RDS đã được tạo lại từ đầu, dữ liệu cũ không còn. Schema ứng dụng được BFF tạo lần đầu khi có request xác thực (`ensureSchema()`), không phải lúc khởi động; DB hiện không có bảng/dòng nào.
 - **Hub:** `enable_auth_state=false`. Notebook lưu home trên EFS, một PVC cho mỗi Project.
-- **Git:** `master` = `9c229b4` (merge PR #15, observability — monitoring/alerting/runbooks).
+- **Git:** `master` = `c2c2865` (merge PR #16 — verification 2026-11-14, secret rotation, backup/restore, autoscaling evidence).
 - **Test:** BFF `npm test` 133/133. Test tích hợp Postgres đã vào CI (`.github/workflows/integration-tests.yml`, PR #14 đã merge; service postgres:16; job pass 37s). Dashboard `tsc --noEmit` còn 2 lỗi có sẵn (`PageProps`, `LayoutProps`).
 
 ## Cần người dùng quyết định

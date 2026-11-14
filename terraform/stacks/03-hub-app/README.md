@@ -52,7 +52,7 @@ respectively.
 ## GPU profiles are OFF by default
 
 `enable_gpu_profiles = false` (default) hides both GPU profiles
-(*GPU shared L4* and *GPU dedicated*) from the profile list. The account has no
+(*GPU shared T4* and *GPU dedicated*) from the profile list. The account has no
 GPU quota yet, so a GPU profile would only produce confusing node-scaling
 errors.
 

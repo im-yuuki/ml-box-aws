@@ -18,7 +18,7 @@
                         </Array>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="e7" edge="1" parent="1" source="b7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;dashed=1;exitX=0.5;exitY=0;entryX=0.5;entryY=0;" target="a4" value="STS users/&lt;id&gt;/">
+                <mxCell id="e7" edge="1" parent="1" source="b7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;dashed=1;exitX=0.5;exitY=0;entryX=0.5;entryY=0;" target="a4" value="IRSA spaces/* (BFF)">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
                             <mxPoint x="680" y="460"/>
@@ -76,7 +76,7 @@
                 <mxCell id="v2" parent="c2" style="outlineConnect=0;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;shape=mxgraph.aws3.vpc_nat_gateway;fillColor=#F58536;gradientColor=none;" value="fck-nat t4g.nano&lt;br&gt;egress ~$5/th" vertex="1">
                     <mxGeometry height="72" width="69" x="120" y="45" as="geometry"/>
                 </mxCell>
-                <mxCell id="v3" parent="c2" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#8C4FFF;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.endpoints;" value="S3 GW EP (free)&lt;br&gt;ECR/STS/Logs (prod)" vertex="1">
+                <mxCell id="v3" parent="c2" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#8C4FFF;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.endpoints;" value="S3 GW EP (free)&lt;br&gt;STS/Logs (prod)" vertex="1">
                     <mxGeometry height="78" width="78" x="215" y="40" as="geometry"/>
                 </mxCell>
                 <mxCell id="v4" parent="c2" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E6F6F7;strokeColor=#147EBA;fontSize=10;" value="VPC 10.0.0.0/16&lt;br&gt;+ /56 IPv6 · 3 AZ&lt;br&gt;pub / priv /24" vertex="1">
@@ -133,7 +133,7 @@
                 <mxCell id="a2" parent="c5" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#232F3D;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.authenticated_user;" value="Cognito pool&lt;br&gt;mlbox-hub-apse2&lt;br&gt;OAuth code flow" vertex="1">
                     <mxGeometry height="78" width="78" x="260" y="45" as="geometry"/>
                 </mxCell>
-                <mxCell id="a5" parent="c5" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ecr;" value="ECR repos&lt;br&gt;cpu + /gpu" vertex="1">
+                <mxCell id="a5" parent="c5" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ecr;" value="GHCR (không ECR)&lt;br&gt;cpu + gpu" vertex="1">
                     <mxGeometry height="78" width="78" x="430" y="45" as="geometry"/>
                 </mxCell>
                 <mxCell id="a6" parent="c5" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#DD344C;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.secrets_manager;" value="Secrets Manager&lt;br&gt;RDS master secret" vertex="1">
@@ -142,10 +142,10 @@
                 <mxCell id="a3" parent="c5" style="outlineConnect=0;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;shape=mxgraph.aws3.rds;fillColor=#2E73B8;gradientColor=none;" value="RDS Postgres 16.15&lt;br&gt;db.t4g.micro" vertex="1">
                     <mxGeometry height="60" width="72" x="255" y="205" as="geometry"/>
                 </mxCell>
-                <mxCell id="a4" parent="c5" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#7AA116;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;" value="S3 workspace&lt;br&gt;versioning SSE-KMS&lt;br&gt;users/&lt;id&gt;/" vertex="1">
+                <mxCell id="a4" parent="c5" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#7AA116;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;" value="S3 workspace&lt;br&gt;versioning SSE-KMS&lt;br&gt;spaces/{space}/projects/{project}/" vertex="1">
                     <mxGeometry height="78" width="78" x="430" y="195" as="geometry"/>
                 </mxCell>
-                <mxCell id="a7" parent="c5" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" value="images: jupyter-base&lt;br&gt;pytorch-cuda12 (pin ECR sau khi CI)" vertex="1">
+                <mxCell id="a7" parent="c5" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" value="images: jupyter-base&lt;br&gt;pytorch-cuda12 (GHCR, pin SHA)" vertex="1">
                     <mxGeometry height="70" width="110" x="590" y="205" as="geometry"/>
                 </mxCell>
                 <mxCell id="e4" edge="1" parent="c5" source="a1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="a2" value="OAuth">
@@ -167,7 +167,7 @@
                 <mxCell id="b1" parent="c6" style="outlineConnect=0;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;shape=mxgraph.aws3.iam;fillColor=#759C3E;gradientColor=none;" value="IAM&lt;br&gt;IRSA + instance profile" vertex="1">
                     <mxGeometry height="72" width="78" x="20" y="45" as="geometry"/>
                 </mxCell>
-                <mxCell id="b7" parent="c6" style="outlineConnect=0;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;shape=mxgraph.aws3.sts_2;fillColor=#759C3E;gradientColor=none;" value="STS&lt;br&gt;session policy&lt;br&gt;prefix users/&lt;id&gt;/" vertex="1">
+                <mxCell id="b7" parent="c6" style="outlineConnect=0;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;shape=mxgraph.aws3.sts_2;fillColor=#759C3E;gradientColor=none;" value="STS / IRSA&lt;br&gt;prefix spaces/* (BFF)&lt;br&gt;home = EFS PVC" vertex="1">
                     <mxGeometry height="78" width="78" x="130" y="40" as="geometry"/>
                 </mxCell>
                 <mxCell id="b2" parent="c6" style="outlineConnect=0;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;shape=mxgraph.aws3.kms;fillColor=#759C3E;gradientColor=none;" value="KMS keys&lt;br&gt;S3 / RDS / EBS" vertex="1">
@@ -226,7 +226,7 @@
                 <mxCell id="n8" parent="c3" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" value="NodePool cpu-user&lt;br&gt;label node-purpose=user&lt;br&gt;Spot + OD, expire 720h" vertex="1">
                     <mxGeometry height="80" width="250" x="20" y="86" as="geometry"/>
                 </mxCell>
-                <mxCell id="n9" parent="c3" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" value="NodePool gpu-shared-l4&lt;br&gt;taint tier=shared:NoSchedule; g6.xl/2xl/4xl&lt;br&gt;expire Never; consol 5m; budget 10%" vertex="1">
+                <mxCell id="n9" parent="c3" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" value="NodePool gpu-shared-l4&lt;br&gt;taint tier=shared:NoSchedule; g4dn.xlarge (T4) · time-slicing x2&lt;br&gt;expire Never; consol 5m; budget 10%" vertex="1">
                     <mxGeometry height="80" width="250" x="290" y="86" as="geometry"/>
                 </mxCell>
                 <mxCell id="n10" parent="c3" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" value="NodePool gpu-dedicated&lt;br&gt;taint tier=dedicated:NoSchedule&lt;br&gt;g4dn.xl/g6.xl/g5.xl; WhenEmpty 30m" vertex="1">
@@ -265,10 +265,10 @@
                 <mxCell id="c5" parent="c1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#FFFFFF;strokeColor=#D6B656;rounded=1;" value="ns: gpu-operator-resources (quan sát + GPU)" vertex="1">
                     <mxGeometry height="180" width="520" x="600" y="500" as="geometry"/>
                 </mxCell>
-                <mxCell id="n17" parent="c5" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" value="nvidia-device-plugin DaemonSet&lt;br&gt;chỉ node label tier=shared — config time-slicing-shared&lt;br&gt;expose nvidia.com/gpu.shared" vertex="1">
+                <mxCell id="n17" parent="c5" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" value="nvidia-device-plugin DaemonSet&lt;br&gt;cả 2 pool GPU — config time-slicing-shared (label override)&lt;br&gt;expose nvidia.com/gpu (renameByDefault=false) · tolerations tier=shared/dedicated" vertex="1">
                     <mxGeometry height="60" width="480" x="20" y="36" as="geometry"/>
                 </mxCell>
-                <mxCell id="n18" parent="c5" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;" value="ConfigMap time-slicing-shared&lt;br&gt;renameByDefault; replicas 3&lt;br&gt;failRequestsGreaterThanOne=true" vertex="1">
+                <mxCell id="n18" parent="c5" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;" value="ConfigMap time-slicing-shared&lt;br&gt;renameByDefault=false; replicas 2 @8GB&lt;br&gt;failRequestsGreaterThanOne=true" vertex="1">
                     <mxGeometry height="60" width="240" x="20" y="106" as="geometry"/>
                 </mxCell>
                 <mxCell id="n19" parent="c5" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;" value="dcgm-exporter 4.8.4 DaemonSet&lt;br&gt;+ ServiceMonitor → Prometheus" vertex="1">
@@ -289,7 +289,7 @@
                 <mxCell id="n21" parent="c6" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" value="Node Karpenter cpu-user&lt;br&gt;Spot/OD — chạy pod CPU" vertex="1">
                     <mxGeometry height="50" width="460" x="20" y="96" as="geometry"/>
                 </mxCell>
-                <mxCell id="c7" parent="c6" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#FFFFFF;strokeColor=#6C8EBF;rounded=1;" value="Node GPU shared g6.xlarge" vertex="1">
+                <mxCell id="c7" parent="c6" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#FFFFFF;strokeColor=#6C8EBF;rounded=1;" value="Node GPU shared g4dn.xlarge (T4)" vertex="1">
                     <mxGeometry height="360" width="460" x="20" y="156" as="geometry"/>
                 </mxCell>
                 <mxCell id="n23" parent="c7" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#F8CECC;strokeColor=#B85450;fontSize=11;" value="vram-guard DaemonSet&lt;br&gt;privileged + hostPID — đọc VRAM per-pod qua NVML&lt;br&gt;PID→pod qua /proc/&lt;pid&gt;/cgroup" vertex="1">
@@ -298,7 +298,7 @@
                 <mxCell id="n24" parent="c7" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" value="nvidia-device-plugin (time-slicing-shared)" vertex="1">
                     <mxGeometry height="45" width="420" x="20" y="106" as="geometry"/>
                 </mxCell>
-                <mxCell id="n25" parent="c7" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" value="GPU L4 thực — 3 slice&lt;br&gt;3 × nvidia.com/gpu.shared" vertex="1">
+                <mxCell id="n25" parent="c7" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" value="GPU T4 thực — 2 slice&lt;br&gt;2 × nvidia.com/gpu (time-slicing)" vertex="1">
                     <mxGeometry height="50" width="420" x="20" y="161" as="geometry"/>
                 </mxCell>
                 <mxCell id="n26" parent="c7" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;" value="Pod user A&lt;br&gt;init: tải S3&lt;br&gt;jupyter + sidecar s3-sync" vertex="1">
@@ -360,13 +360,13 @@
                 <mxCell id="n3" parent="cA" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;" value="(3) Cognito OAuth2 code flow&lt;br&gt;callback /hub/oauth_callback&lt;br&gt;claim username = email" vertex="1">
                     <mxGeometry height="60" width="250" x="490" y="40" as="geometry"/>
                 </mxCell>
-                <mxCell id="n4" parent="cA" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;" value="(4) profile_list — 3 profile&lt;br&gt;CPU nhỏ / GPU shared L4&lt;br&gt;/ GPU dedicated" vertex="1">
+                <mxCell id="n4" parent="cA" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;" value="(4) profile_list — 3 profile&lt;br&gt;CPU nhỏ / GPU shared T4&lt;br&gt;/ GPU dedicated" vertex="1">
                     <mxGeometry height="70" width="200" x="770" y="40" as="geometry"/>
                 </mxCell>
                 <mxCell id="n5" parent="cA" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;" value="(5) KubeSpawner pre_spawn_hook&lt;br&gt;annotations: commit-mib=8192&lt;br&gt;ceiling-mib=12288" vertex="1">
                     <mxGeometry height="70" width="310" x="1000" y="40" as="geometry"/>
                 </mxCell>
-                <mxCell id="n6" parent="cA" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;" value="(5b) labels: plan=shared, user=&lt;id&gt;, do-not-disrupt=true&lt;br&gt;tolerations tier=shared:NoSchedule; nodeSelector tier=shared + L4&lt;br&gt;env: TF_FORCE_GPU_ALLOW_GROWTH, no-preallocate" vertex="1">
+                <mxCell id="n6" parent="cA" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;" value="(5b) labels: plan=shared, user=&lt;id&gt;, do-not-disrupt=true&lt;br&gt;tolerations tier=shared:NoSchedule; nodeSelector tier=shared + T4&lt;br&gt;env: TF_FORCE_GPU_ALLOW_GROWTH, no-preallocate" vertex="1">
                     <mxGeometry height="70" width="310" x="1000" y="120" as="geometry"/>
                 </mxCell>
                 <mxCell id="e1" edge="1" parent="cA" source="n1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="n2" value="HTTPS">
@@ -390,13 +390,13 @@
                 <mxCell id="n7" parent="cB" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#DAE8FC;strokeColor=#6C8EBF;fontSize=11;" value="(6) Karpenter provision node&lt;br&gt;gpu-shared-l4 (nếu thiếu)&lt;br&gt;→ pod user lên node" vertex="1">
                     <mxGeometry height="80" width="340" x="20" y="40" as="geometry"/>
                 </mxCell>
-                <mxCell id="n8" parent="cB" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;" value="(7) init container: đồng bộ s3://&lt;bucket&gt;/users/&lt;id&gt;/ vào emptyDir&lt;br&gt;IRSA hub: sts:AssumeRole → STS AssumeRole role workspace&lt;br&gt;session policy giới hạn prefix users/&lt;id&gt;/" vertex="1">
+                <mxCell id="n8" parent="cB" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;" value="(7) notebook home = EFS PVC (efs-sc), 1 PVC mỗi Project&lt;br&gt;IRSA hub: chỉ users/*, deny spaces/* · BFF: chỉ spaces/*" vertex="1">
                     <mxGeometry height="80" width="400" x="390" y="40" as="geometry"/>
                 </mxCell>
                 <mxCell id="n9" parent="cB" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=11;" value="(8) container chính chạy notebook&lt;br&gt;sidecar s3-sync: sync định kỳ lên S3&lt;br&gt;(exclude cache + kernel state)" vertex="1">
                     <mxGeometry height="80" width="400" x="820" y="40" as="geometry"/>
                 </mxCell>
-                <mxCell id="n10" parent="cB" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;" value="S3 bucket&lt;br&gt;users/&lt;id&gt;/ — nguồn workspace&lt;br&gt;(chỉ sidecar giữ credential STS)" vertex="1">
+                <mxCell id="n10" parent="cB" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;" value="S3 workspace&lt;br&gt;spaces/{space}/projects/{project}/ — artifacts&lt;br&gt;(EFS giữ notebook home)" vertex="1">
                     <mxGeometry height="80" width="360" x="1250" y="40" as="geometry"/>
                 </mxCell>
                 <mxCell id="e7" edge="1" parent="cB" source="n7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="n8" value="provision node">
@@ -545,7 +545,7 @@
                 <mxCell id="n13" parent="c1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;" value="S3 Gateway Endpoint&#xa;miễn phí — traffic S3 không qua NAT" vertex="1">
                     <mxGeometry height="55" width="280" x="15" y="680" as="geometry"/>
                 </mxCell>
-                <mxCell id="n14" parent="c1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;dashed=1;" value="VPC Interface Endpoints: ECR api+dkr, STS, Logs&#xa;(prod · tùy chọn)" vertex="1">
+                <mxCell id="n14" parent="c1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=11;dashed=1;" value="VPC Interface Endpoints: STS, Logs&#xa;(prod · tùy chọn)" vertex="1">
                     <mxGeometry height="55" width="330" x="315" y="680" as="geometry"/>
                 </mxCell>
                 <mxCell id="n15" parent="c1" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=10;" value="3 subnet/AZ sinh từ cidrsubnet(cidr, 8, i) · ALB ở public subnet nhưng forward vào pod target (target-type ip), bất kể subnet&#xa;Route private: default IPv4 qua fck-nat · S3 qua S3 GW EP · IPv6 qua egress-only IGW&#xa;NAT chỉ dùng cho egress IPv4 (fck-nat = HIỆN TẠI · managed_per_az = tùy chọn prod)" vertex="1">
@@ -584,7 +584,7 @@
                 <mxCell id="e6" edge="1" parent="1" source="n8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="n13" value="S3 traffic">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="e7" edge="1" parent="1" source="n8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;dashed=1;" target="n14" value="ECR pull → bypass NAT">
+                <mxCell id="e7" edge="1" parent="1" source="n8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;dashed=1;" target="n14" value="GHCR pull (qua NAT)">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
                 <mxCell id="e8" edge="1" parent="1" source="n10" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;dashed=1;" target="n3" value="IPv6 egress">
@@ -622,13 +622,13 @@
                 <mxCell id="c3" parent="1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#F8CECC;strokeColor=#B85450;rounded=1;dashed=1;" value="99-unverified-gpu — CHỜ QUOTA GPU ≥ 8 vCPU" vertex="1">
                     <mxGeometry height="100" width="800" x="40" y="500" as="geometry"/>
                 </mxCell>
-                <mxCell id="n6" parent="c3" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;dashed=1;" value="gpu-stack&#xa;nvidia-device-plugin 0.20.1 (time-slicing shared · nodeSelector/toleration tier=shared) · dcgm-exporter 4.8.4 + serviceMonitor&#xa;renameByDefault → nvidia.com/gpu.shared · replicas 3 · failRequestsGreaterThanOne" vertex="1">
+                <mxCell id="n6" parent="c3" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;dashed=1;" value="gpu-stack&#xa;nvidia-device-plugin 0.20.1 (time-slicing shared · nodeSelector/toleration tier=shared) · dcgm-exporter 4.8.4 + serviceMonitor&#xa;renameByDefault=false · replicas 2 @8GB · failRequestsGreaterThanOne" vertex="1">
                     <mxGeometry height="56" width="770" x="15" y="34" as="geometry"/>
                 </mxCell>
                 <mxCell id="c4" parent="1" style="swimlane;html=1;startSize=26;fontSize=12;fillColor=#E1D5E7;strokeColor=#9673A6;rounded=1;" value="03-hub-app — TFVARS ĐÃ CHUẨN BỊ" vertex="1">
                     <mxGeometry height="280" width="800" x="40" y="660" as="geometry"/>
                 </mxCell>
-                <mxCell id="n7" parent="c4" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" value="storage&#xa;KMS key · S3 workspace versioning SSE-KMS&#xa;IRSA hub role sts:AssumeRole · workspace role prefix users/&lt;id&gt;" vertex="1">
+                <mxCell id="n7" parent="c4" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" value="storage&#xa;KMS · EFS efs-sc PVC/Project (home) + S3 workspace (artifacts)&#xa;IRSA hub: users/* (deny spaces/*) · BFF: spaces/*" vertex="1">
                     <mxGeometry height="110" width="250" x="15" y="34" as="geometry"/>
                 </mxCell>
                 <mxCell id="n8" parent="c4" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" value="hub-db&#xa;RDS Postgres 16.15 db.t4g.micro · 20GB gp3 encrypted&#xa;Secrets Manager managed secret · backup 7 ngày · subnet group + SG 5432" vertex="1">
@@ -643,7 +643,7 @@
                 <mxCell id="n11" parent="c4" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" value="ingress-dns&#xa;Route53 zone + ACM notebook.mlbox.june8th.me (DNS validate)&#xa;ALB controller 3.6.0 IRSA · record notebook → ALB" vertex="1">
                     <mxGeometry height="110" width="250" x="275" y="154" as="geometry"/>
                 </mxCell>
-                <mxCell id="n12" parent="c4" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" value="helm_release jupyterhub 4.4.2 · ns hub&#xa;values/hub-values.yaml.tpl: 3 profile · postgres · culler 1800s · placeholder 2 + userScheduler&#xa;pre_spawn_hook: vram commit-mib 8192 · ceiling-mib 12288 · nvidia.com/gpu.shared:1" vertex="1">
+                <mxCell id="n12" parent="c4" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=10;" value="helm_release jupyterhub 4.4.2 · ns hub&#xa;values/hub-values.yaml.tpl: 3 profile · postgres · culler 1800s · placeholder 2 + userScheduler&#xa;pre_spawn_hook: vram commit-mib 8192 · ceiling-mib 12288 · nvidia.com/gpu:1" vertex="1">
                     <mxGeometry height="110" width="250" x="535" y="154" as="geometry"/>
                 </mxCell>
                 <mxCell id="n13" parent="1" style="rounded=1;html=1;whiteSpace=wrap;align=left;verticalAlign=top;spacing=10;fillColor=#FFF2CC;strokeColor=#D6B656;fontSize=11;" value="Điểm cần nhớ khi vận hành&#xa;&#xa;• state key: dev/&lt;region&gt;/&lt;stack&gt;.tfstate&#xa;• 03-hub-app cần apply sau khi 02-platform + DNS sẵn sàng
@@ -724,7 +724,7 @@
                 <mxCell id="q3" parent="cK" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFFFFF;strokeColor=#999999;fontSize=10;" value="(3) Route53 latency&lt;br&gt;policy cho&lt;br&gt;region mới" vertex="1">
                     <mxGeometry height="95" width="165" x="395" y="45" as="geometry"/>
                 </mxCell>
-                <mxCell id="q4" parent="cK" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=10;" value="(4) Bật&lt;br&gt;ECR replication" vertex="1">
+                <mxCell id="q4" parent="cK" style="rounded=1;html=1;whiteSpace=wrap;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=10;" value="(4) Ký image&lt;br&gt;(cosign/provenance)" vertex="1">
                     <mxGeometry height="95" width="160" x="585" y="45" as="geometry"/>
                 </mxCell>
                 <mxCell id="g4" edge="1" parent="cK" source="q1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;fontSize=10;" target="q2" value="">
