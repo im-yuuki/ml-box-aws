@@ -8,7 +8,24 @@ từ trạng thái trống đến hệ thống chạy được. Mọi lệnh dư
 Bản runbook này đã được kiểm chứng bằng một lần phá toàn bộ hạ tầng và dựng lại từ đầu
 (`01-foundation` → `07-admin`) trên region `ap-southeast-2`, account `451058046864`.
 
+<<<<<<< HEAD
+| Thành phần | Trạng thái | Ghi chú |
+|---|---|---|
+| `00-bootstrap` | ✅ Đã apply fresh | S3 state, DynamoDB lock, Route53 zone, ACM certificates và validation records |
+| `01-foundation` | ✅ Đã apply | VPC, EKS, system node group, Karpenter, CPU NodePool |
+| `02-platform` | ✅ Đã apply | RDS, Cognito, ALB, Route53 aliases, Load Balancer Controller |
+| DNS / ACM | ✅ Hoàn tất | Cloudflare delegate `mlbox` sang Route53; cả hai certificate đều `ISSUED` |
+| `03-hub-app` | ✅ Đã apply | JupyterHub tại `notebook.mlbox.june8th.me`, có BFF service token |
+| Hub theme | ✅ Đã apply | ConfigMap theme MLBox và rollout Hub |
+| `04-dashboard` | ✅ Đã apply | Dashboard + BFF, apex listener rule và healthy target |
+| `05-gpu` (tên cũ `99-unverified-gpu`) | ✅ Đã apply | Device plugin (time-slicing `nvidia.com/gpu`) và dcgm-exporter; GPU quota On-Demand G/VT = 8 vCPU |
+| `08-alerting` | ✅ Đã apply (2026-11-14) | SNS topic, IRSA roles (alertmanager, fluent-bit), 8 CloudWatch alarms (ALB, RDS) → SNS |
+| `monitoring` (kube-prometheus-stack + fluent-bit) | ✅ Đã cài (2026-11-14) | namespace `monitoring` (Prometheus/Alertmanager), `amazon-cloudwatch` (fluent-bit → `/mlbox`) |
+| GPU profile trong hub | ⚠️ Đã bật | Đã kiểm chứng trên g4dn (T4); shared L4 (g6) phụ thuộc capacity AWS |
+| BFF / dashboard | ✅ Đã deploy, ⚠️ chưa E2E | Health 200; route Project/Team/lời mời/artifact đã có; luồng trình duyệt với tài khoản thật chưa kiểm chứng |
+=======
 ## 1. Nguyên tắc
+>>>>>>> origin/master
 
 - 1 cluster EKS cho mỗi region. Tên cluster: `jhub-gpu-sandbox-<env>-<region code>`, ví dụ
   `jhub-gpu-sandbox-dev-apse2` (mã region ngắn vì IAM `name_prefix` giới hạn 38 ký tự).
@@ -78,6 +95,12 @@ aws sts get-caller-identity
 
 Bản cũ hơn dùng `aws sso login --profile <tên-profile>`. Profile cần đặt trong `~/.aws/config`:
 
+<<<<<<< HEAD
+- AWS CLI, Terraform `>= 1.6`, `kubectl`, Helm provider credentials, Docker Buildx và Helm CLI (`helm repo add prometheus-community https://prometheus-community.github.io/helm-charts; helm repo add nvidia https://nvidia.github.io/dcgm-exporter/helm-charts; helm repo add eks https://aws.github.io/eks-charts`).
+- Quyền truy cập account/region đúng với backend S3.
+- Cloudflare chỉ dùng để quản lý nameserver; zone `mlbox.june8th.me` hiện do Route53 quản lý.
+- Không commit `backend.hcl`, `terraform.tfvars`, state, plan hoặc secrets.
+=======
 ```ini
 [profile <tên-profile>]
 sso_start_url = https://ssoins-<id>.portal.us-east-1.app.aws/
@@ -86,6 +109,7 @@ sso_account_id = <account-id>
 sso_role_name = AdministratorAccess
 region        = ap-southeast-2
 ```
+>>>>>>> origin/master
 
 Terraform đọc profile qua biến môi trường. Trên Windows dùng wrapper `.private/aws-env.cmd`
 (file này không commit), trên macOS/Linux:
@@ -249,9 +273,28 @@ aws elbv2 describe-target-health \
 curl -i https://<domain>/
 ```
 
-## 11. Bước 8 — `05-gpu` (tuỳ chọn)
+## 12. Monitoring + alerting + logs (tuỳ chọn, 2026-11-14)
 
-Chỉ chạy khi AWS đã cấp quota GPU và image GPU đã publish.
+kube-prometheus-stack được cài bằng Helm với values `monitoring/kube-prometheus-stack-values.yaml` (namespace `monitoring`, chart 45.12.0). Sau khi stack monitoring sẵn, `05-gpu` apply với dcgm-exporter `serviceMonitor.enabled=true` (biến `enable_dcgm_service_monitor`, mặc định `true`). Lưu ý thứ tự: tạo CRDs (helm) **trước** khi apply dcgm-exporter, nếu không `serviceMonitor` sẽ fail. Các giá trị SNS/IRSA trong values cứng cho cluster này.
+
+Stack `08-alerting` tạo SNS topic + IRSA roles + 8 CloudWatch alarms (ALB, RDS) + log group `/mlbox` (30 ngày). Không cần apply lại các stack khác.
+
+```bash
+cd terraform/stacks/08-alerting
+terraform init -reconfigure -backend-config=backend.hcl
+terraform plan
+terraform apply
+```
+
+Sau đó apply monitoring trong `05-gpu`, rồi annotate SA (đã có trong `monitoring/kube-prometheus-stack-values.yaml`):
+
+```bash
+kubectl -n monitoring rollout restart statefulset/alertmanager-kube-prometheus-stack-alertmanager
+```
+
+Fluent Bit (không cần Terraform): `helm install aws-fluent-bit eks/aws-for-fluent-bit -n amazon-cloudwatch --create-namespace -f monitoring/fluent-bit-values.yaml`. Rollback: `helm uninstall aws-fluent-bit -n amazon-cloudwatch` và `terraform -chdir=terraform/stacks/08-alerting destroy` (xóa log group `/mlbox` + SNS topic + alarms).
+
+## 12. Bước 8 — `05-gpu` (tuỳ chọn)
 
 ```bash
 cd terraform/stacks/05-gpu
@@ -273,7 +316,7 @@ kubectl get nodes -l accelerator=nvidia
 kubectl -n kube-system get pods | grep -E 'nvidia|dcgm'
 ```
 
-## 12. Bước 9 — `07-admin` (tuỳ chọn)
+## 13. Bước 9 — `07-admin` (tuỳ chọn)
 
 Console quản trị tại `https://admin.<domain>`. Xem [`terraform/stacks/07-admin/README.md`](../terraform/stacks/07-admin/README.md).
 
@@ -305,7 +348,7 @@ ADMIN_PASSWORD='mật khẩu >= 12 ký tự' npm run hash-password
 Stack chỉ tạo IAM, chứng thư, DNS và target group khi `deploy_admin = false`; bật `true` ở lần apply
 sau để tạo namespace, Deployment, Service và listener rule.
 
-## 13. Image và GHCR
+## 14. Image và GHCR
 
 Workflow `.github/workflows/images.yml` build và push 5 image mỗi lần merge vào `master`:
 
@@ -328,7 +371,7 @@ PUSH=1 CR_PAT=<token> GHCR_USER=<user> ./scripts/build-images.sh
 Các image `cpu`/`gpu` cần wheel `jlab_heroui_theme` trong `web/theme/lab/jlab-heroui-theme/dist/`;
 script build tự dựng nếu thiếu.
 
-## 14. Kiểm chứng sau khi triển khai
+## 15. Kiểm chứng sau khi triển khai
 
 ```bash
 kubectl get nodes,nodepools
@@ -348,7 +391,7 @@ Ngoài lệnh kiểm tra, **mở từng trang bằng trình duyệt** (không ch
 `/register`, `/projects`, `/teams`, `/quota`, `/account`, trang chi tiết Project, trang admin. Một route
 trả 200 ở `curl` vẫn có thể lỗi ở trình duyệt (script, cookie, i18n).
 
-## 15. Reset dữ liệu database
+## 16. Reset dữ liệu database
 
 Hai Postgres đều do `02-platform` tạo: `jhub-gpu-sandbox-<cluster>-hub` (schema của JupyterHub) và
 `jhub-gpu-sandbox-<cluster>-dashboard-usage` (schema của ứng dụng, tên DB `usage_history`).
@@ -382,7 +425,7 @@ Schema của ứng dụng được BFF tạo lần đầu khi có request xác t
 (`ensureSchema()` với `CREATE TABLE IF NOT EXISTS`), không phải lúc khởi động; do đó sau khi xoá
 dữ liệu, chưa có bảng nào trong DB cho đến lần đăng nhập đầu tiên.
 
-## 16. Phá hạ tầng (teardown)
+## 17. Phá hạ tầng (teardown)
 
 Thứ tự ngược phụ thuộc:
 
@@ -412,7 +455,7 @@ Lỗi thường gặp khi destroy:
 Giữ `00-bootstrap` (bucket state, lock table, zone Route53, chứng thư ACM) khi chỉ muốn dừng lab.
 Chỉ destroy `00-bootstrap` sau khi export toàn bộ state ra ngoài bucket.
 
-## 17. Triển khai trên account của bạn
+## 18. Triển khai trên account của bạn
 
 Bảng giá trị phải thay cho mọi tài khoản khác:
 
@@ -440,7 +483,7 @@ Những giá trị đã hard-code trong code và phải chỉnh khi đổi tên/
 (`jhub-gpu-sandbox`), `env` (`dev`), `region_short` (`apse2`) trong `01-foundation/variables.tf`;
 `terraform/stacks/07-admin/variables.tf` không còn hard-code account nữa.
 
-## 18. Sự cố đã gặp (đừng lặp lại)
+## 19. Sự cố đã gặp (đừng lặp lại)
 
 - Ngắt `apply` giữa chừng → lock kẹt (`force-unlock`) và node group mồ côi.
 - Key addon EBS CSI phải là `aws-ebs-csi-driver`, không phải `ebs-csi`.
@@ -469,7 +512,7 @@ Những giá trị đã hard-code trong code và phải chỉnh khi đổi tên/
 - **Chờ chứng thư ACM** dùng `aws acm wait certificate-validated` (không phụ thuộc shell) vì
   `interpreter = ["/bin/bash", "-c"]` không resolve được trên Windows.
 
-## 19. Kết quả kiểm chứng (2026-11-13)
+## 20. Kết quả kiểm chứng (2026-11-13)
 
 Toàn bộ stack `01-foundation` → `07-admin` đã được **phá hủy và dựng lại từ đầu** (giữ
 `00-bootstrap`) để kiểm chứng khả năng redeploy. Kết quả:

@@ -1,0 +1,89 @@
+# kube-prometheus-stack values for the MLBox lab cluster.
+# Apply with helm upgrade (or install):
+#   helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+#     -n monitoring --create-namespace \
+#     -f monitoring/kube-prometheus-stack-values.yaml
+#
+# Sized for t3/m6i.large system nodes: no HA, 7 days retention, no Grafana.
+# Alertmanager routes all alerts to the MLBox SNS topic via IRSA
+# (role jhub-gpu-sandbox-dev-apse2-alertmanager, stack 08-alerting).
+
+grafana:
+  enabled: false
+
+alertmanager:
+  enabled: true
+  serviceAccount:
+    create: true
+    name: kube-prometheus-stack-alertmanager
+    annotations:
+      eks.amazonaws.com/role-arn: arn:aws:iam::451058046864:role/jhub-gpu-sandbox-dev-apse2-alertmanager
+  alertmanagerSpec:
+    retention: 120h
+    resources:
+      requests:
+        cpu: 30m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      group_by: ['alertname', 'namespace']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+      receiver: 'sns'
+      routes:
+        - matchers:
+            - alertname =~ "InfoInhibitor|Watchdog"
+          receiver: "null"
+    receivers:
+      - name: 'null' # Watchdog stays quiet; everything else goes to SNS
+      - name: 'sns'
+        sns_configs:
+          - topic_arn: arn:aws:sns:ap-southeast-2:451058046864:jhub-gpu-sandbox-dev-apse2-mlbox-alerts
+            send_resolved: true
+    inhibit_rules:
+      - source_matchers: ['severity = critical']
+        target_matchers: ['severity =~ warning|info']
+        equal: ['namespace', 'alertname']
+      - source_matchers: ['severity = warning']
+        target_matchers: ['severity = info']
+        equal: ['namespace', 'alertname']
+    templates:
+      - '/etc/alertmanager/config/*.tmpl'
+
+prometheus:
+  prometheusSpec:
+    retention: 7d
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+
+nodeExporter:
+  enabled: true
+
+kubeStateMetrics:
+  enabled: true
+
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeProxy:
+  enabled: false
+kubeApiServer:
+  enabled: true
+coreDns:
+  enabled: true

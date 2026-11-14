@@ -311,6 +311,27 @@ Route53, hai chứng thư ACM, bucket state, bảng lock và các bản ghi vali
 Không chạy `terraform force-unlock` nếu chưa xác định lock owner. Không xóa bucket state, lock table
 hoặc version cũ trong khi còn workload.
 
+## Log tập trung (cập nhật 2026-11-14)
+
+- **Đã triển khai**: Fluent Bit DaemonSet (namespace `amazon-cloudwatch`, release `aws-fluent-bit`) đẩy log toàn bộ container trong cluster vào CloudWatch Logs group **`/mlbox`** (retention 30 ngày, streams đặt tên `<ns>.<pod>.<container>`).
+- Subgroup thông thường: hub logs, BFF errors, dashboard UI, Karpenter events, admin console (audit log vẫn lưu Postgres — xem phía dưới).
+- Audit admin console (2026-11-14): lưu Postgres (`mlbox_audit_events`) và được **export** ra stdout mỗi 15 phút bởi CronJob `audit-export` (namespace `dashboard`, image bff pinned SHA 61c50836..., bảng watermark `mlbox_audit_export_state`) — fluent-bit ship vào `/mlbox` với stream `dashboard.audit-export-*.audit-export`. Truy vấn nhanh: `aws logs filter-log-events --log-group-name /mlbox --filter-pattern AUDIT_EXPORT_DONE --limit 5`.
+- Production-hardening thêm: metric filter + alarm cho 5xx errors trong `/mlbox` (chưa làm); per-app log group split (chưa làm).
+
+Query bằng CloudWatch Logs Insights (ví dụ tìm lỗi của user trong 30 phút):
+
+```bash
+aws logs start-query --log-group-name /mlbox \
+  --start-time $(date -d '30 minutes ago' +%s) --end-time $(date +%s) \
+  --query-string 'fields @timestamp, @message | filter @message like /timeout|error/ | sort @timestamp desc | limit 50'
+```
+
+Sau đó `aws logs get-query-results --query-id <id>`.
+
+Xem nhanh bằng kubectl (vẫn hợp lệ): `kubectl -n hub logs deployment/hub --since=15m`, `kubectl -n dashboard logs deployment/bff --since=15m`, `kubectl -n karpenter logs deployment/karpenter --since=15m`.
+
+Khuyến nghị thêm (chưa làm): separate log group `/mlbox/audit` cho admin console audit export, và metric filter alerting cho 5xx errors.
+
 ## Chi phí và dừng lab
 
 Đây là lab có chi phí EKS, NAT, node, EBS, RDS và ALB. Khi không dùng:
@@ -326,17 +347,52 @@ hoặc version cũ trong khi còn workload.
 
 Luôn chạy `terraform plan` trước destroy và lưu plan/output phục vụ khôi phục.
 
+## Monitoring (Prometheus, 2026-11-14)
+
+kube-prometheus-stack cài trong namespace `monitoring` (values trong `monitoring/kube-prometheus-stack-values.yaml`).
+DCGM exporter scrape job `dcgm-exporter` chỉ hiển thị targets khi có GPU node (gpu-shared min=0); stack dcgm-exporter mở rộng sang tier `dedicated` và serviceMonitor bật.
+
+Các thao tác thường dùng:
+
+```bash
+# Port-forward Prometheus (cần python/curl, hoặc browser)
+kubectl -n monitoring port-forward prometheus-kube-prometheus-stack-prometheus-0 9090:9090
+# Sau đó mở http://localhost:9090 (ví dụ /targets, /graph, /rules)
+
+# Port-forward Alertmanager
+kubectl -n monitoring port-forward alertmanager-kube-prometheus-stack-alertmanager-0 9093:9093
+
+# Kiểm tra dcgm target
+kubectl -n gpu-operator-resources get servicemonitor
+kubectl -n gpu-operator-resources get pods
+```
+
+GPU smoke test (giống quy trình đã dùng để kiểm chứng metric):
+
+```bash
+kubectl apply -f monitoring/gpu-smoke.yaml   # pod chờ GPU node scale-up g4dn.xlarge
+kubectl wait pod gpu-smoke --for=condition=Ready --timeout=240s
+python ... query "DCGM_FI_DEV_GPU_UTIL"       # hoặc dùng UI http://localhost:9090
+kubectl delete pod gpu-smoke                  # node consolidate sau ~5 phút
+```
+
+Cảnh báo `GpuXidError` chỉ có dữ liệu khi đã xảy ra Xid error (gauge xuất hiện theo yêu cầu từ NVIDIA).
+Cảnh báo GPU node churn (`GpuNodeChurn`) đếm số node GPU thay đổi trong 1h.
+
 ## Incident checklist
 
 1. Ghi thời điểm, URL, status code, stack/image tag và thay đổi gần nhất.
 2. Xác định lỗi nằm ở DNS/TLS, ALB target, Kubernetes service/pod hay application.
 3. Chụp lại `kubectl get`, `describe`, events, logs và `describe-target-health`.
-4. Rollback image hoặc Terraform thay đổi gần nhất nếu có bản known-good.
-5. Không xóa resource/state để “dọn lỗi” khi chưa có backup.
-6. Sau khi phục hồi, cập nhật [`TODO.md`](../TODO.md) và tài liệu nếu phát hiện gap mới.
+4. Log Karpenter: `kubectl -n karpenter logs deployment/karpenter --since=15m`; events: `kubectl get events -A --sort-by=.lastTimestamp | tail -50`.
+5. Audit admin console: `psql $USAGE_DATABASE_URL -c "SELECT created_at, actor_user_id, action, target, metadata FROM mlbox_audit_events ORDER BY created_at DESC LIMIT 50"` hoặc tìm trong `/mlbox` bằng CloudWatch Logs Insights với `filter @message like /mlbox_audit_events/`.
+   (Truy cập qua pod có psql client; ví dụ `kubectl -n dashboard exec deploy/bff` + `pg` từ module, hoặc một pod tạm dùng image `postgres:16-alpine` nối DB.)
+6. Rollback image hoặc Terraform thay đổi gần nhất nếu có bản known-good.
+7. Không xóa resource/state để “dọn lỗi” khi chưa có backup.
+8. Sau khi phục hồi, cập nhật [`TODO.md`](../TODO.md) và tài liệu nếu phát hiện gap mới.
 
 ## Giới hạn đã biết
 
 - Login/register/confirm/logout và sandbox list/start/stop đã có code thật, nhưng chưa end-to-end với Cognito/JupyterHub vì chưa có test user.
-- GPU: quota On-Demand G/VT = 8 vCPU; stack `05-gpu` (tên cũ `99-unverified-gpu`) đã apply và hub đã bật GPU profiles; chưa spawn được session GPU qua L4 (g6) — capacity từng thiếu ở các AZ đã thử (xem TODO).
-- Chưa có monitoring/alerting/CI-CD/backup automation hoàn chỉnh.
+- GPU: quota On-Demand G/VT = 8 vCPU; stack `05-gpu` (tên cũ `99-unverified-gpu`) đã apply và hub đã bật GPU profiles; chưa spawn được session GPU qua L4 (g6) — capacity từng thiếu ở các AZ đã thử (xem TODO). Metrics GPU qua dcgm-exporter + kube-prometheus-stack (namespace `monitoring`) đã hoạt động trên g4dn (T4) — xem mục Monitoring trong file này.
+- Monitoring: metrics GPU + alert rules đã hoạt động (2026-11-14); log tập trung qua Fluent Bit → CloudWatch Logs `/mlbox` (retention 30d) đã hoạt động; CI test tích hợp Postgres đã được thêm vào GitHub Actions (`.github/workflows/integration-tests.yml`) nhưng **chưa push/merge**, chưa kiểm chứng trên PR. Backup/restore: EFS backup on-demand OK, RDS snapshot/restore được kiểm chứng OK. CD vẫn tắt.
