@@ -43,7 +43,7 @@ terraform/
   modules/
     network/ eks/ karpenter/ gpu-stack/ storage/ hub-db/ auth/ ingress-dns/ efs-storage/
 images/              # Dockerfile CPU/GPU (theme JupyterLab đóng gói sẵn)
-scripts/             # build-images.sh (build/push 5 image lên GHCR)
+scripts/             # build-images.sh (build/push local; CI images.yml build/push cả 5 image lên GHCR)
 web/
   dashboard/         # Dashboard Next.js (frontend)
   bff/               # Backend-for-frontend (Cognito + JupyterHub API)

@@ -1,12 +1,15 @@
 # Image build & publish
 
-The project ships four OCI images. They are published to GitHub Container
-Registry (GHCR); no AWS account is needed to build or pull them.
+The project ships **five** OCI images. They are published to GitHub Container
+Registry (GHCR); no AWS account is needed to build or pull them. This script
+builds the four notebook/frontend images; `mlbox-admin` is built and published
+only by CI (`.github/workflows/images.yml`).
 
 | Image | Dockerfile | Base | Purpose |
 | --- | --- | --- | --- |
 | `mlbox-dashboard` | `web/dashboard/Dockerfile` | `node:22-bookworm-slim` | Next.js dashboard |
 | `mlbox-bff` | `web/bff/Dockerfile` | `node:22-bookworm-slim` | Cognito / JupyterHub BFF |
+| `mlbox-admin` | `web/admin/Dockerfile` | `node:22-bookworm-slim` | operations console (built in CI only) |
 | `mlbox-cpu` | `images/cpu/Dockerfile` | `jupyter/base-notebook:latest` | single-user notebook, CPU |
 | `mlbox-gpu` | `images/gpu/Dockerfile` | `quay.io/jupyter/pytorch-notebook:cuda12-latest` | single-user notebook, GPU |
 
@@ -26,13 +29,13 @@ images/
 ├── gpu/Dockerfile          # GPU single-user image
 └── lib/install-theme.sh    # shared install + verification step
 scripts/
-├── build-images.sh         # build / push all four images
+├── build-images.sh         # build / push the four local images (admin is CI-only)
 └── README.md
 ```
 
 ## Automated publishing (recommended)
 
-`.github/workflows/images.yml` builds all four images and pushes them to
+`.github/workflows/images.yml` builds all five images and pushes them to
 `ghcr.io/<owner>/mlbox-<name>` on pushes to `master` and `v*.*.*` tags. Pull
 requests build without pushing. Each image is tagged with:
 
@@ -51,14 +54,15 @@ package requires an `imagePullSecret` in the cluster.
 Requires Docker with Buildx (`docker buildx version`).
 
 ```bash
-./scripts/build-images.sh                 # all four, loaded into local Docker
+./scripts/build-images.sh                 # all four local images, loaded into local Docker
 ONLY=cpu ./scripts/build-images.sh        # one image: dashboard | bff | cpu | gpu
 TAG=v1.2.3 ./scripts/build-images.sh      # explicit tag
 ```
 
 The default tag is `dev-<gitshortsha>` (`dev-latest` outside a git checkout).
 The image prefix defaults to `ghcr.io/<owner>/mlbox-`, where the owner is read from
-the `origin` remote; override with `IMAGE_PREFIX`.
+the `origin` remote; override with `IMAGE_PREFIX`. The script does not build
+`mlbox-admin` — use CI for that image.
 
 Apple Silicon builds run `linux/amd64` through emulation, so they are slow.
 
@@ -74,7 +78,7 @@ If `CR_PAT` is unset, the script assumes `docker login ghcr.io` was already run.
 
 ## Point Terraform at the images
 
-Stacks `03-hub-app` and `04-dashboard` have no default image references. Set
+Stacks `03-hub-app`, `04-dashboard` and `07-admin` have no default image references. Set
 them in each stack's `terraform.tfvars` (git-ignored), using the full commit SHA:
 
 ```hcl
@@ -85,6 +89,9 @@ gpu_image = "ghcr.io/<owner>/mlbox-gpu:<40-char-sha>"
 # terraform/stacks/04-dashboard/terraform.tfvars
 dashboard_image = "ghcr.io/<owner>/mlbox-dashboard:<40-char-sha>"
 bff_image       = "ghcr.io/<owner>/mlbox-bff:<40-char-sha>"
+
+# terraform/stacks/07-admin/terraform.tfvars
+admin_image     = "ghcr.io/<owner>/mlbox-admin:<40-char-sha>"
 ```
 
 The values end up in `singleuser.profileList[].kubespawner_override.image` in
@@ -98,7 +105,7 @@ the nodes have no IPv4 route to `ghcr.io`.
 
 | Workflow | State | Purpose |
 | --- | --- | --- |
-| `images.yml` | active | build and push the four images to GHCR |
+| `images.yml` | active | build and push the five images to GHCR |
 | `deploy.yml.disabled` | disabled | production rollout of dashboard and BFF |
 
 `deploy.yml.disabled` is kept until the production rollout is reopened. To reopen

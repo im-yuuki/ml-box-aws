@@ -11,15 +11,18 @@ mặc định dùng account `451058046864`, region `ap-southeast-2` và cluster
 - Luồng bắt buộc đã được redeploy fresh; CPU baseline đang chạy trên cluster
   `jhub-gpu-sandbox-dev-apse2`.
 - E2E production đã kiểm chứng (2026-11-14): register → confirm → login → project → sandbox →
-  notebook (handoff) → artifact → `/quota` (tài khoản QA tạm, đã xoá). Mail xác nhận mã chưa kiểm
-  chứng cuối; xem `docs/DEPLOYMENT.md` mục 21.
+  notebook (handoff) → artifact → `/quota` (tài khoản QA tạm, đã xoá). Mail xác nhận mã đã kiểm
+  chứng lại cùng ngày (2026-11-14, mục 21) — nhưng Cognito vẫn gửi bằng sender mặc định
+  (`COGNITO_DEFAULT`) nên deliverability tới disposable inbox không ổn định; cân nhắc SES trước
+  khi mở rộng.
 - Dashboard production đã được xác nhận qua ALB: `/` và `/login` trả `200`, target healthy,
   không còn lỗi `DYNAMIC_SERVER_USAGE`. BFF readiness nội bộ `/v1/health` trả `200` **và** ping được
   Postgres (trả `503` khi DB không truy cập được). Liveness dùng `/v1/health/live` (chỉ kiểm tra config,
   không chạm DB, để DB sự cố không làm kubelet restart pod).
-- GPU: stack `05-gpu` (tên cũ `99-unverified-gpu`) đã apply; profile GPU trong hub đã bật. Shared L4 (g6) phụ thuộc
-  capacity AWS; đã kiểm chứng time-slicing trên g4dn (T4), gồm cả dcgm metrics qua kube-prometheus-stack.
-- Luôn pin image bằng tag immutable, ví dụ `dev-<git-short-sha>`. Không dùng `latest` cho rollout.
+- GPU: stack `05-gpu` (tên cũ `99-unverified-gpu`) đã apply; profile GPU trong hub đã bật. Shared pool
+  chạy g4dn (T4): time-slicing 2 replica @ 8GB commit, `renameByDefault=false`; L4 (g6) vẫn chờ capacity
+  AWS. Đã kiểm chứng time-slicing trên g4dn, gồm cả dcgm metrics qua kube-prometheus-stack.
+- Luôn pin image bằng tag immutable là commit SHA đầy đủ (40 hex). Không dùng `latest` cho rollout.
 - Không sửa hoặc xóa state Terraform, secret, backend config hay resource production thủ công nếu
   chưa xác định stack sở hữu resource đó.
 - Bốn KMS key lịch sử của project đã được xác nhận không còn alias/grant sử dụng và đang ở
@@ -184,7 +187,7 @@ kubectl -n hub get targetgroupbinding
 ```
 
 Hub đã bật GPU profiles (`enable_gpu_profiles=true`); stack `05-gpu` (tên cũ `99-unverified-gpu`)
-và image GPU phải giữ trạng thái applied. Shared L4 (g6) phụ thuộc capacity AWS.
+và image GPU phải giữ trạng thái applied. Shared pool chạy g4dn (T4) — L4 (g6) vẫn chờ capacity AWS.
 
 ## Dashboard operations
 
@@ -300,15 +303,17 @@ aws s3api list-object-versions \
 aws dynamodb describe-table --table-name jhub-gpu-sandbox-tflock
 ```
 
-Tên thư mục stack đã đổi; backend key cũng đổi. Trước `terraform init` ở stack mới, xác minh object
-state cũ và backup/versioning. Không chạy `apply` nếu Terraform vừa khởi tạo một state rỗng. Xem phần
-“Đổi tên stack và remote state” trong [`docs/DEPLOYMENT.md`](DEPLOYMENT.md).
+Trước `terraform init` ở stack mới, xác minh object
+state cũ và backup/versioning. Không chạy `apply` nếu Terraform vừa khởi tạo một state rỗng —
+xác minh `backend.hcl` trỏ đúng bucket/key (xem mục 5 và 13 của [`docs/DEPLOYMENT.md`](DEPLOYMENT.md)).
 
 `00-bootstrap` giữ state local trong thư mục stack và file đó phải được backup riêng. Nếu mất state
 local này, `00-bootstrap` không còn `plan`/`destroy` được cho tới khi `terraform import` lại zone
-Route53, hai chứng thư ACM, bucket state, bảng lock và các bản ghi validation. `06-storage` và
-`07-admin` dùng backend do `00-bootstrap` sinh ra; nếu thiếu `backend.hcl`, tạo tay theo mẫu
-`backend.hcl.example` trong từng stack.
+Route53, hai chứng thư ACM, bucket state, bảng lock và các bản ghi validation. `06-storage`,
+`07-admin` và `08-alerting` dùng backend do `00-bootstrap` sinh ra
+(`08-alerting` được thêm vào bản sinh backend.hcl từ 2026-11-14; trước đó tạo tay theo
+`terraform/stacks/08-alerting/backend.hcl.example`). Nếu thiếu `backend.hcl`, tạo tay theo mẫu
+`backend.hcl.example` tương ứng.
 
 Không chạy `terraform force-unlock` nếu chưa xác định lock owner. Không xóa bucket state, lock table
 hoặc version cũ trong khi còn workload.
@@ -341,7 +346,8 @@ Khuyến nghị thêm (chưa làm): separate log group `/mlbox/audit` cho admin 
 - Dừng workload/user server trước.
 - Kiểm tra node và volume còn tồn tại.
 - Nếu cần tạm dừng dài ngày, dùng quy trình destroy có kiểm soát, giữ remote state.
-- Destroy theo thứ tự phụ thuộc: `07-admin` → `05-gpu` → `04-dashboard` → `03-hub-app` → `06-storage` → `02-platform` → `01-foundation`.
+- Destroy theo thứ tự phụ thuộc: (monitoring/08-alerting — dọn bằng Helm + `08-alerting destroy` trước)
+  `07-admin` → `05-gpu` → `04-dashboard` → `03-hub-app` → `06-storage` → `02-platform` → `01-foundation`.
 - Xoá bucket workspace trước khi destroy `02-platform`: `aws s3 rb s3://<bucket-workspace> --force --region <region>` (bucket bật versioning nên phải xoá cả version cũ, nếu không sẽ lỗi `BucketNotEmpty`).
 - Tắt `dashboard_usage_deletion_protection` (đặt `false` trong `terraform.tfvars` của `02-platform`) trước khi destroy, nếu không RDS trả `Cannot delete protected DB`.
 - Destroy `01-foundation` có thể kẹt ở data source EKS: dùng `terraform destroy -refresh=false`, rồi dọn node/volume/EC2 còn sót.

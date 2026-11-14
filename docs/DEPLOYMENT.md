@@ -6,7 +6,8 @@ Tài liệu này là quy trình triển khai **đầy đủ** của MLBox trên 
 từ trạng thái trống đến hệ thống chạy được. Mọi lệnh dưới đây chạy từ thư mục gốc repository.
 
 Bản runbook này đã được kiểm chứng bằng một lần phá toàn bộ hạ tầng và dựng lại từ đầu
-(`01-foundation` → `07-admin`) trên region `ap-southeast-2`, account `451058046864`.
+(`01-foundation` → `07-admin`) trên region `ap-southeast-2`, account `451058046864`; `08-alerting`
+và monitoring được apply/cài thêm ngày 2026-11-14 (mục 13, 21).
 
 | Thành phần | Trạng thái | Ghi chú |
 |---|---|---|
@@ -54,9 +55,9 @@ Bản runbook này đã được kiểm chứng bằng một lần phá toàn b�
 
 ```text
 00-bootstrap → 01-foundation → 02-platform → 06-storage → 03-hub-app → theme → 04-dashboard
-                                                                                              ├→ 05-gpu
-                                                                                              └→ 07-admin
-                                                                                               └→ 08-alerting  (+ kube-prometheus-stack & aws-fluent-bit bằng Helm)
+                                                                                             ├→ 05-gpu
+                                                                               ├→ 07-admin
+                                                                               └→ 08-alerting  (+ kube-prometheus-stack & aws-fluent-bit bằng Helm)
 ```
 
 > `06-storage` phải apply **trước** `03-hub-app`: mỗi Project tạo một PVC với StorageClass `efs-sc`,
@@ -68,7 +69,8 @@ Bản runbook này đã được kiểm chứng bằng một lần phá toàn b�
 Công cụ:
 
 - AWS CLI v2 (`>= 2.40`, có lệnh `aws login`), Terraform `>= 1.6`, `kubectl`.
-- Helm không cần cài khi chạy Terraform: chart được cài bởi provider `helm` trong Terraform.
+- Helm CLI chỉ cần cho monitoring (mục 13): khi chạy Terraform, chart do provider `helm` cài, không
+  cần CLI.
 - Docker + Buildx chỉ cần khi muốn build image thủ công; CI đã publish sẵn image lên GHCR.
 - Máy chạy Terraform nên có tối thiểu 2 vCPU / 4 GB RAM và mạng ra GHCR.
 
@@ -76,7 +78,7 @@ Tài khoản AWS:
 
 - Quyền `AdministratorAccess` là đủ cho lab. Người apply cần quyền tạo IAM role, ACM, Route53, RDS,
   EKS, EFS, ELB và đọc CloudWatch.
-- Kiểm tra quota: EKS cluster, vCPU On-Demand, và (nếu bật GPU) GPU On-Domain. Thiếu quota là nguyên
+- Kiểm tra quota: EKS cluster, vCPU On-Demand, và (nếu bật GPU) GPU On-Demand. Thiếu quota là nguyên
   nhân phổ biến nhất khiến node không lên.
 
 Miền và DNS:
@@ -106,7 +108,10 @@ sso_role_name = AdministratorAccess
 region        = ap-southeast-2
 ```
 
-- AWS CLI, Terraform `>= 1.6`, `kubectl`, Helm provider credentials, Docker Buildx và Helm CLI (`helm repo add prometheus-community https://prometheus-community.github.io/helm-charts; helm repo add nvidia https://nvidia.github.io/dcgm-exporter/helm-charts; helm repo add eks https://aws.github.io/eks-charts`).
+- AWS CLI, Terraform `>= 1.6`, `kubectl`. Helm CLI và các repo chỉ cần cho mục 13 (monitoring):
+  `helm repo add prometheus-community https://prometheus-community.github.io/helm-charts;
+  helm repo add nvidia https://nvidia.github.io/dcgm-exporter/helm-charts;
+  helm repo add eks https://aws.github.io/eks-charts`. Docker Buildx chỉ khi build image thủ công (mục 14).
 - Quyền truy cập account/region đúng với backend S3.
 - Cloudflare chỉ dùng để quản lý nameserver; zone `mlbox.june8th.me` hiện do Route53 quản lý.
 - Không commit `backend.hcl`, `terraform.tfvars`, state, plan hoặc secrets.
@@ -331,7 +336,9 @@ sau để tạo namespace, Deployment, Service và listener rule.
 
 kube-prometheus-stack được cài bằng Helm với values `monitoring/kube-prometheus-stack-values.yaml` (namespace `monitoring`, chart 45.12.0). Sau khi stack monitoring sẵn, `05-gpu` apply với dcgm-exporter `serviceMonitor.enabled=true` (biến `enable_dcgm_service_monitor`, mặc định `true`). Lưu ý thứ tự: tạo CRDs (helm) **trước** khi apply dcgm-exporter, nếu không `serviceMonitor` sẽ fail. Các giá trị SNS/IRSA trong values cứng cho cluster này.
 
-Stack `08-alerting` tạo SNS topic + IRSA roles + 9 CloudWatch alarms (ALB, RDS — gồm 2 alarm RDS memory hub/usage) + log group `/mlbox` (30 ngày). Không cần apply lại các stack khác.
+Stack `08-alerting` tạo SNS topic + IRSA roles + 9 CloudWatch alarms (ALB, RDS — gồm 2 alarm RDS memory hub/usage) + log group `/mlbox` (30 ngày). Không cần apply lại các stack khác. Trust anchor của IRSA (OIDC) được đọc từ cụm đang chạy và IAM lúc `plan` — không còn giá trị hard-code; không cần điền `oidc_provider_arn`/`oidc_issuer_host`. Từ bản sync 2026-11-14, `00-bootstrap` sinh `backend.hcl` cho cả `08-alerting`; với tài khoản lab hiện tại (dựng trước bản sửa), `backend.hcl` của stack này được tạo tay theo mẫu `backend.hcl.example` (state remote tại `dev/ap-southeast-2/08-alerting.tfstate`).
+
+Tài liệu riêng và verify/rollback: [`terraform/stacks/08-alerting/README.md`](../terraform/stacks/08-alerting/README.md).
 
 ```bash
 cd terraform/stacks/08-alerting
@@ -527,7 +534,7 @@ Toàn bộ stack `01-foundation` → `07-admin` đã được **phá hủy và d
 `00-bootstrap`) để kiểm chứng khả năng redeploy. Kết quả:
 
 - ALB, RDS (hub + usage history), Cognito, S3 workspace, EFS và Cognito pool đều được tạo lại mới;
-  dữ liệu cũ không còn (schema ứng dụng sẽ được BFF tự tạo lúc khởi động, hiện không có bảng/dòng nào).
+  dữ liệu cũ không còn (schema ứng dụng được BFF tự tạo ở request xác thực đầu tiên, hiện không có bảng/dòng nào).
 - `notebook.mlbox.june8th.me` trả `302` tới trang đăng nhập; `mlbox.june8th.me` trả `200` cho `/` và
   `/login`; `admin.mlbox.june8th.me` phục vụ console (đăng nhập chưa kiểm bằng tài khoản thật).
 - Các trang dashboard kiểm qua trình duyệt: `/`, `/login`, `/register`, `/quota`, `/teams`, `/account`,

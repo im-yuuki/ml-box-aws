@@ -29,5 +29,8 @@
 
 ## Rollback
 
-- `helm uninstall kube-prometheus-stack aws-fluent-bit -n monitoring -n amazon-cloudwatch` (chú ý namespace khác nhau).
-- `terraform -chdir=terraform/stacks/08-alerting destroy` (xoá SNS/IRSA/log group/alarms; mất log group).
+```bash
+helm uninstall kube-prometheus-stack -n monitoring
+helm uninstall aws-fluent-bit -n amazon-cloudwatch
+terraform -chdir=terraform/stacks/08-alerting destroy   # xoá SNS topic, IRSA roles, /mlbox log group, 9 alarms
+```
