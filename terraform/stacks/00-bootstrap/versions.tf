@@ -8,7 +8,7 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
-    # Writes backend.hcl for stacks 01/02/03 so the state bucket name
+    # Writes backend.hcl for stacks 01-foundation .. 08-alerting so the state bucket name
     # (with its account-ID suffix) never has to be typed by hand.
     local = {
       source  = "hashicorp/local"

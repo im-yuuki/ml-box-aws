@@ -1,0 +1,5 @@
+bucket         = "<your-tfstate-bucket>"
+key            = "dev/ap-southeast-2/08-alerting.tfstate"
+region         = "ap-southeast-2"
+dynamodb_table = "<your-tflock>"
+encrypt        = true

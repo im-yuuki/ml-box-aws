@@ -1,0 +1,9 @@
+# All optional — the defaults match the single-account lab.
+region = "ap-southeast-2"
+
+# Remote state of the other stacks. Must match the bucket created by 00-bootstrap and the
+# bucket this stack's own backend.hcl points to. Default is the lab account's bucket.
+# state_bucket = "jhub-gpu-sandbox-tfstate-<account-id>"
+
+# OIDC provider ARN and issuer host are NOT set here — they are read from the live cluster
+# and IAM at plan time, so they survive a cluster rebuild.

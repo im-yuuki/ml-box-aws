@@ -28,14 +28,6 @@ variable "tags" {
   }
 }
 
-# OIDC provider of the EKS cluster; both stacks read these from 01-foundation.
-# Keep them in sync if the cluster is recreated.
-variable "oidc_provider_arn" {
-  type    = string
-  default = "arn:aws:iam::451058046864:oidc-provider/oidc.eks.ap-southeast-2.amazonaws.com/id/B93392515DFB4B1A6FAE09D7B9DC6580"
-}
-
-variable "oidc_issuer_host" {
-  type    = string
-  default = "oidc.eks.ap-southeast-2.amazonaws.com/id/B93392515DFB4B1A6FAE09D7B9DC6580"
-}
+# The IRSA trust anchors (OIDC provider ARN + issuer host) are read from the live cluster
+# and IAM at plan time — see main.tf. Do not hard-code them here; they change if the
+# cluster is rebuilt.

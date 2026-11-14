@@ -19,12 +19,12 @@ resource "aws_iam_role" "alertmanager" {
     Version = "2012-10-17"
     Statement = [{
       Effect    = "Allow"
-      Principal = { Federated = var.oidc_provider_arn }
+      Principal = { Federated = data.aws_iam_openid_connect_provider.eks.arn }
       Action    = "sts:AssumeRoleWithWebIdentity"
       Condition = {
         StringEquals = {
-          "${var.oidc_issuer_host}:sub" = "system:serviceaccount:monitoring:kube-prometheus-stack-alertmanager"
-          "${var.oidc_issuer_host}:aud" = "sts.amazonaws.com"
+          "${local.oidc_issuer_host}:sub" = "system:serviceaccount:monitoring:kube-prometheus-stack-alertmanager"
+          "${local.oidc_issuer_host}:aud" = "sts.amazonaws.com"
         }
       }
     }]
@@ -60,12 +60,12 @@ resource "aws_iam_role" "fluent_bit" {
     Version = "2012-10-17"
     Statement = [{
       Effect    = "Allow"
-      Principal = { Federated = var.oidc_provider_arn }
+      Principal = { Federated = data.aws_iam_openid_connect_provider.eks.arn }
       Action    = "sts:AssumeRoleWithWebIdentity"
       Condition = {
         StringEquals = {
-          "${var.oidc_issuer_host}:sub" = "system:serviceaccount:amazon-cloudwatch:aws-fluent-bit-aws-for-fluent-bit"
-          "${var.oidc_issuer_host}:aud" = "sts.amazonaws.com"
+          "${local.oidc_issuer_host}:sub" = "system:serviceaccount:amazon-cloudwatch:aws-fluent-bit-aws-for-fluent-bit"
+          "${local.oidc_issuer_host}:aud" = "sts.amazonaws.com"
         }
       }
     }]
