@@ -4,8 +4,8 @@
 data "terraform_remote_state" "platform" {
   backend = "s3"
   config = {
-    bucket = var.state_bucket
-    key    = var.state_key
+    bucket = local.state_bucket
+    key    = local.state_key
     region = var.region
   }
 }
@@ -13,8 +13,8 @@ data "terraform_remote_state" "platform" {
 data "terraform_remote_state" "hub_app" {
   backend = "s3"
   config = {
-    bucket = var.state_bucket
-    key    = var.state_key_hub_app
+    bucket = local.state_bucket
+    key    = local.state_key_hub
     region = var.region
   }
 }
@@ -35,6 +35,13 @@ data "aws_secretsmanager_secret_version" "database" {
 }
 
 locals {
+  # The state bucket and keys are account-agnostic here: the bucket is the one
+  # 00-bootstrap created (same one as this stack's backend.hcl), the keys follow
+  # the <env>/<region>/<stack>.tfstate rule when they are left empty.
+  state_bucket  = var.state_bucket
+  state_key     = var.state_key != "" ? var.state_key : "${var.env}/${var.region}/02-platform.tfstate"
+  state_key_hub = var.state_key_hub_app != "" ? var.state_key_hub_app : "${var.env}/${var.region}/03-hub-app.tfstate"
+
   oidc_provider     = replace(data.aws_eks_cluster.core.identity[0].oidc[0].issuer, "https://", "")
   oidc_provider_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${local.oidc_provider}"
 

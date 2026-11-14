@@ -149,7 +149,23 @@ resource "aws_eks_access_entry" "github_deployer" {
   type              = "STANDARD"
 }
 
+# The GitHub deployer Role below lives in the dashboard namespace, so this stack
+# creates that namespace itself. Without it a fresh account fails here, because the
+# namespace only appears later with 04-dashboard. The manifest is identical to the
+# one in 04-dashboard: both stacks apply the same object.
+resource "kubectl_manifest" "dashboard_namespace" {
+  yaml_body = yamlencode({
+    apiVersion = "v1"
+    kind       = "Namespace"
+    metadata = {
+      name = "dashboard"
+    }
+  })
+}
+
 resource "kubectl_manifest" "github_deployer_role" {
+  depends_on = [kubectl_manifest.dashboard_namespace]
+
   yaml_body = yamlencode({
     apiVersion = "rbac.authorization.k8s.io/v1"
     kind       = "Role"
@@ -167,6 +183,8 @@ resource "kubectl_manifest" "github_deployer_role" {
 }
 
 resource "kubectl_manifest" "github_deployer_role_binding" {
+  depends_on = [kubectl_manifest.github_deployer_role]
+
   yaml_body = yamlencode({
     apiVersion = "rbac.authorization.k8s.io/v1"
     kind       = "RoleBinding"
@@ -185,7 +203,6 @@ resource "kubectl_manifest" "github_deployer_role_binding" {
       name     = "github-dashboard-deployer"
     }]
   })
-  depends_on = [kubectl_manifest.github_deployer_role]
 }
 
 # ---------------------------------------------------------------------------
@@ -258,13 +275,16 @@ resource "aws_db_instance" "dashboard_usage" {
   publicly_accessible    = false
   multi_az               = false
 
-  backup_retention_period    = 7
-  backup_window              = "18:00-19:00"
-  copy_tags_to_snapshot      = true
-  delete_automated_backups   = true
-  skip_final_snapshot        = false
-  final_snapshot_identifier  = "${local.cluster_name}-dashboard-usage-final"
-  deletion_protection        = true
+  backup_retention_period  = 7
+  backup_window            = "18:00-19:00"
+  copy_tags_to_snapshot    = true
+  delete_automated_backups = true
+  # An empty final snapshot identifier means no final snapshot is taken on destroy.
+  # Deletion protection must be turned off (dashboard_usage_deletion_protection = false)
+  # in a lab before `terraform destroy` can remove the database.
+  skip_final_snapshot        = var.dashboard_usage_final_snapshot_identifier == ""
+  final_snapshot_identifier  = var.dashboard_usage_final_snapshot_identifier == "" ? null : var.dashboard_usage_final_snapshot_identifier
+  deletion_protection        = var.dashboard_usage_deletion_protection
   auto_minor_version_upgrade = true
 
   tags = var.tags

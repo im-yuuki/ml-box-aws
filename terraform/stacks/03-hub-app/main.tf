@@ -158,50 +158,20 @@ resource "kubectl_manifest" "hub_target_group_binding" {
 # ---------------------------------------------------------------------------
 # The certificate is validated through CNAME records owned by 00-bootstrap in
 # the delegated Route53 zone. Until the parent Cloudflare NS delegation is live,
-# ACM stays in PENDING_VALIDATION and the listener creation fails. Poll for up
-# to 15 minutes, then fail loudly with the next action to take.
+# ACM stays in PENDING_VALIDATION and the listener creation fails. The wait uses
+# the AWS CLI waiter, then fails loudly with the next action to take.
 resource "terraform_data" "certificate_issued" {
   triggers_replace = {
     certificate_arn = data.terraform_remote_state.platform.outputs.certificate_arn
   }
 
+  # The certificate is validated through CNAME records owned by 00-bootstrap in the
+  # delegated Route53 zone. Until the parent NS delegation is live, ACM stays in
+  # PENDING_VALIDATION and the listener creation fails. The AWS CLI waiter polls the
+  # certificate until it is ISSUED and fails with a clear error when it never is.
+  # No custom interpreter is used, so the same code runs on Linux, macOS and Windows.
   provisioner "local-exec" {
-    interpreter = ["/bin/bash", "-c"]
-    command     = <<-EOT
-      set -uo pipefail
-      CERT_ARN="${data.terraform_remote_state.platform.outputs.certificate_arn}"
-      REGION="${var.region}"
-      MAX_ATTEMPTS=60   # 60 x 15s = 15 minutes
-
-      for attempt in $(seq 1 "$${MAX_ATTEMPTS}"); do
-        STATUS=$(aws acm describe-certificate \
-          --certificate-arn "$${CERT_ARN}" \
-          --region "$${REGION}" \
-          --query 'Certificate.Status' \
-          --output text 2>/dev/null || echo "UNKNOWN")
-
-        echo "[attempt $${attempt}/$${MAX_ATTEMPTS}] certificate status: $${STATUS}"
-
-        if [[ "$${STATUS}" == "ISSUED" ]]; then
-          echo "certificate is ISSUED - continuing"
-          exit 0
-        fi
-
-        if [[ "$${STATUS}" == "FAILED" || "$${STATUS}" == "VALIDATION_TIMED_OUT" || "$${STATUS}" == "REVOKED" ]]; then
-          echo "ERROR: certificate $${CERT_ARN} reached terminal status $${STATUS}." >&2
-          exit 1
-        fi
-
-        sleep 15
-      done
-
-      echo "ERROR: timed out after 15 minutes waiting for certificate $${CERT_ARN} to be ISSUED." >&2
-      echo "The ACM certificate is still pending DNS validation. Verify the mlbox NS delegation at the parent Cloudflare zone and the bootstrap Route53 validation records, then re-run terraform apply in this stack." >&2
-      echo "Check the bootstrap outputs:" >&2
-      echo "  terraform -chdir=terraform/stacks/00-bootstrap output route53_zone_nameservers" >&2
-      echo "  terraform -chdir=terraform/stacks/00-bootstrap output notebook_certificate_status" >&2
-      exit 1
-    EOT
+    command = "aws acm wait certificate-validated --certificate-arn ${data.terraform_remote_state.platform.outputs.certificate_arn} --region ${var.region}"
   }
 }
 

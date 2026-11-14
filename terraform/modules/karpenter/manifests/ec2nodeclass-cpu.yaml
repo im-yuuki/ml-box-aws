@@ -25,3 +25,28 @@ spec:
     httpEndpoint: enabled
     httpPutResponseHopLimit: ${hop_limit}
     httpTokens: required
+  # The AL2023 EKS AMI does not always start nodeadm's systemd units at boot
+  # (observed on v20261107: the units are enabled and ordered, but never run;
+  # the node never gets its ECR credential provider or CNI config and never turns Ready).
+  # Start the units here and restart containerd/kubelet only if the credential-provider
+  # flags are missing from the kubelet environment file.
+  userData: |
+    MIME-Version: 1.0
+    Content-Type: multipart/mixed; boundary="==MLBOXBOUNDARY=="
+
+    --==MLBOXBOUNDARY==
+    Content-Type: text/x-shellscript; charset="us-ascii"
+
+    #!/bin/bash
+    # nodeadm-config.service has no ordering dependency on cloud-final, so waiting
+    # for it is safe. nodeadm-run.service is ordered After=cloud-final.service, so it
+    # must be started with --no-block (a blocking start deadlocks cloud-final, which
+    # itself runs this script).
+    systemctl start nodeadm-config.service || true
+    if ! grep -q image-credential-provider /etc/eks/kubelet/environment 2>/dev/null; then
+      systemctl restart containerd || true
+      systemctl restart kubelet || true
+    fi
+    systemctl start --no-block nodeadm-run.service || true
+
+    --==MLBOXBOUNDARY==--

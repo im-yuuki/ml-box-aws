@@ -29,21 +29,20 @@ variable "admin_host" {
 # Remote state (read-only dependencies)
 # ---------------------------------------------------------------------------
 variable "state_bucket" {
-  description = "S3 bucket holding the Terraform state of every stack."
+  description = "S3 bucket holding the Terraform state of every stack. Must be the state bucket created by 00-bootstrap - the same one this stack's own backend.hcl points to."
   type        = string
-  default     = "jhub-gpu-sandbox-tfstate-451058046864"
 }
 
 variable "state_key" {
-  description = "State object key of the 02-platform stack."
+  description = "State object key of the 02-platform stack. Defaults to <env>/<region>/02-platform.tfstate when left empty."
   type        = string
-  default     = "dev/ap-southeast-2/02-platform.tfstate"
+  default     = ""
 }
 
 variable "state_key_hub_app" {
-  description = "State object key of the 03-hub-app stack (HTTPS listener ARN)."
+  description = "State object key of the 03-hub-app stack (HTTPS listener ARN). Defaults to <env>/<region>/03-hub-app.tfstate when left empty."
   type        = string
-  default     = "dev/ap-southeast-2/03-hub-app.tfstate"
+  default     = ""
 }
 
 # ---------------------------------------------------------------------------

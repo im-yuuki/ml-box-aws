@@ -31,3 +31,21 @@ spec:
     httpTokens: required
   kubelet:
     maxPods: 110
+  # See ec2nodeclass-cpu.yaml for why this userData exists: the AL2023 AMI does not
+  # always start nodeadm's units at boot, leaving the node without ECR credentials.
+  userData: |
+    MIME-Version: 1.0
+    Content-Type: multipart/mixed; boundary="==MLBOXBOUNDARY=="
+
+    --==MLBOXBOUNDARY==
+    Content-Type: text/x-shellscript; charset="us-ascii"
+
+    #!/bin/bash
+    systemctl start nodeadm-config.service || true
+    if ! grep -q image-credential-provider /etc/eks/kubelet/environment 2>/dev/null; then
+      systemctl restart containerd || true
+      systemctl restart kubelet || true
+    fi
+    systemctl start --no-block nodeadm-run.service || true
+
+    --==MLBOXBOUNDARY==--

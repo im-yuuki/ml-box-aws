@@ -1,3 +1,5 @@
-bucket = "<your-tfstate-bucket>"
-key    = "dev/ap-southeast-2/07-admin.tfstate"
-region = "ap-southeast-2"
+bucket         = "<your-tfstate-bucket>"
+key            = "dev/ap-southeast-2/07-admin.tfstate"
+region         = "ap-southeast-2"
+dynamodb_table = "<your-tflock>"
+encrypt        = true

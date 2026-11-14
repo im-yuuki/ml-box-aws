@@ -28,7 +28,7 @@ mặc định dùng account `451058046864`, region `ap-southeast-2` và cluster
 ## Quyền truy cập và context
 
 ```bash
-source .private/aws-env.sh
+aws login                                  # SSO, phiên dùng cho cả CLI và Terraform
 aws sts get-caller-identity
 aws eks update-kubeconfig \
   --name jhub-gpu-sandbox-dev-apse2 \
@@ -36,8 +36,7 @@ aws eks update-kubeconfig \
 kubectl config current-context
 ```
 
-Nếu credentials hết hạn, đăng nhập lại bằng quy trình AWS của môi trường trước khi chạy lệnh
-Terraform/AWS. Không đưa output token, cookie hoặc secret vào issue/log/commit.
+Terraform đọc profile qua biến môi trường. Trên Windows dùng wrapper `.private\aws-env.cmd` (file cục bộ, không commit): `.private\aws-env.cmd terraform -chdir=terraform/stacks/02-platform plan`. Trên macOS/Linux: `export AWS_PROFILE=AdministratorAccess-<account-id>` và `export AWS_REGION=ap-southeast-2`. Nếu phiên đăng nhập hết hạn, chạy lại `aws login` trước khi chạy lệnh Terraform/AWS. Không đưa output token, cookie hay secret vào issue/log/commit.
 
 ## Health check nhanh
 
@@ -236,6 +235,23 @@ kubectl -n admin logs deployment/admin-console --since=15m   # nhật ký thao t
 Đổi mật khẩu: tạo hash bằng `npm run hash-password` trong `web/admin`, cập nhật `admin_password_hash`, apply `07-admin`.
 Chi tiết: [`web/admin/README.md`](../web/admin/README.md), [`terraform/stacks/07-admin/README.md`](../terraform/stacks/07-admin/README.md).
 
+Stack `07-admin` cần `state_bucket` trong `terraform.tfvars` (bắt buộc, không còn giá trị mặc định) và
+`admin_password_hash` theo định dạng `scrypt$N$r$p$salt$hash`. Tạo hash bằng `npm run build` rồi
+`ADMIN_PASSWORD='...' npm run hash-password` trong `web/admin`.
+
+Apply lại sau khi đổi mật khẩu hoặc đổi image:
+
+```bash
+terraform -chdir=terraform/stacks/07-admin init -reconfigure -backend-config=backend.hcl
+terraform -chdir=terraform/stacks/07-admin plan
+terraform -chdir=terraform/stacks/07-admin apply
+kubectl -n admin rollout status deployment/admin-console --timeout=300s
+```
+
+Console chỉ đọc với `enable_actions = false` (mặc định): không dừng được notebook, không khoá được
+tài khoản. Bật `enable_actions` là một quyết định riêng và mọi thao tác đều ghi vào
+`mlbox_admin_audit`.
+
 ## Locale và theme
 
 Dashboard locale dùng cookie `mlbox-locale`, hỗ trợ `en` và `vi`. Kiểm tra sau khi đổi locale bằng
@@ -286,6 +302,12 @@ Tên thư mục stack đã đổi; backend key cũng đổi. Trước `terraform
 state cũ và backup/versioning. Không chạy `apply` nếu Terraform vừa khởi tạo một state rỗng. Xem phần
 “Đổi tên stack và remote state” trong [`docs/DEPLOYMENT.md`](DEPLOYMENT.md).
 
+`00-bootstrap` giữ state local trong thư mục stack và file đó phải được backup riêng. Nếu mất state
+local này, `00-bootstrap` không còn `plan`/`destroy` được cho tới khi `terraform import` lại zone
+Route53, hai chứng thư ACM, bucket state, bảng lock và các bản ghi validation. `06-storage` và
+`07-admin` dùng backend do `00-bootstrap` sinh ra; nếu thiếu `backend.hcl`, tạo tay theo mẫu
+`backend.hcl.example` trong từng stack.
+
 Không chạy `terraform force-unlock` nếu chưa xác định lock owner. Không xóa bucket state, lock table
 hoặc version cũ trong khi còn workload.
 
@@ -317,7 +339,10 @@ Khuyến nghị thêm (chưa làm): separate log group `/mlbox/audit` cho admin 
 - Dừng workload/user server trước.
 - Kiểm tra node và volume còn tồn tại.
 - Nếu cần tạm dừng dài ngày, dùng quy trình destroy có kiểm soát, giữ remote state.
-- Destroy theo thứ tự `04-dashboard` → `03-hub-app` → `02-platform` → `01-foundation`.
+- Destroy theo thứ tự phụ thuộc: `07-admin` → `05-gpu` → `04-dashboard` → `03-hub-app` → `06-storage` → `02-platform` → `01-foundation`.
+- Xoá bucket workspace trước khi destroy `02-platform`: `aws s3 rb s3://<bucket-workspace> --force --region <region>` (bucket bật versioning nên phải xoá cả version cũ, nếu không sẽ lỗi `BucketNotEmpty`).
+- Tắt `dashboard_usage_deletion_protection` (đặt `false` trong `terraform.tfvars` của `02-platform`) trước khi destroy, nếu không RDS trả `Cannot delete protected DB`.
+- Destroy `01-foundation` có thể kẹt ở data source EKS: dùng `terraform destroy -refresh=false`, rồi dọn node/volume/EC2 còn sót.
 - Không destroy `00-bootstrap` trước khi backup toàn bộ state.
 
 Luôn chạy `terraform plan` trước destroy và lưu plan/output phục vụ khôi phục.

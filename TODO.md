@@ -1,6 +1,6 @@
 # MLBox — Backlog
 
-Cập nhật: 2026-11-10
+Cập nhật: 2026-11-13
 
 Ký hiệu: ✅ xong và đã kiểm chứng · ⚠️ đã làm nhưng còn thiếu kiểm chứng hoặc còn phụ thuộc · ☐ chưa làm
 
@@ -9,15 +9,19 @@ Target sản phẩm và thứ tự phase: [`docs/multi-tenant-product-plan.md`](
 ## Trạng thái hiện tại
 
 - **Hạ tầng (region `ap-southeast-2`, account `451058046864`):**
-  - `00-bootstrap`, `03-hub-app`, `04-dashboard`, `05-gpu`, `06-storage`: đã apply, state khớp master.
-  - `02-platform`: apply ngày 2026-11-10 (xóa ECR, IAM publisher cũ). Trước đó đã apply thêm `s3:DeleteObject` cho BFF.
-  - `01-foundation`: **chưa** apply lại. State lệch cluster, xem mục GPU.
+  - Ngày 2026-11-13 đã **phá toàn bộ stack `01`–`07` và dựng lại từ đầu**, giữ `00-bootstrap` (zone Route53, chứng thư ACM, bucket state, bảng lock). Mục tiêu: kiểm chứng khả năng reproducible và làm rõ dữ liệu database cũ.
+  - Thứ tự apply đúng đã được xác nhận: `00` → `01` → `02` → **`06`** → `03` → theme → `04` → `05` → `07`. `06-storage` phải trước `03-hub-app` vì Hub tạo PVC với StorageClass `efs-sc`.
+  - `02-platform` giờ tạo namespace `dashboard` (nó quản lý Role/RoleBinding của GitHub deployer trong namespace đó) — trước đây apply trên account mới sẽ lỗi vì namespace chỉ tồn tại sau `04-dashboard`.
+  - `02-platform` có 2 biến mới: `dashboard_usage_deletion_protection` và `dashboard_usage_final_snapshot_identifier` để destroy được ở lab mà vẫn an toàn ở prod.
+  - `07-admin` không còn hard-code account trong `state_bucket`; biến này bắt buộc phải truyền vào.
+  - **Khắc phục khi redeploy:** Karpenter node role thiếu `ecr:GetAuthorizationToken` (đã thêm IAM policy `<cluster>-karpenter-node-ecr` vào `terraform/modules/karpenter/node-role.tf`); stack `05-gpu` cần namespace `gpu-operator-resources` trước khi apply ConfigMap (đã thêm vào `terraform/modules/gpu-stack`); chờ cert ACM dùng `aws acm wait certificate-validated` (đa nền tảng); AL2023 AMI `al2023@latest` không khởi động nodeadm lúc boot trên node Karpenter — đã fix bằng `userData` trong cả hai EC2NodeClass, node mới tự Ready (đã kiểm: node mới tạo tự Ready và node cũ bị drift/terminate).
+  - Đã kiểm chứng: 3 node Ready, Hub/Dashboard/BFF/admin-console Running, cả 3 ALB target group `healthy`, các URL chính trả 200/302 (notebook, dashboard, admin) — kiểm thêm bằng trình duyệt: `/`, `/login`, `/register`, `/quota`, `/teams`, `/account`, `/projects`, `/forgot-password`, `admin.june8th.me` (TLS + form đăng nhập) đều render, không 404. Xem chi tiết trong `docs/DEPLOYMENT.md` mục 20.
 - **Image đang chạy:**
-  - Dashboard và BFF: `ghcr.io/im-yuuki/mlbox-{dashboard,bff}:dbcd98f087d6c56b08644a162476b0484cf275de`.
-  - Hub cpu/gpu: `ghcr.io/im-yuuki/mlbox-{cpu,gpu}:dbcd98f087d6c56b08644a162476b0484cf275de`.
+  - Cả 5 image: `ghcr.io/im-yuuki/mlbox-{dashboard,bff,admin,cpu,gpu}:61c5083681579b41140fa98abbeed3d0d1155e9c` (commit merge PR #13 trên `master`). Image `mlbox-admin` mới chỉ có tag này.
   - ECR đã bị xóa. Không còn image nào trên ECR.
+- **Database:** hai RDS đã được tạo lại từ đầu, dữ liệu cũ không còn. Schema ứng dụng được BFF tạo lần đầu khi có request xác thực (`ensureSchema()`), không phải lúc khởi động; DB hiện không có bảng/dòng nào.
 - **Hub:** `enable_auth_state=false`. Notebook lưu home trên EFS, một PVC cho mỗi Project.
-- **Git:** đã merge vào `master` gồm PR #4 (team management, 2026-11-05), #6 và #8 (dashboard architecture, account, sessions), #7 (publish image GHCR), #9 (billing compute-unit pool, 2026-11-10). Tip `master` là `dbcd98f`.
+- **Git:** `master` = `61c5083` (merge PR #13, admin dashboard operations).
 - **Test:** BFF `npm test` 133/133. Test tích hợp Postgres: 14/14 theo lần chạy tay ngày 2026-11-05 (chưa chạy lại sau các thay đổi billing; chưa vào CI). Dashboard `tsc --noEmit` còn 2 lỗi có sẵn (`PageProps`, `LayoutProps`).
 
 ## Cần người dùng quyết định
@@ -26,12 +30,20 @@ Target sản phẩm và thứ tự phase: [`docs/multi-tenant-product-plan.md`](
 - ☐ **Số units và giá gói là giả định demo** (Free 20 units, Plus 100, Pro 300; $0/$8/$19). Chưa công bố; mock không thu tiền. Cần chốt trước khi công bố cho người dùng.
 - ☐ **Logo và brand pack (phase 8):** người dùng chọn concept logo.
 - ☐ **Nhánh `claude/update-backlog-2026-11-10`** (file này) chưa push. Cần xác nhận để mở PR.
+<<<<<<< HEAD
 - ☐ **Secret bff-config bị lộ trong phiên làm việc 2026-11-14** (lần chạy lỗi `kubectl get secret ... -o jsonpath` vô tình in toàn bộ secret vào output): gồm `USAGE_DATABASE_URL` (mật khẩu master RDS usage), `BFF_SESSION_SECRET`, `HUB_API_TOKEN`, `HUB_AUTH_BRIDGE_TOKEN`. Cần **xoay cả bốn giá trị** theo quy trình deploy (đổi secret trong stack + apply + restart BFF/Hub). Chưa xoay vì cần thay đổi production có kiểm soát.
+=======
+- ✅ **AL2023 AMI (`al2023@latest`) không khởi động nodeadm lúc boot trên node Karpenter**: đã fix bằng `userData` trong cả hai EC2NodeClass (`terraform/modules/karpenter/manifests/ec2nodeclass-*.yaml`); node mới tự Ready sau ~90s, node cũ bị drift/terminate tự động, không cần động tác thủ công.
+- ☐ **Commit/push các thay đổi của lần rebuild 2026-11-13** (xem `git status`). Theo quy ước, agent không tự commit.
+>>>>>>> origin/master
 
 ## Đã xong (đã kiểm chứng ở mức code/deploy)
 
 ### Hạ tầng và deploy
-- ✅ Hạ tầng 00, 02, 03, 04, 05, 06 và Route53/ACM cho `mlbox.june8th.me`, `notebook.mlbox.june8th.me`.
+- ✅ Hạ tầng 00–07 và Route53/ACM cho `mlbox.june8th.me`, `notebook.mlbox.june8th.me`; ngày 2026-11-13 đã phá và dựng lại toàn bộ để kiểm chứng reproducible.
+- ✅ `00-bootstrap` sinh `backend.hcl` cho cả `06-storage` và `07-admin` (trước đó thiếu, phải tự tạo tay).
+- ✅ **Reproducibility fixes tìm và sửa trong lần rebuild 2026-11-13:** IAM policy `<cluster>-karpenter-node-ecr` (Karpenter node role thiếu `ecr:GetAuthorizationToken` → node không bao giờ Ready), namespace `gpu-operator-resources` trong `terraform/modules/gpu-stack` (apply ConfigMap trước namespace), `02-platform` giờ tạo namespace `dashboard` (Role của GitHub deployer), chờ cert ACM dùng `aws acm wait certificate-validated` (đa nền tảng), 2 biến biến `dashboard_usage_deletion_protection` / `..._final_snapshot_identifier`.
+- ✅ Rollout pin image theo commit SHA `61c5083` (master mới nhất); image `mlbox-admin` lần đầu được deploy lên cluster thật.
 - ✅ Image publish tự động lên GHCR theo commit SHA (`.github/workflows/images.yml`, PR #7). Cache npm/pip cho job theme-wheel.
 - ✅ Chuyển khỏi ECR: module, repo, publisher role và policy đã xóa (2026-11-10). Hai image cuối cùng xóa tay vì repo còn image và không pod nào dùng.
 - ✅ Rollout lần đầu sau PR #9 (2026-11-10): dashboard và BFF healthy, `mlbox.june8th.me` trả 200, Hub `hub/api` trả 200.
@@ -81,10 +93,11 @@ Target sản phẩm và thứ tự phase: [`docs/multi-tenant-product-plan.md`](
 
 ## Đang triển khai / cần kiểm chứng
 
-- ⚠️ **Admin console (`web/admin`, stack `07-admin`):** backend 21 test, giao diện 8 test, `terraform validate` đạt, đăng nhập và khóa thử sai kiểm qua HTTP cục bộ, giao diện (HeroUI, token chung với dashboard, en/vi, sáng/tối) kiểm trên trình duyệt với dữ liệu mô phỏng. **Chưa** publish image, chưa apply, chưa chạy trong cluster nên các khối Kubernetes/AWS/Postgres chưa kiểm với dữ liệu thật. Đã có thêm Capacity, Storage, Billing và bốn thao tác hỗ trợ có audit lưu bền (tắt mặc định, `enable_actions`); mọi truy vấn SQL và thao tác đã chạy trên PostgreSQL thật (23 test tích hợp). Còn thiếu: role DB riêng cho console, CloudWatch, xóa volume mồ côi.
+- ⚠️ **Admin console (`web/admin`, stack `07-admin`):** backend 21 test, giao diện 8 test, `terraform validate` đạt, đăng nhập và khóa thử sai kiểm qua HTTP cục bộ, giao diện (HeroUI, token chung với dashboard, en/vi, sáng/tối) kiểm trên trình duyệt với dữ liệu mô phỏng. Image đã publish (`mlbox-admin`), stack đã apply lần đầu ngày 2026-11-13 trên cluster thật; các khối Kubernetes/AWS/Postgres đã chạy với dữ liệu thật. Đã kiểm qua trình duyệt: `admin.mlbox.june8th.me` TLS hợp lệ, `/healthz` 200, `/api/session` đúng, form đăng nhập render đúng (chưa đăng nhập bằng tài khoản thật). Đã có thêm Capacity, Storage, Billing và bốn thao tác hỗ trợ có audit lưu bền (tắt mặc định, `enable_actions`); mọi truy vấn SQL và thao tác đã chạy trên PostgreSQL thật (23 test tích hợp). Còn thiếu: role DB riêng cho console, CloudWatch, xóa volume mồ côi.
 
-- ⚠️ **Notebook storage EFS (vừa apply 2026-11-10):** chưa kiểm tra spawn thật → mount → ghi file → stop → start → đọc lại file. Chưa kiểm tra xóa Project xóa PVC và access point.
+- ⚠️ **Notebook storage EFS (rebuild 2026-11-13):** EFS mới hoàn toàn, chưa kiểm tra spawn thật → mount → ghi file → stop → start → đọc lại file. Chưa kiểm tra xóa Project xóa PVC và access point.
 - ⚠️ **Billing metering:** chưa kiểm chứng trên Postgres thật. Cần kiểm tra mở/đóng session, cap 24 giờ, tổng units trong tháng, và gate `403/429` khi start.
+- ✅ **E2E đăng ký/đăng nhập/sandbox qua trình duyệt (2026-11-13, tài khoản thật qua mail.tm, đã xóa sau test):** register → confirm (mã từ mail.tm) → login → tạo Project → start sandbox c1.large → mở notebook qua handoff (JupyterLab render) → trang `/quota` hiển thị quota và usage thật → stop sandbox → xóa Project. DB reset cho lần test (xóa user/project trong `usage_history` và hub `jhub`).
 - ⚠️ **E2E trình duyệt còn thiếu:** nút đăng xuất trên UI (cần đăng nhập lại); lời mời được chấp nhận bởi người khác (cần tài khoản thứ hai); đổi email và đổi avatar; thu hồi phiên đăng nhập có hiệu lực với access token còn hạn.
 - ⚠️ **Redesign giao diện:** shell đã xong. Còn màn Projects/Project/Teams/Usage/Account, auth và Hub. Cần chụp trước/sau ở mobile, tablet, desktop; sáng/tối; en/vi; kiểm tra a11y.
 - ⚠️ **Hiển thị lỗi gói:** `planRequired` đã map trong hook và có chuỗi en/vi. Chưa kiểm tra namespace i18n khi chạy UI.
@@ -92,8 +105,13 @@ Target sản phẩm và thứ tự phase: [`docs/multi-tenant-product-plan.md`](
 
 ## GPU (còn lại)
 
+<<<<<<< HEAD
 - ✅ Bật `serviceMonitor` của dcgm-exporter (2026-11-14): kube-prometheus-stack (namespace `monitoring`, values trong `monitoring/kube-prometheus-stack-values.yaml`), dcgm-exporter upgrade (gpu-stack module, nodeAffinity tier in shared|dedicated), evidence: `DCGM_FI_DEV_GPU_UTIL`/`_FB_USED`/`_MEM_COPY_UTIL` trong Prometheus khi GPU node up; rules `GpuMemoryHigh`/`GpuXidError`/`GpuMetricsMissing`/`GpuNodeChurn`/`GpuNodeNotReady` đã load. Ghi chú: `DCGM_FI_DEV_XID_ERRORS` là gauge → chỉ xuất hiện khi Xid đã xảy ra (không có giá trị 0 idle).
 - ⚠️ **State `01-foundation` lệch cluster:** plan muốn destroy fck-NAT, tạo NAT gateway, thay IAM. Label `nvidia.com/device-plugin.config=any` trên NodePool `gpu-shared-l4` đã được patch tay. Cần reconcile trước khi apply `01` lại.
+=======
+- ☐ Bật `serviceMonitor` của dcgm-exporter khi cluster có Prometheus CRD; kiểm tra metric thật.
+- ✅ **State `01-foundation` lệch cluster:** đã xử lý bằng cách destroy + rebuild toàn bộ; state mới khớp cluster (label `nvidia.com/device-plugin.config=any` nay được khai báo trong Terraform, không còn patch tay).
+>>>>>>> origin/master
 - ☐ Cập nhật tài liệu thiết kế GPU: `renameByDefault=false` là quyết định mới (xem `terraform/modules/gpu-stack`).
 
 ## Dashboard và BFF (còn thiếu)
@@ -138,6 +156,7 @@ Target sản phẩm và thứ tự phase: [`docs/multi-tenant-product-plan.md`](
 
 ## Vận hành
 
+<<<<<<< HEAD
 - ☐ **Repo gốc `terraform/stacks/03-hub-app/terraform.tfvars` vẫn trỏ `cpu_image`/`gpu_image` sang ECR** (đã xóa). Cập nhật sang GHCR trước khi chạy lại stack từ repo gốc.
 - ⚠️ **Backup notebook storage:** EFS on-demand backup job `0f4317bd…` COMPLETED 2026-11-14 (fs-070506268c59fa41d; 6KB, gần như trống). Tự động hàng ngày đã bật (plan `aws/efs/automatic-backup-plan`) nhưng chỉ cover fs GỐC `fs-0ba6…` — fs hiện tại chưa có recovery point (đổi fs 2026-11-13), cần chờ lịch hoặc chạy on-demand định kỳ. **Restore test bị chặn**: `backup:StartRestoreJob` bị explicit deny ở resource-based policy của account (ACCESS_DENIED, không phải lỗi técnico). Cần xin quyền hoặc dùng recovery via restore tới fs mới nếu được phép.
 - ☐ Runbook rollout: đã viết `docs/runbooks/release-acceptance.md` (smoke sau rollout, rollback, CD decision) và `docs/runbooks/features.md` (teams/invitations, sandbox, artifacts, billing units, admin actions) — 2026-11-14. **Chưa** kiểm chứng bước "người thứ hai làm theo runbook" — cần người vận hành thứ hai làm thử.
@@ -145,6 +164,14 @@ Target sản phẩm và thứ tự phase: [`docs/multi-tenant-product-plan.md`](
 - ✅ Log tập trung: Fluent Bit → `/mlbox` retention 30d đã triển khai; hub/bff/dashboard/karpenter/admin logs đều trong đó (tìm bằng CloudWatch Logs Insights).
 - ⚠️ Budget và cost anomaly alert: chưa tạo (theo quyết định 2026-11-14 — AWS Console đã có sẵn Budget + Cost Anomaly Detection; không làm lại trong code). Cần một quyết định rõ ràng trước khi tuyên bố production-ready.
 - ⚠️ Backup/restore test cho RDS, S3 workspace và Terraform state (2026-11-14): **RDS usage instance** snapshot `mlbox-usage-restoretest-20261114` → restore sang instance mới → kết nối SSL từ pod bff → counts `mlbox_users/projects/audit_events/usage_sessions` = 0/0/0/0 khớp bản source; restore test instance đã xoá sau verify. **Terraform state** versioning enabled; version không-mới-nhất (serial 9) tải về + parse JSON OK. **S3 workspace** bucket `jhub-gpu-sandbox-dev-apse2-workspace-…` versioning enabled nhưng **rỗng** (không object nào) — restore chưa có gì để test. **EFS restore** bị chặn explicit deny như mục "Backup notebook storage".
+=======
+- ✅ **Image cho `cpu_image`/`gpu_image` của `03-hub-app` trỏ sang ECR:** đã cập nhật `terraform.tfvars` sang GHCR SHA `61c5083...` (trước đó nó trỏ ECR đã xóa).
+- ☐ **Backup notebook storage:** EFS hiện giữ file người dùng nhưng chưa có backup/restore được kiểm chứng.
+- ✅ Runbook rollout: `docs/DEPLOYMENT.md` và `docs/OPERATIONS.md` đã mô tả pin tag SHA, thứ tự apply và cách rollback bằng tag cũ (chưa kiểm tra E2E).
+- ☐ Monitoring/alert cho EKS, ALB, target health, pod restart, RDS, quota GPU.
+- ☐ Log retention, audit trail và hướng dẫn điều tra incident.
+- ☐ Backup/restore test cho RDS, S3 workspace và Terraform state.
+>>>>>>> origin/master
 - ☐ Budget và cost anomaly alert; quy trình dừng lab khi không dùng.
 - ⚠️ Runbook và rollback cho các tính năng mới (2026-11-14): đã viết `docs/runbooks/features.md` và `docs/runbooks/release-acceptance.md`. **Chưa** kiểm chứng bằng người thứ hai.
 - ✅ Acceptance checklist chạy thật trên môi trường production (2026-11-14, tài khoản QA tạm `mlbox-test-*` qua mail.tm): register → confirm (admin-confirm do mail không đến được disposable inbox từ default Cognito sender — **verify code by mail chưa kiểm chứng cuối**) → login → tạo project → start sandbox (`c1.large` CPU profile) → mở notebook qua handoff → ghi file `e2e_canary.txt` → stop → start lại → không mất file (EFS OK) → upload artifact 31B → download về nội dung khớp → xóa project. `/quota` trả số liệu thật (19.9/20 credits, 0.1 credits active). Admin `/healthz` trả `{"ok":true}`. Test user đã xóa; sandbox pod xóa. Build/runbook releases giữ checklist này.
@@ -160,4 +187,7 @@ Target sản phẩm và thứ tự phase: [`docs/multi-tenant-product-plan.md`](
 
 - ✅ Đã xóa các tài liệu đã hoàn thành hoặc đã bị thay thế. Lịch sử vẫn có trong git.
 - ☐ Cập nhật tài liệu sau mỗi thay đổi public URL, stack output, image tag hoặc auth flow.
-- ☐ `docs/DEPLOYMENT.md`: bổ sung bước GHCR (không còn ECR), thứ tự apply mới có `06-storage`, và ghi chú `02-platform` đã xóa ECR.
+- ✅ `docs/DEPLOYMENT.md` đã viết lại toàn bộ: 8 stack, thứ tự apply, khoảng nghỉ DNS/ACM, GHCR, reset database, teardown, checklist "triển khai trên account của bạn" (đã kiểm chứng bằng lần rebuild 2026-11-13).
+- ☐ State local của `00-bootstrap` đã mất (chỉ còn state của 01–05/06 trên S3). Không `plan`/`destroy` được `00-bootstrap` nếu chưa `terraform import` lại resource của nó; cần export backup state này cho mọi account.
+- ☐ Chưa có tự động hoá: `terraform destroy` toàn bộ stack theo thứ tự phụ thuộc, và bước `aws s3 rb --force` cho bucket workspace (versioning).
+- ✅ `docs/OPERATIONS.md` đã cập nhật: đăng nhập SSO (`aws login`), thứ tự destroy mới, admin console, local-state warning.

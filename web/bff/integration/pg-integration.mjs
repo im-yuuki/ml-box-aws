@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import pg from "pg";
 import { AppStore, INVITATION_NOT_AVAILABLE, LAST_TEAM_LEAD, PROJECT_RUNTIME_OWNER_NOT_READY, TEAM_MANAGEMENT_DENIED } from "../dist/app-store.js";
 import { buildArtifactObjectKey } from "../dist/artifacts.js";
-import { unitsPerHourForRuntime } from "../dist/mock-billing.js";
+import { creditsPerHourForRuntime } from "../dist/mock-billing.js";
 
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error("DATABASE_URL is required");
@@ -162,8 +162,8 @@ await check("sandbox runtime needs the creator's Hub identity and runs under it"
 });
 
 await check("usage sessions open once, close on stop, and summarize", async () => {
-  await store.openUsageSession(projectId, MEMBER, unitsPerHourForRuntime("cpuShared"));
-  await store.openUsageSession(projectId, OWNER, unitsPerHourForRuntime("cpuShared"));
+  await store.openUsageSession(projectId, MEMBER, creditsPerHourForRuntime("cpuShared"));
+  await store.openUsageSession(projectId, OWNER, creditsPerHourForRuntime("cpuShared"));
   const open = (await pool.query(`SELECT count(*)::int AS n FROM mlbox_usage_sessions WHERE project_id = $1 AND ended_at IS NULL`, [projectId])).rows[0].n;
   assert.equal(open, 1);
   await store.closeUsageSessions(projectId);

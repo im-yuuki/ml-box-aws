@@ -7,7 +7,7 @@ Run this stack first with local state. It creates:
 - ACM DNS-validation certificates for `notebook.mlbox.june8th.me` and the dashboard apex;
 - ACM validation CNAME records inside that Route53 zone;
 - generated `backend.hcl` files for `01-foundation`, `02-platform`, `03-hub-app`,
-  `04-dashboard` and `05-gpu`.
+  `04-dashboard`, `05-gpu`, `06-storage` and `07-admin`.
 
 Cloudflare remains authoritative for the parent zone. After bootstrap, publish the
 Route53 nameservers as an NS delegation for `mlbox` in the parent Cloudflare zone.

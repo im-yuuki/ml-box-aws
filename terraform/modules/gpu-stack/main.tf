@@ -8,17 +8,19 @@
 # dropped from the module at some point, so plans wanted to destroy the namespace
 # holding nvdp and dcgm-exporter. Keep it managed here to avoid that.
 resource "kubectl_manifest" "namespace" {
-  yaml_body = <<-EOT
-    apiVersion: v1
-    kind: Namespace
-    metadata:
-      name: ${var.namespace}
-  EOT
+  yaml_body = yamlencode({
+    apiVersion = "v1"
+    kind       = "Namespace"
+    metadata = {
+      name = var.namespace
+    }
+  })
 }
 
 resource "kubectl_manifest" "timeslicing_config" {
   yaml_body = templatefile("${path.module}/manifests/timeslicing-config.yaml", {
-    replicas = var.gpu_shared_replicas_l4
+    replicas  = var.gpu_shared_replicas_l4
+    namespace = var.namespace
   })
 
   depends_on = [kubectl_manifest.namespace]

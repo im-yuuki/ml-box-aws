@@ -43,6 +43,18 @@ variable "route53_zone_id" {
   default     = ""
 }
 
+variable "dashboard_usage_deletion_protection" {
+  description = "Protect the dashboard usage database from accidental deletion. Set it to false in a lab so the stack can be destroyed, and keep it true in production."
+  type        = bool
+  default     = true
+}
+
+variable "dashboard_usage_final_snapshot_identifier" {
+  description = "Identifier of the final snapshot taken when the dashboard usage database is destroyed. An empty value means skip_final_snapshot = true (lab: destroy without a snapshot); a non-empty value creates that final snapshot on destroy (production)."
+  type        = string
+  default     = ""
+}
+
 variable "proxy_port" {
   description = <<-EOT
     Port the Z2JH configurable proxy listens on (HTTP: 8000), used in ALB/node
